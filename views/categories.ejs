@@ -1,0 +1,33 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Paramètres des catégories',
+  pageDescription: 'Organisez les dépenses ordinaires avec vos propres catégories.',
+  activePage: 'settings'
+}) %>
+
+<section class="page-toolbar">
+  <div><h2>Catégories de dépenses</h2><p><%= categories.length %> catégorie<%= categories.length > 1 ? 's' : '' %> disponible<%= categories.length > 1 ? 's' : '' %>.</p></div>
+  <button class="button button-primary" type="button" data-modal-template="category-create"><span aria-hidden="true">＋</span> Créer une catégorie</button>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Catégories existantes</h2><p>Une catégorie de remplacement est conservée pour les opérations déjà enregistrées.</p></div></div>
+  <% if (categories.length) { %>
+    <div class="category-settings-list">
+      <% categories.forEach((category) => { %>
+        <div class="category-settings-row">
+          <span class="category-settings-name"><i class="category-swatch" style="--category-color:<%= category.color || '#147967' %>"></i><strong><%= category.name %></strong></span>
+          <% if (category.name === 'Autres') { %>
+            <span class="category-default-note">Catégorie par défaut</span>
+          <% } else { %>
+            <button class="table-action danger" type="button" data-modal-confirm="/categories/<%= category.id %>/delete" data-modal-title="Supprimer cette catégorie ?" data-modal-message="Les dépenses associées seront reclassées dans « Autres »." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+          <% } %>
+        </div>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="empty-state table-empty"><strong>Aucune catégorie disponible</strong></div>
+  <% } %>
+</section>
+
+<template id="category-create"><%- include('partials/category-form') %></template>
+<%- include('partials/page-end') %>

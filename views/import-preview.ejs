@@ -1,0 +1,126 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Prévisualisation d’import',
+  pageDescription: 'Vérifiez les lignes détectées avant de les ajouter à vos données.',
+  activePage: 'import'
+}) %>
+
+<%
+  const validRecords = records.filter((row) => row.valid);
+  const ordinaryCount = validRecords.filter((row) => row.type === 'expense').length;
+  const groceryCount = validRecords.filter((row) => row.type === 'grocery').length;
+  const coveredMonths = monthly.filter((row) => row.ordinaryCount + row.groceryCount > 0).length;
+  const incompleteRows = records.filter((row) => !row.valid);
+  const unknownCategories = [...new Set(records
+    .filter((row) => row.type === 'expense' && !row.categoryRecognized)
+    .map((row) => row.categoryRaw || '(catégorie absente)'))];
+  const recognizedCategories = [...new Set(records
+    .filter((row) => row.type === 'expense' && row.categoryRecognized)
+    .map((row) => row.categoryName))];
+  const unresolvedSummary = summaryLines.some((row) => row.unresolved || row.mismatch);
+  const importableCount = records.filter((row) => row.valid && !row.duplicateSource).length;
+  const rawRows = ignoredRows.filter((row) => row.values);
+%>
+
+<section class="page-toolbar">
+  <div>
+    <h2><%= previewBatch.file_name %></h2>
+    <p><%= records.length + excludedRows.length + summaryLines.length + rawRows.length %> ligne(s) de données détectée(s) ; période autorisée : 01/01/2026–31/08/2026.</p>
+    <p class="page-note">Feuilles analysées : <%= sheetNames.join(', ') %></p>
+  </div>
+  <% if (initialImportComplete) { %>
+    <button class="button button-primary" type="button" data-modal-confirm="/import/confirm/<%= previewBatch.id %>" data-modal-title="Confirmer l’import ?" data-modal-message="Les lignes valides non dupliquées seront ajoutées. Aucune donnée existante ne sera supprimée." data-modal-submit="Valider l’import" <%= importableCount === 0 || unresolvedSummary ? 'disabled' : '' %>>Valider l’import</button>
+  <% } else { %>
+    <button class="button button-primary" type="button" data-modal-confirm="/import/confirm/<%= previewBatch.id %>" data-modal-field-name="reinitialize" data-modal-field-value="1" data-modal-title="Sauvegarder et remplacer l’historique ?" data-modal-message="Une sauvegarde complète sera créée et vérifiée. Ensuite, les anciennes dépenses, marchandises et importations seront supprimées, puis ce fichier sera importé en une transaction. Les catégories et paramètres seront conservés." data-modal-submit="Sauvegarder, nettoyer et importer" <%= !reinitializeAvailable || unresolvedSummary ? 'disabled' : '' %>>Sauvegarder, nettoyer et importer</button>
+  <% } %>
+</section>
+
+<section class="summary-grid report-summary">
+  <article class="metric-card"><div class="metric-heading"><span>Dépenses ordinaires valides</span></div><div class="metric-value"><%= ordinaryCount %></div><div class="metric-foot"><span>Janvier à août 2026</span></div></article>
+  <article class="metric-card"><div class="metric-heading"><span>Marchandises boutique</span></div><div class="metric-value"><%= groceryCount %></div><div class="metric-foot"><span>Lignes détaillées</span></div></article>
+  <article class="metric-card"><div class="metric-heading"><span>Mois concernés</span></div><div class="metric-value"><%= coveredMonths %> / 8</div><div class="metric-foot"><span>Du 1er janvier au 31 août</span></div></article>
+  <article class="metric-card"><div class="metric-heading"><span>Lignes à vérifier</span></div><div class="metric-value"><%= incompleteRows.length + records.filter((row) => row.issues.length && row.valid).length %></div><div class="metric-foot"><span>Incomplètes ou signalées</span></div></article>
+</section>
+
+<% if (unknownCategories.length) { %>
+  <div class="page-alert"><strong>Catégories classées dans Autres :</strong> <%= unknownCategories.join(', ') %>. Les intitulés d’origine sont conservés.</div>
+<% } %>
+<% if (duplicates.length) { %>
+  <div class="page-alert"><strong>Doublons potentiels :</strong> <%= duplicates.length %> ligne(s) identique(s) à une autre ligne du fichier ou déjà présente(s) en base. Elles ne seront pas ajoutées une seconde fois.</div>
+<% } %>
+<% if (incompleteRows.length) { %>
+  <div class="page-alert"><strong>Lignes incomplètes :</strong> <%= incompleteRows.length %>. Elles restent visibles ci-dessous et ne seront pas importées tant que leur date, intitulé ou montant manque.</div>
+<% } %>
+<% if (unresolvedSummary) { %>
+  <div class="page-alert"><strong>Vérification boutique requise :</strong> un total mensuel n’a pas de détail marchandises correspondant, ou son montant ne correspond pas à la somme des marchandises. L’import est bloqué pour éviter une perte ou une double comptabilisation.</div>
+<% } %>
+<% if (!validRecords.length) { %>
+  <div class="page-alert"><strong>Aucune dépense valide de janvier à août 2026 n’a été trouvée.</strong> Le fichier peut être consulté, mais il ne peut pas déclencher le nettoyage initial.</div>
+<% } %>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Totaux par mois</h2><p>Le total général correspond aux dépenses boutique et aux autres dépenses.</p></div></div>
+  <div class="table-wrap"><table class="transactions-table">
+    <thead><tr><th>MOIS</th><th>DÉPENSES ORDINAIRES</th><th>MARCHANDISES</th><th class="amount-cell">BOUTIQUE</th><th class="amount-cell">AUTRES DÉPENSES</th><th class="amount-cell">TOTAL GÉNÉRAL</th></tr></thead>
+    <tbody><% monthly.forEach((row) => { %><tr>
+      <td><strong><%= row.label %></strong></td><td><%= row.ordinaryCount %></td><td><%= row.groceryCount %></td>
+      <td class="amount-cell"><%= formatCurrency(row.totalBoutique) %></td><td class="amount-cell"><%= formatCurrency(row.totalOther) %></td><td class="amount-cell"><strong><%= formatCurrency(row.totalGeneral) %></strong></td>
+    </tr><% }) %></tbody>
+  </table></div>
+</section>
+
+<section class="report-tables">
+  <article class="panel-card page-table-card">
+    <div class="panel-header"><div><h2>Catégories reconnues</h2><p><%= recognizedCategories.length %> catégorie(s) reconnue(s).</p></div></div>
+    <p class="page-note"><%= recognizedCategories.length ? recognizedCategories.join(', ') : 'Aucune catégorie reconnue.' %></p>
+  </article>
+  <article class="panel-card page-table-card">
+    <div class="panel-header"><div><h2>Totaux boutique source</h2><p>Les lignes de total ne sont jamais ajoutées comme dépense supplémentaire.</p></div></div>
+    <% if (summaryLines.length) { %>
+      <div class="table-wrap"><table class="transactions-table"><thead><tr><th>FEUILLE</th><th>DATE</th><th class="amount-cell">TOTAL SOURCE</th><th class="amount-cell">MARCHANDISES</th><th>ÉTAT</th></tr></thead><tbody>
+        <% summaryLines.forEach((row) => { %><tr><td><%= row.sheetName %></td><td><%= row.date || '—' %></td><td class="amount-cell"><%= row.amount === null ? '—' : formatCurrency(row.amount) %></td><td class="amount-cell"><%= formatCurrency(row.detailTotal) %></td><td><%= row.unresolved ? 'Sans détail' : (row.mismatch ? 'Écart à vérifier' : 'Correspondance') %></td></tr><% }) %>
+      </tbody></table></div>
+    <% } else { %><p class="page-note">Aucune ligne de total boutique distincte détectée.</p><% } %>
+  </article>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Lignes de la période</h2><p><%= records.length %> ligne(s), y compris les lignes incomplètes.</p></div></div>
+  <% if (records.length) { %>
+    <div class="table-wrap"><table class="transactions-table">
+      <thead><tr><th>DATE</th><th>INTITULÉ D’ORIGINE</th><th>CATÉGORIE</th><th>QUANTITÉ / UNITÉ</th><th class="amount-cell">MONTANT</th><th>TYPE / ÉTAT</th></tr></thead>
+      <tbody><% records.forEach((row) => { %><tr>
+        <td class="date-cell"><%= row.date ? formatDate(row.date) : '—' %></td>
+        <td><strong><%= row.title || 'Intitulé absent' %></strong><small><%= row.sheetName %>, ligne <%= row.rowNumber %></small></td>
+        <td><%= row.type === 'grocery' ? 'Boutique' : row.categoryName %><% if (row.categoryRaw && row.type === 'expense') { %><small>Source : <%= row.categoryRaw %></small><% } %></td>
+        <td><%= row.quantityKnown ? row.quantity : '—' %> <%= row.unit || '' %><% if (row.unitPriceKnown) { %><small>PU : <%= formatCurrency(row.unitPrice) %></small><% } %></td>
+        <td class="amount-cell"><strong><%= row.amount === null ? '—' : formatCurrency(row.amount) %></strong></td>
+        <td><%= row.type === 'grocery' ? 'Marchandise boutique' : 'Dépense ordinaire' %>
+          <% if (row.duplicateSource) { %><small>Doublon : <%= row.duplicateSource === 'base' ? 'déjà en base' : 'dans le fichier' %></small><% } %>
+          <% if (!row.valid) { %><small>Incomplète</small><% } %>
+          <% if (row.issues.length) { %><small><%= row.issues.join(' · ') %></small><% } %>
+        </td>
+      </tr><% }) %></tbody>
+    </table></div>
+  <% } else { %><div class="empty-state"><strong>Aucune ligne candidate dans cette période.</strong></div><% } %>
+</section>
+
+<% if (excludedRows.length) { %>
+  <section class="panel-card page-table-card">
+    <div class="panel-header"><div><h2>Lignes exclues hors période</h2><p><%= excludedRows.length %> ligne(s) hors du 1er janvier au 31 août 2026 ; elles ne seront pas importées.</p></div></div>
+    <div class="table-wrap"><table class="transactions-table"><thead><tr><th>DATE</th><th>INTITULÉ</th><th>FEUILLE</th><th class="amount-cell">MONTANT</th></tr></thead>
+      <tbody><% excludedRows.forEach((row) => { %><tr><td><%= row.date || '—' %></td><td><%= row.title || '—' %></td><td><%= row.sheetName %></td><td class="amount-cell"><%= row.amount === null ? '—' : formatCurrency(row.amount) %></td></tr><% }) %></tbody>
+    </table></div>
+  </section>
+<% } %>
+
+<% if (rawRows.length) { %>
+  <section class="panel-card page-table-card">
+    <div class="panel-header"><div><h2>Lignes non interprétées</h2><p><%= rawRows.length %> ligne(s) avec structure non reconnue. Leur contenu brut est conservé ici, sans être importé.</p></div></div>
+    <div class="table-wrap"><table class="transactions-table"><thead><tr><th>FEUILLE</th><th>LIGNE</th><th>CONTENU SOURCE</th></tr></thead><tbody>
+      <% rawRows.forEach((row) => { %><tr><td><%= row.sheetName %></td><td><%= row.row %></td><td><%= row.values.join(' | ') %></td></tr><% }) %>
+    </tbody></table></div>
+  </section>
+<% } %>
+<% if (ignoredRows.some((row) => !row.values)) { %><p class="page-note">Les feuilles de synthèse ou les lignes de titre sans données n’ont pas été importées comme dépenses.</p><% } %>
+
+<%- include('partials/page-end') %>

@@ -1,0 +1,29 @@
+<div class="modal-heading">
+  <span class="eyebrow">COMPTE BOUTIQUE</span>
+  <h2>Ajouter un ravitaillement</h2>
+  <p>Enregistrez un achat dans le compte boutique.</p>
+</div>
+<form method="POST" action="/groceries">
+  <input type="hidden" name="return_to" value="/groceries" />
+  <div class="form-grid">
+    <label>Date
+      <input type="date" name="purchase_date" value="<%= new Date().toISOString().slice(0, 10) %>" required />
+    </label>
+    <label>Marchandise
+      <input type="text" name="item_name" placeholder="Sac de riz" required />
+    </label>
+    <label>Quantité
+      <input type="number" name="quantity" step="0.01" min="0" value="1" required />
+    </label>
+    <label>Unité
+      <input type="text" name="unit" placeholder="kg, L, paquet" />
+    </label>
+    <label>Prix unitaire (FCFA)
+      <input type="number" name="unit_price" step="0.01" min="0" required />
+    </label>
+    <label>Notes
+      <input type="text" name="notes" placeholder="Optionnel" />
+    </label>
+  </div>
+  <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer le ravitaillement</button></div>
+</form>

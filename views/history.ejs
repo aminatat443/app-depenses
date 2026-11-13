@@ -1,0 +1,41 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Historique',
+  pageDescription: 'Retrouvez toutes les dépenses et tous les ravitaillements du foyer.',
+  activePage: 'history'
+}) %>
+
+<section class="panel-card page-filter-card">
+  <form method="GET" action="/history" class="page-filter-form">
+    <label>Rechercher dans l’historique
+      <input type="search" name="search" value="<%= search || '' %>" placeholder="Intitulé ou catégorie" />
+    </label>
+    <button class="button button-subtle" type="submit">Rechercher</button>
+  </form>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Toutes les opérations</h2><p><%= operationList.length %> opération<%= operationList.length > 1 ? 's' : '' %> retrouvée<%= operationList.length > 1 ? 's' : '' %>.</p></div></div>
+  <% if (operationList.length) { %>
+    <div class="table-wrap">
+      <table class="transactions-table">
+        <thead><tr><th>DATE</th><th>OPÉRATION</th><th>TYPE</th><th>CATÉGORIE</th><th class="amount-cell">MONTANT</th><th></th></tr></thead>
+        <tbody>
+          <% operationList.forEach((item) => { %>
+            <tr>
+              <td class="date-cell"><%= formatDate(item.date) %></td>
+              <td><strong><%= item.title %></strong></td>
+              <td><%= item.type === 'grocery' ? 'Ravitaillement' : 'Dépense' %></td>
+              <td><span class="category-pill"><%= item.category %></span></td>
+              <td class="amount-cell"><strong><%= formatCurrency(item.amount) %></strong></td>
+              <td><button class="table-action danger" type="button" data-modal-confirm="<%= item.type === 'grocery' ? '/groceries/' + item.id + '/delete' : '/expenses/' + item.id + '/delete' %>" data-modal-return="/history" data-modal-title="Supprimer cette opération ?" data-modal-message="Cette ligne sera retirée de l’historique et du bilan correspondant." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } else { %>
+    <div class="empty-state table-empty"><span class="empty-icon">⌁</span><strong>Aucune opération dans l’historique</strong><span>Essayez une autre recherche.</span></div>
+  <% } %>
+</section>
+
+<%- include('partials/page-end') %>

@@ -1,0 +1,28 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Exportation Excel',
+  pageDescription: 'Téléchargez un classeur annuel pour conserver ou partager vos bilans.',
+  activePage: 'export'
+}) %>
+
+<section class="panel-card export-page-card">
+  <div class="tool-icon tool-report"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M5 16v4h14v-4"/></svg></div>
+  <div class="export-page-copy">
+    <span class="eyebrow">CLASSEUR ANNUEL</span>
+    <h2>Vos dépenses, organisées dans Excel.</h2>
+    <p>Le classeur rassemble les dépenses ordinaires et les achats boutique dans des feuilles mensuelles, avec un récapitulatif annuel.</p>
+    <div class="export-page-actions">
+      <button class="button button-primary" type="button" data-modal-template="export-confirmation">Préparer l’export <span aria-hidden="true">→</span></button>
+      <a class="text-link" href="/monthly">Consulter les bilans mensuels</a>
+    </div>
+  </div>
+</section>
+
+<section class="panel-card export-info-card">
+  <div><h2>Année à exporter</h2><p>Le téléchargement inclura les 12 mois de l’année choisie.</p></div>
+  <label class="export-year-field">Année
+    <input id="export-year" type="number" min="2000" max="2100" value="<%= year %>" />
+  </label>
+</section>
+
+<template id="export-confirmation"><%- include('partials/export-confirmation', { year }) %></template>
+<%- include('partials/page-end') %>

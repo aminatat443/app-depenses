@@ -1,0 +1,32 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Sauvegardes',
+  pageDescription: 'Protégez la base de données du foyer et restaurez une copie si besoin.',
+  activePage: 'backup'
+}) %>
+
+<section class="page-toolbar">
+  <div><h2>Sauvegarde des données</h2><p>Une copie locale peut être créée à tout moment.</p></div>
+  <button class="button button-primary" type="button" data-modal-confirm="/backup/create" data-modal-title="Créer une sauvegarde ?" data-modal-message="Une copie de la base sera enregistrée dans le dossier des sauvegardes." data-modal-submit="Créer la sauvegarde"><span aria-hidden="true">＋</span> Créer une sauvegarde</button>
+</section>
+
+<section class="panel-card backup-status">
+  <span class="tool-icon tool-backup"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 2.8 7.7 7 10 4.2-2.3 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+  <div><strong>Stockage local actif</strong><p>Cloudflare R2 : <%= r2Configured ? 'configuré' : 'non configuré' %></p></div>
+  <% if (latestBackup) { %><span class="backup-latest">Dernière copie : <%= latestBackup %></span><% } %>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Historique des sauvegardes</h2><p>Les fichiers disponibles sur cet appareil.</p></div></div>
+  <% if (backups && backups.length) { %>
+    <div class="table-wrap"><table class="transactions-table">
+      <thead><tr><th>NOM DU FICHIER</th><th>EMPLACEMENT</th><th></th></tr></thead>
+      <tbody><% backups.forEach((backup) => { %>
+        <tr><td><strong><%= backup %></strong></td><td>Stockage local</td><td><button class="table-action danger" type="button" data-modal-confirm="/backup/restore/<%= encodeURIComponent(backup) %>" data-modal-title="Restaurer cette sauvegarde ?" data-modal-message="La base de données actuelle sera remplacée par cette copie." data-modal-submit="Restaurer la sauvegarde" data-modal-danger="true">Restaurer</button></td></tr>
+      <% }) %></tbody>
+    </table></div>
+  <% } else { %>
+    <div class="empty-state table-empty"><span class="empty-icon">⌁</span><strong>Aucune sauvegarde disponible</strong><span>Créez une sauvegarde pour la voir apparaître ici.</span></div>
+  <% } %>
+</section>
+
+<%- include('partials/page-end') %>

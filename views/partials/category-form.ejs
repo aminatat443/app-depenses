@@ -1,0 +1,14 @@
+<div class="modal-heading">
+  <span class="eyebrow">PERSONNALISATION</span>
+  <h2>Créer une catégorie</h2>
+  <p>Les catégories servent à classer les dépenses ordinaires.</p>
+</div>
+<form method="POST" action="/categories">
+  <label>Nom
+    <input type="text" name="name" required />
+  </label>
+  <label>Couleur
+    <input type="color" name="color" value="#147967" />
+  </label>
+  <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Ajouter la catégorie</button></div>
+</form>

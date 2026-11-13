@@ -1,0 +1,31 @@
+<div class="modal-heading">
+  <span class="eyebrow">NOUVELLE OPÉRATION</span>
+  <h2>Ajouter une dépense</h2>
+  <p>Enregistrez une dépense du foyer.</p>
+</div>
+<form method="POST" action="/expenses">
+  <input type="hidden" name="return_to" value="/expenses" />
+  <div class="form-grid">
+    <label>Intitulé
+      <input type="text" name="title" required />
+    </label>
+    <label>Catégorie
+      <select name="category_id" required>
+        <% categories.forEach((category) => { %><option value="<%= category.id %>"><%= category.name %></option><% }) %>
+      </select>
+    </label>
+    <label>Montant (FCFA)
+      <input type="number" name="amount" step="0.01" min="0" required />
+    </label>
+    <label>Date
+      <input type="date" name="expense_date" value="<%= new Date().toISOString().slice(0, 10) %>" required />
+    </label>
+    <label>Référence / justificatif
+      <input type="text" name="reference" />
+    </label>
+    <label>Description
+      <textarea name="description" rows="3"></textarea>
+    </label>
+  </div>
+  <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer la dépense</button></div>
+</form>

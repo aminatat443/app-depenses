@@ -1,0 +1,50 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Compte boutique',
+  pageDescription: 'Suivez les ravitaillements et les achats de la maison.',
+  activePage: 'groceries'
+}) %>
+
+<section class="page-toolbar">
+  <div><h2>Ravitaillements enregistrés</h2><p><%= groceryList.length %> ligne<%= groceryList.length > 1 ? 's' : '' %> dans le compte boutique.</p></div>
+  <button class="button button-primary" type="button" data-modal-template="grocery-create"><span aria-hidden="true">＋</span> Ajouter un ravitaillement</button>
+</section>
+
+<section class="panel-card page-filter-card">
+  <form method="GET" action="/groceries" class="page-filter-form">
+    <label>Rechercher un achat
+      <input type="search" name="search" value="<%= search || '' %>" placeholder="Marchandise, unité ou notes" />
+    </label>
+    <button class="button button-subtle" type="submit">Rechercher</button>
+  </form>
+  <p class="page-note">Les achats sont regroupés sous « Compte boutique » dans les bilans mensuels. Les quantités et prix unitaires absents du fichier source restent non renseignés.</p>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Historique des ravitaillements</h2><p>Les montants importés sont conservés tels qu’indiqués dans le fichier source.</p></div></div>
+  <% if (groceryList.length) { %>
+    <div class="table-wrap">
+      <table class="transactions-table">
+        <thead><tr><th>DATE</th><th>MARCHANDISE</th><th>QUANTITÉ</th><th>UNITÉ</th><th>PRIX UNIT.</th><th class="amount-cell">MONTANT</th><th>NOTES</th><th></th></tr></thead>
+        <tbody>
+          <% groceryList.forEach((row) => { %>
+            <tr>
+              <td class="date-cell"><%= formatDate(row.purchase_date) %></td>
+              <td><strong><%= row.item_name %></strong></td>
+              <td><%= row.quantity_known ? row.quantity : '—' %></td>
+              <td><%= row.unit || '—' %></td>
+              <td><%= row.unit_price_known ? formatCurrency(row.unit_price) : '—' %></td>
+              <td class="amount-cell"><strong><%= formatCurrency(row.total_amount) %></strong></td>
+              <td><%= row.notes || '—' %></td>
+              <td><button class="table-action danger" type="button" data-modal-confirm="/groceries/<%= row.id %>/delete" data-modal-return="/groceries" data-modal-title="Supprimer ce ravitaillement ?" data-modal-message="Cette ligne sera retirée du compte boutique et des bilans." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } else { %>
+    <div class="empty-state table-empty"><span class="empty-icon">⌁</span><strong>Aucun ravitaillement trouvé</strong><span>Ajoutez un achat ou modifiez votre recherche.</span></div>
+  <% } %>
+</section>
+
+<template id="grocery-create"><%- include('partials/grocery-form') %></template>
+<%- include('partials/page-end') %>

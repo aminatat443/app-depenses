@@ -1,0 +1,45 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Importation Excel',
+  pageDescription: 'Importez vos anciens relevés après avoir vérifié leur contenu.',
+  activePage: 'import'
+}) %>
+
+<section class="page-toolbar">
+  <div><h2>Importer un fichier</h2><p>Une prévisualisation vous permet de contrôler les lignes avant validation.</p></div>
+  <button class="button button-primary" type="button" data-modal-template="import-create"><span aria-hidden="true">＋</span> Choisir un fichier Excel</button>
+</section>
+
+<section class="panel-card import-guidance">
+  <span class="tool-icon tool-import"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m-4 4 4-4 4 4"/><path d="M5 14v5h14v-5"/></svg></span>
+  <div><strong>Import historique 2026 avec vérification</strong><p>Seules les dépenses datées du 1er janvier au 31 août 2026 sont candidates. Les autres dates ne seront pas importées.</p></div>
+</section>
+
+<% if (!initialImportComplete) { %>
+  <section class="page-alert"><strong>Première importation :</strong> après validation d’un fichier contenant des lignes valides, une sauvegarde vérifiée sera créée puis les anciennes dépenses, marchandises et historiques d’import seront remplacés dans une transaction. Les catégories, paramètres et journaux de sauvegarde seront conservés.</section>
+<% } else { %>
+  <section class="page-note">Le nettoyage initial est terminé. Les prochains imports n’effacent aucune donnée et les doublons détectés sont ignorés.</section>
+<% } %>
+
+<% if (latestBatch) { %>
+  <section class="panel-card import-latest">
+    <div><span class="eyebrow">DERNIER IMPORT</span><h2><%= latestBatch.file_name %></h2><p>État : <span class="status-tag"><%= latestBatch.status %></span></p></div>
+    <a class="button button-subtle" href="/import/preview/<%= latestBatch.id %>">Ouvrir la prévisualisation <span aria-hidden="true">→</span></a>
+  </section>
+<% } else { %>
+  <section class="panel-card import-latest"><div><h2>Aucun import récent</h2><p>Choisissez un fichier Excel pour commencer.</p></div></section>
+<% } %>
+
+<template id="import-create">
+  <div class="modal-heading">
+    <span class="eyebrow">IMPORTATION EXCEL</span>
+    <h2>Sélectionner un fichier</h2>
+    <p>Formats acceptés : .xlsx et .xls. Le contenu sera prévisualisé avant import.</p>
+  </div>
+  <form method="POST" action="/import" enctype="multipart/form-data">
+    <label>Fichier à analyser
+      <input type="file" name="file" accept=".xlsx,.xls" required />
+    </label>
+    <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Analyser le fichier</button></div>
+  </form>
+</template>
+<%- include('partials/page-end') %>

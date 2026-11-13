@@ -1,0 +1,56 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Bilans & statistiques',
+  pageDescription: 'Comparez les dépenses du foyer par mois et par catégorie.',
+  activePage: 'monthly'
+}) %>
+
+<section class="page-toolbar">
+  <div><h2>Bilan de <%= monthLabel %></h2><p>Compte boutique et dépenses ordinaires réunis.</p></div>
+  <button class="button button-primary" type="button" data-modal-template="monthly-export"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M5 16v4h14v-4"/></svg> Exporter en Excel</button>
+</section>
+
+<section class="panel-card page-filter-card">
+  <form method="GET" action="/monthly" class="page-filter-form">
+    <label>Mois
+      <select name="month">
+        <% for (let monthNumber = 1; monthNumber <= 12; monthNumber += 1) { %>
+          <option value="<%= monthNumber %>" <%= monthNumber === month ? 'selected' : '' %>><%= new Date(Date.UTC(year, monthNumber - 1, 1)).toLocaleString('fr-FR', { month: 'long', timeZone: 'UTC' }) %></option>
+        <% } %>
+      </select>
+    </label>
+    <label>Année
+      <input type="number" name="year" min="2000" max="2100" value="<%= year %>" />
+    </label>
+    <button class="button button-subtle" type="submit">Afficher le bilan</button>
+  </form>
+</section>
+
+<section class="summary-grid report-summary">
+  <article class="metric-card"><div class="metric-heading"><span>Compte boutique</span></div><div class="metric-value"><%= formatCurrency(totalGroceries) %></div><div class="metric-foot"><span>Ravitaillements du mois</span></div></article>
+  <article class="metric-card"><div class="metric-heading"><span>Autres dépenses</span></div><div class="metric-value"><%= formatCurrency(totalOther) %></div><div class="metric-foot"><span>Dépenses ordinaires</span></div></article>
+  <article class="metric-card metric-featured"><div class="metric-heading"><span>Total général</span></div><div class="metric-value"><%= formatCurrency(totalGeneral) %></div><div class="metric-foot"><span><%= monthLabel %></span></div></article>
+</section>
+
+<section class="report-tables">
+  <article class="panel-card page-table-card">
+    <div class="panel-header"><div><h2>Dépenses ordinaires</h2><p><%= monthlyOther.length %> opération<%= monthlyOther.length > 1 ? 's' : '' %>.</p></div></div>
+    <% if (monthlyOther.length) { %>
+      <div class="table-wrap"><table class="transactions-table">
+        <thead><tr><th>DATE</th><th>INTITULÉ</th><th>CATÉGORIE</th><th class="amount-cell">MONTANT</th></tr></thead>
+        <tbody><% monthlyOther.forEach((row) => { %><tr><td class="date-cell"><%= formatDate(row.expense_date) %></td><td><strong><%= row.title %></strong></td><td><%= row.category %></td><td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td></tr><% }) %></tbody>
+      </table></div>
+    <% } else { %><div class="empty-state"><strong>Aucune dépense ordinaire ce mois-ci</strong></div><% } %>
+  </article>
+  <article class="panel-card page-table-card">
+    <div class="panel-header"><div><h2>Compte boutique</h2><p><%= monthlyGroceries.length %> ravitaillement<%= monthlyGroceries.length > 1 ? 's' : '' %>.</p></div></div>
+    <% if (monthlyGroceries.length) { %>
+      <div class="table-wrap"><table class="transactions-table">
+        <thead><tr><th>DATE</th><th>MARCHANDISE</th><th>QUANTITÉ</th><th class="amount-cell">MONTANT</th></tr></thead>
+        <tbody><% monthlyGroceries.forEach((row) => { %><tr><td class="date-cell"><%= formatDate(row.purchase_date) %></td><td><strong><%= row.item_name %></strong></td><td><%= row.quantity_known ? row.quantity : '—' %> <%= row.unit || '' %></td><td class="amount-cell"><strong><%= formatCurrency(row.total_amount) %></strong></td></tr><% }) %></tbody>
+      </table></div>
+    <% } else { %><div class="empty-state"><strong>Aucun ravitaillement ce mois-ci</strong></div><% } %>
+  </article>
+</section>
+
+<template id="monthly-export"><%- include('partials/export-confirmation', { year }) %></template>
+<%- include('partials/page-end') %>

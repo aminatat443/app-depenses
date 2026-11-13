@@ -1,0 +1,58 @@
+<aside class="sidebar" aria-label="Navigation principale">
+  <a class="brand" href="/" aria-label="Maison, vue d’ensemble">
+    <span class="brand-mark">M</span>
+    <span class="brand-copy"><strong>Maison</strong><small>GESTION FAMILIALE</small></span>
+  </a>
+
+  <div class="household-switch">
+    <span class="avatar">M</span>
+    <span><strong>Notre foyer</strong><small>Compte familial</small></span>
+    <span class="switch-chevron" aria-hidden="true">⌄</span>
+  </div>
+
+  <nav class="side-nav">
+    <span class="nav-caption">ESPACE MAISON</span>
+    <a class="nav-item <%= activePage === 'overview' ? 'is-active' : '' %>" href="/" <%= activePage === 'overview' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+      <span>Vue d’ensemble</span>
+    </a>
+    <a class="nav-item <%= activePage === 'expenses' ? 'is-active' : '' %>" href="/expenses" <%= activePage === 'expenses' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
+      <span>Dépenses du mois</span>
+    </a>
+    <a class="nav-item <%= activePage === 'groceries' ? 'is-active' : '' %>" href="/groceries" <%= activePage === 'groceries' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5L4 8Z"/><path d="M9 8a3 3 0 0 1 6 0M8 12v4M12 12v4M16 12v4"/></svg>
+      <span>Compte boutique</span>
+    </a>
+    <a class="nav-item <%= activePage === 'history' ? 'is-active' : '' %>" href="/history" <%= activePage === 'history' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h15M15 4l4 3-4 3M20 17H5m4-3-4 3 4 3"/></svg>
+      <span>Historique</span>
+    </a>
+    <a class="nav-item <%= activePage === 'monthly' ? 'is-active' : '' %>" href="/monthly" <%= activePage === 'monthly' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 6-7"/></svg>
+      <span>Bilans &amp; statistiques</span>
+    </a>
+
+    <span class="nav-caption nav-caption-secondary">OUTILS</span>
+    <a class="nav-item <%= activePage === 'import' ? 'is-active' : '' %>" href="/import" <%= activePage === 'import' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m-4 4 4-4 4 4"/><path d="M5 14v5h14v-5"/></svg>
+      <span>Importation Excel</span>
+    </a>
+    <a class="nav-item <%= activePage === 'export' ? 'is-active' : '' %>" href="/export" <%= activePage === 'export' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m4-4-4 4-4-4"/><path d="M5 16v4h14v-4"/></svg>
+      <span>Exportation Excel</span>
+    </a>
+    <a class="nav-item <%= activePage === 'backup' ? 'is-active' : '' %>" href="/backup" <%= activePage === 'backup' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 2.8 7.7 7 10 4.2-2.3 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+      <span>Sauvegardes</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <a class="nav-item <%= activePage === 'settings' ? 'is-active' : '' %>" href="/categories" <%= activePage === 'settings' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7Z"/></svg>
+      <span>Paramètres · catégories</span>
+    </a>
+    <div class="sidebar-status"><span class="status-dot"></span><span>Données enregistrées localement</span></div>
+  </div>
+</aside>
