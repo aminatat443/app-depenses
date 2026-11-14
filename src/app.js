@@ -16,6 +16,7 @@ const {
   clearSessionCookie,
   createSession,
   deleteSession,
+  hashPassword,
   loginIsLimited,
   noteFailedLogin,
   resolveSession,
@@ -471,6 +472,97 @@ app.use(async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+app.get('/account', (req, res) => {
+  res.render('account', {
+    email: req.user.email,
+    emailError: null,
+    passwordError: null,
+    notice: req.query.updated === 'email'
+      ? 'Adresse e-mail mise à jour.'
+      : req.query.updated === 'password'
+        ? 'Mot de passe modifié. Les autres sessions ont été déconnectées.'
+        : null,
+  });
+});
+
+app.post('/account/email', async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const currentPassword = String(req.body.current_password || '');
+  const renderError = (message, status = 400) => res.status(status).render('account', {
+    email,
+    emailError: message,
+    passwordError: null,
+    notice: null,
+  });
+
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return renderError('Saisissez une adresse e-mail valide.');
+  }
+  const account = await db.prepare(
+    'SELECT password_hash FROM users WHERE id = ? AND is_active = TRUE',
+  ).get(req.user.id);
+  if (!account || !await verifyPassword(currentPassword, account.password_hash)) {
+    return renderError('Le mot de passe actuel est incorrect.', 401);
+  }
+  if (email === req.user.email.toLowerCase()) {
+    return res.redirect('/account?updated=email');
+  }
+  const existing = await db.prepare(
+    'SELECT id FROM users WHERE LOWER(email) = ? AND id <> ?',
+  ).get(email, req.user.id);
+  if (existing) return renderError('Cette adresse e-mail est déjà utilisée.', 409);
+
+  try {
+    await db.prepare(
+      'UPDATE users SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    ).run(email, req.user.id);
+  } catch (error) {
+    if (error.code === '23505') {
+      return renderError('Cette adresse e-mail est déjà utilisée.', 409);
+    }
+    throw error;
+  }
+  res.redirect('/account?updated=email');
+});
+
+app.post('/account/password', async (req, res) => {
+  const email = req.user.email;
+  const currentPassword = String(req.body.current_password || '');
+  const newPassword = String(req.body.new_password || '');
+  const confirmation = String(req.body.confirm_password || '');
+  const renderError = (message, status = 400) => res.status(status).render('account', {
+    email,
+    emailError: null,
+    passwordError: message,
+    notice: null,
+  });
+
+  if (newPassword.length < 12 || newPassword.length > 128) {
+    return renderError('Le nouveau mot de passe doit contenir entre 12 et 128 caractères.');
+  }
+  if (newPassword !== confirmation) {
+    return renderError('La confirmation du nouveau mot de passe ne correspond pas.');
+  }
+  const account = await db.prepare(
+    'SELECT password_hash FROM users WHERE id = ? AND is_active = TRUE',
+  ).get(req.user.id);
+  if (!account || !await verifyPassword(currentPassword, account.password_hash)) {
+    return renderError('Le mot de passe actuel est incorrect.', 401);
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  let newToken;
+  await db.transaction(async () => {
+    await db.prepare(
+      'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    ).run(passwordHash, req.user.id);
+    await db.prepare('DELETE FROM user_sessions WHERE user_id = ?').run(req.user.id);
+    newToken = await createSession(req.user.id);
+  });
+  setSessionCookie(res, newToken);
+  res.redirect('/account?updated=password');
 });
 
 app.use(financeRouter);

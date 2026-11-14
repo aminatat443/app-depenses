@@ -336,6 +336,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   sheet.getRow(openingRow).hidden = false;
   setMonthlyFinancialCell(sheet, styleSource, resourcesRow, 21, data.resourcesAvailable);
   sheet.getCell(resourcesRow, 1).value = 'Total des ressources disponibles';
+  sheet.getRow(resourcesRow).hidden = !includeCarryover;
   setMonthlyFinancialCell(sheet, styleSource, savingsRow, 30, data.savingsBalance);
 
   data.expenses.forEach((expense, index) => {

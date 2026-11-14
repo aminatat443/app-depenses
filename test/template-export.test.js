@@ -51,7 +51,7 @@ async function workbookFromBuffer(buffer) {
   return workbook;
 }
 
-test('reference exports preserve the template layout and calculate empty-month totals', async () => {
+test('reference exports preserve the template layout and hide excluded resources totals', async () => {
   const source = new ExcelJS.Workbook();
   await source.xlsx.readFile(REFERENCE_TEMPLATE);
   const output = await buildReferenceWorkbook([monthData()]);
@@ -66,6 +66,7 @@ test('reference exports preserve the template layout and calculate empty-month t
   assert.equal(sheet.getCell('B22').value.formula, 'B24-E42');
   assert.equal(sheet.getCell('A24').value, 'Total des ressources disponibles');
   assert.equal(sheet.getCell('B24').value.formula, 'B21');
+  assert.equal(sheet.getRow(24).hidden, true);
   assert.equal(Number(sheet.getCell('B24').value.result || 0), 0);
   assert.equal(sheet.getCell('A3').value, null);
   assertTenantHeaders(sheet);
@@ -118,6 +119,7 @@ test('monthly revenues use the original cells and exclude protected savings from
   assert.equal(sheet.getCell('A23').value, 'Restant du mois dernier');
   assert.equal(sheet.getCell('B23').value, 10_000);
   assert.equal(sheet.getCell('A24').value, 'Total des ressources disponibles');
+  assert.equal(sheet.getRow(24).hidden, false);
   assert.equal(sheet.getCell('B24').value.formula, 'B21+B23');
   assert.equal(sheet.getCell('B24').value.result, 740_000);
   assert.equal(sheet.getCell('B22').value.formula, 'B24-E43');
@@ -153,9 +155,11 @@ test('carryover is always visible but only included in the exported balance when
     assert.equal(sheet.getCell('B22').value.formula.startsWith('B24-E'), true);
   }
   assert.equal(excludedSheet.getCell('B24').value.formula, 'B21');
+  assert.equal(excludedSheet.getRow(24).hidden, true);
   assert.equal(excludedSheet.getCell('B24').value.result, 680_000);
   assert.equal(excludedSheet.getCell('B22').value.result, 50_000);
   assert.equal(includedSheet.getCell('B24').value.formula, 'B21+B23');
+  assert.equal(includedSheet.getRow(24).hidden, false);
   assert.equal(includedSheet.getCell('B24').value.result, 690_650);
   assert.equal(includedSheet.getCell('B22').value.result, 60_650);
 
@@ -183,7 +187,7 @@ test('carryover is always visible but only included in the exported balance when
   assert.equal(annualIncluded.getWorksheet('Avril').getCell('B23').value, 10_650);
 });
 
-test('annual exports include all four financial labels and values on all twelve monthly sheets', async () => {
+test('annual exports keep monthly totals while hiding excluded resources rows', async () => {
   const template = new ExcelJS.Workbook();
   await template.xlsx.readFile(REFERENCE_TEMPLATE);
   const months = MONTH_NAMES.map((monthLabel, index) => monthData({
@@ -206,6 +210,7 @@ test('annual exports include all four financial labels and values on all twelve 
     assert.equal(sheet.getCell('B23').value, 0);
     assert.equal(sheet.getRow(23).hidden, false);
     assert.equal(sheet.getCell('A24').value, 'Total des ressources disponibles');
+    assert.equal(sheet.getRow(24).hidden, true);
     assert.equal(sheet.getCell('B24').value.formula, 'B21');
     assert.equal(Number(sheet.getCell('B24').value.result || 0), 0);
     assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');

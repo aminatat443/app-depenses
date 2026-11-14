@@ -177,7 +177,7 @@ test('sidebar links open pages and page actions expose modal triggers', async ()
   try {
     for (const route of [
       '/expenses', '/groceries', '/history', '/monthly', '/import', '/export', '/backup',
-      '/categories', '/tenants', '/rents', '/income', '/savings',
+      '/categories', '/tenants', '/rents', '/income', '/savings', '/account',
     ]) {
       const response = await authedFetch(`http://127.0.0.1:${port}${route}`);
       assert.equal(response.status, 200, `${route} should render as a page`);
@@ -206,6 +206,121 @@ test('sidebar links open pages and page actions expose modal triggers', async ()
     assert.match(await savingsPage.text(), /Épargne pension père/);
   } finally {
     server.close();
+  }
+});
+
+test('administrator can change email and password after reauthentication', async () => {
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const account = await db.prepare('SELECT id FROM users LIMIT 1').get();
+  const previousSession = await createSession(account.id);
+  const oldCookie = `${SESSION_COOKIE}=${previousSession}`;
+  const originalPassword = 'test-password';
+
+  try {
+    const page = await authedFetch(`${baseUrl}/account`);
+    assert.equal(page.status, 200);
+    const html = await page.text();
+    assert.match(html, /Compte administrateur/);
+    assert.match(html, /name="new_password"/);
+    assert.match(html, /name="email"/);
+
+    const invalidEmail = await authedFetch(`${baseUrl}/account/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ email: 'adresse-invalide', current_password: originalPassword }),
+    });
+    assert.equal(invalidEmail.status, 400);
+    assert.match(await invalidEmail.text(), /adresse e-mail valide/i);
+
+    const emailUpdate = await authedFetch(`${baseUrl}/account/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        email: 'ADMIN-UPDATED@example.com',
+        current_password: originalPassword,
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(emailUpdate.status, 302);
+    assert.equal(emailUpdate.headers.get('location'), '/account?updated=email');
+    assert.equal((await db.prepare('SELECT email FROM users WHERE id = ?').get(account.id)).email, 'admin-updated@example.com');
+
+    const wrongPassword = await authedFetch(`${baseUrl}/account/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        current_password: 'incorrect-password',
+        new_password: 'nouveau-mot-de-passe-solide',
+        confirm_password: 'nouveau-mot-de-passe-solide',
+      }),
+    });
+    assert.equal(wrongPassword.status, 401);
+
+    const mismatch = await authedFetch(`${baseUrl}/account/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        current_password: originalPassword,
+        new_password: 'nouveau-mot-de-passe-solide',
+        confirm_password: 'un-autre-mot-de-passe-solide',
+      }),
+    });
+    assert.equal(mismatch.status, 400);
+    assert.match(await mismatch.text(), /confirmation.*ne correspond pas/i);
+
+    const passwordUpdate = await authedFetch(`${baseUrl}/account/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        current_password: originalPassword,
+        new_password: 'nouveau-mot-de-passe-solide',
+        confirm_password: 'nouveau-mot-de-passe-solide',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(passwordUpdate.status, 302);
+    assert.equal(passwordUpdate.headers.get('location'), '/account?updated=password');
+    const newCookie = passwordUpdate.headers.get('set-cookie').split(';')[0];
+    assert.notEqual(newCookie, `${SESSION_COOKIE}=${sessionToken}`);
+
+    const oldSessionResponse = await fetch(`${baseUrl}/account`, {
+      headers: { Cookie: oldCookie },
+      redirect: 'manual',
+    });
+    assert.equal(oldSessionResponse.status, 302);
+    const newSessionPage = await fetch(`${baseUrl}/account`, { headers: { Cookie: newCookie } });
+    assert.equal(newSessionPage.status, 200);
+
+    const oldPasswordLogin = await fetch(`${baseUrl}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        identifier: 'admin-updated@example.com',
+        password: originalPassword,
+      }),
+    });
+    assert.equal(oldPasswordLogin.status, 401);
+
+    const newPasswordLogin = await fetch(`${baseUrl}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        identifier: 'admin-updated@example.com',
+        password: 'nouveau-mot-de-passe-solide',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(newPasswordLogin.status, 302);
+    assert.match(newPasswordLogin.headers.get('set-cookie'), /household_session=.*HttpOnly/);
+  } finally {
+    await db.prepare('DELETE FROM user_sessions WHERE user_id = ?').run(account.id);
+    await db.prepare(
+      'UPDATE users SET email = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    ).run('test@example.com', await hashPassword(originalPassword), account.id);
+    sessionToken = await createSession(account.id);
+    await new Promise((resolve) => server.close(resolve));
   }
 });
 
@@ -662,6 +777,7 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
       assert.ok(reportRow);
       assert.ok(resourcesRow);
       assert.equal(reportRow.hidden, false);
+      assert.equal(resourcesRow.hidden, true);
       const monthKey = `2026-${String(workbook.SheetNames.indexOf(monthName) + 1).padStart(2, '0')}`;
       const finance = exportedFinances.get(monthKey);
       assert.equal(reportRow.getCell(2).value, finance.openingBalance);
@@ -726,10 +842,12 @@ test('monthly exports provide XLSX, CSV and PDF formats', async () => {
       const reportRow = findExcelRow(sheet, 'Restant du mois dernier');
       assert.ok(reportRow);
       assert.equal(reportRow.hidden, false);
+      assert.equal(findExcelRow(sheet, 'Total des ressources disponibles').hidden, true);
       assert.equal(typeof reportRow.getCell(2).value, 'number');
       assert.equal(sheet.getCell('B24').value.formula, 'B21');
       const checkedSheet = checkedMultiMonth.getWorksheet(monthName);
       assert.equal(findExcelRow(checkedSheet, 'Restant du mois dernier').hidden, false);
+      assert.equal(findExcelRow(checkedSheet, 'Total des ressources disponibles').hidden, false);
       assert.equal(checkedSheet.getCell('B24').value.formula, 'B21+B23');
     }
 

@@ -69,6 +69,10 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7Z"/></svg>
       <span>Paramètres · catégories</span>
     </a>
+    <a class="nav-item <%= activePage === 'account' ? 'is-active' : '' %>" href="/account" <%= activePage === 'account' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20v-1a7 7 0 0 1 14 0v1M18 5l1 1 2-2"/></svg>
+      <span>Compte administrateur</span>
+    </a>
     <form method="POST" action="/logout" class="sidebar-logout">
       <button class="nav-item" type="submit"><span aria-hidden="true">↪</span><span>Déconnexion</span></button>
     </form>
@@ -93,6 +97,7 @@
       <a href="/export">Exportation Excel</a>
       <a href="/backup">Sauvegardes</a>
       <a href="/categories">Paramètres · catégories</a>
+      <a href="/account">Compte administrateur</a>
       <form method="POST" action="/logout"><button type="submit">Déconnexion</button></form>
     </nav>
   </details>

@@ -1,0 +1,43 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Compte administrateur',
+  pageDescription: 'Mettez à jour votre adresse de connexion et sécurisez votre mot de passe.',
+  activePage: 'account'
+}) %>
+
+<% if (notice) { %>
+  <div class="account-feedback account-feedback-success" role="status"><%= notice %></div>
+<% } %>
+
+<section class="account-settings-grid" aria-label="Paramètres du compte administrateur">
+  <article class="panel-card account-settings-card">
+    <div class="panel-header">
+      <div><h2>Adresse e-mail</h2><p>Cette adresse sert à vous connecter à l’application.</p></div>
+    </div>
+    <% if (emailError) { %><div class="account-feedback account-feedback-error" role="alert"><%= emailError %></div><% } %>
+    <form method="POST" action="/account/email" class="account-form">
+      <label for="account-email">Nouvelle adresse e-mail</label>
+      <input id="account-email" type="email" name="email" value="<%= email %>" maxlength="254" autocomplete="email" required />
+      <label for="email-current-password">Mot de passe actuel</label>
+      <input id="email-current-password" type="password" name="current_password" autocomplete="current-password" required />
+      <button class="button button-primary" type="submit">Mettre à jour l’adresse</button>
+    </form>
+  </article>
+
+  <article class="panel-card account-settings-card">
+    <div class="panel-header">
+      <div><h2>Mot de passe</h2><p>Choisissez au moins 12 caractères. Les autres appareils seront déconnectés.</p></div>
+    </div>
+    <% if (passwordError) { %><div class="account-feedback account-feedback-error" role="alert"><%= passwordError %></div><% } %>
+    <form method="POST" action="/account/password" class="account-form">
+      <label for="password-current">Mot de passe actuel</label>
+      <input id="password-current" type="password" name="current_password" autocomplete="current-password" required />
+      <label for="password-new">Nouveau mot de passe</label>
+      <input id="password-new" type="password" name="new_password" minlength="12" maxlength="128" autocomplete="new-password" required />
+      <label for="password-confirm">Confirmer le nouveau mot de passe</label>
+      <input id="password-confirm" type="password" name="confirm_password" minlength="12" maxlength="128" autocomplete="new-password" required />
+      <button class="button button-primary" type="submit">Modifier le mot de passe</button>
+    </form>
+  </article>
+</section>
+
+<%- include('partials/page-end') %>
