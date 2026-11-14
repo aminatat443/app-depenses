@@ -1,0 +1,64 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Loyers & paiements',
+  pageDescription: 'Générez les loyers attendus et enregistrez les paiements reçus.',
+  activePage: 'rents'
+}) %>
+
+<section class="page-toolbar">
+  <div><h2>Suivi des loyers · <%= monthKey %></h2><p>Les loyers attendus sont distincts des montants encaissés.</p></div>
+  <form method="POST" action="/rents/generate">
+    <input type="hidden" name="month_key" value="<%= monthKey %>" />
+    <button class="button button-primary" type="submit">Générer les loyers attendus</button>
+  </form>
+</section>
+
+<section class="panel-card page-filter-card">
+  <form method="GET" action="/rents" class="page-filter-form">
+    <label>Mois<input type="month" name="month" value="<%= monthKey %>" required /></label>
+    <button class="button button-subtle" type="submit">Afficher</button>
+  </form>
+  <% if (generated !== undefined) { %><p class="page-note"><%= generated %> nouvelle<%= Number(generated) === 1 ? '' : 's' %> obligation<%= Number(generated) === 1 ? '' : 's' %> créée<%= Number(generated) === 1 ? '' : 's' %>.</p><% } %>
+</section>
+
+<section class="summary-grid report-summary">
+  <article class="metric-card"><div class="metric-heading"><span>Loyers attendus</span></div><div class="metric-value"><%= formatCurrency(totals.expected) %></div></article>
+  <article class="metric-card"><div class="metric-heading"><span>Loyers encaissés</span></div><div class="metric-value"><%= formatCurrency(totals.received) %></div></article>
+  <article class="metric-card metric-featured"><div class="metric-heading"><span>Reste à payer</span></div><div class="metric-value"><%= formatCurrency(Math.max(0, totals.expected - totals.received)) %></div></article>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Échéances du mois</h2><p><%= obligations.length %> obligation<%= obligations.length === 1 ? '' : 's' %> générée<%= obligations.length === 1 ? '' : 's' %>.</p></div><a class="text-link" href="/tenants">Gérer les locataires →</a></div>
+  <% if (obligations.length) { %>
+    <div class="table-wrap"><table class="transactions-table">
+      <thead><tr><th>LOGEMENT</th><th>LOCATAIRE</th><th class="amount-cell">ATTENDU</th><th class="amount-cell">PAYÉ</th><th class="amount-cell">RESTANT</th><th>STATUT</th><th>ACTION</th></tr></thead>
+      <tbody><% obligations.forEach((row) => {
+        const remaining = Math.max(0, Number(row.expected_amount) - Number(row.amount_paid));
+      %>
+        <tr>
+          <td><%= row.floor %> · <%= row.unit_label %></td>
+          <td><strong><%= row.first_name %> <%= row.last_name %></strong></td>
+          <td class="amount-cell"><%= formatCurrency(row.expected_amount) %></td>
+          <td class="amount-cell"><%= formatCurrency(row.amount_paid) %></td>
+          <td class="amount-cell"><strong><%= formatCurrency(remaining) %></strong></td>
+          <td><span class="category-pill"><%= remaining === 0 ? 'Payé' : Number(row.amount_paid) > 0 ? 'Partiel' : 'Impayé' %></span></td>
+          <td><% if (remaining > 0) { %><button class="table-action" type="button" data-modal-template="rent-payment-<%= row.id %>">Enregistrer un paiement</button><% } else { %>—<% } %></td>
+        </tr>
+        <% if (remaining > 0) { %>
+          <template id="rent-payment-<%= row.id %>">
+            <div class="modal-heading"><span class="eyebrow">PAIEMENT DE LOYER</span><h2><%= row.first_name %> <%= row.last_name %></h2><p>Reste à payer : <strong><%= formatCurrency(remaining) %></strong></p></div>
+            <form method="POST" action="/rents/<%= row.id %>/payments">
+              <div class="form-grid">
+                <label>Montant reçu (FCFA)<input type="number" name="amount" min="1" max="<%= remaining %>" step="1" required /></label>
+                <label>Date du paiement<input type="date" name="payment_date" value="<%= new Date().toISOString().slice(0, 10) %>" required /></label>
+                <label>Mode de paiement<select name="payment_method"><option value="">Non précisé</option><% paymentMethods.forEach((method) => { %><option value="<%= method %>"><%= method %></option><% }) %></select></label>
+                <label>Commentaire<input name="comment" /></label>
+              </div>
+              <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer le paiement</button></div>
+            </form>
+          </template>
+        <% } %>
+      <% }) %></tbody>
+    </table></div>
+  <% } else { %><div class="empty-state table-empty"><strong>Aucune échéance générée pour ce mois</strong><span>Utilisez « Générer les loyers attendus » après avoir enregistré les locataires actifs.</span></div><% } %>
+</section>
+<%- include('partials/page-end') %>

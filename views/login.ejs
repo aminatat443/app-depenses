@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f7fb" />
+    <title>Connexion · Maison</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="login-page">
+    <main class="login-card">
+      <a class="brand login-brand" href="/login" aria-label="Maison, gestion financière familiale">
+        <span class="brand-mark">M</span>
+        <span class="brand-copy"><strong>Maison</strong><small>GESTION FAMILIALE</small></span>
+      </a>
+      <span class="eyebrow">ESPACE ADMINISTRATEUR</span>
+      <h1>Bienvenue</h1>
+      <p class="login-description">Connectez-vous pour accéder aux finances de votre foyer.</p>
+      <% if (notice) { %><div class="login-notice" role="status"><span aria-hidden="true">✓</span><%= notice %></div><% } %>
+      <% if (error) { %><div class="page-alert login-error" role="alert"><%= error %></div><% } %>
+      <form method="POST" action="/login" class="login-form">
+        <input type="hidden" name="next" value="<%= next %>" />
+        <label for="login-identifier">Identifiant ou adresse e-mail</label>
+        <input id="login-identifier" type="text" name="identifier" value="<%= identifier %>"
+          autocomplete="username" autocapitalize="none" spellcheck="false" required />
+        <label for="login-password">Mot de passe</label>
+        <div class="login-password-field">
+          <input id="login-password" type="password" name="password" autocomplete="current-password" required />
+          <button type="button" class="password-toggle" data-toggle-password aria-label="Afficher le mot de passe" aria-pressed="false">Afficher</button>
+        </div>
+        <button class="button button-primary login-submit" type="submit">
+          <span class="login-spinner" aria-hidden="true"></span>
+          <span data-login-label>Se connecter</span>
+        </button>
+      </form>
+      <p class="login-footnote"><span class="login-secure-icon" aria-hidden="true">◈</span>Connexion sécurisée · Vos données restent privées</p>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

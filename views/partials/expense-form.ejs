@@ -1,31 +1,51 @@
 <div class="modal-heading">
-  <span class="eyebrow">NOUVELLE OPÉRATION</span>
-  <h2>Ajouter une dépense</h2>
-  <p>Enregistrez une dépense du foyer.</p>
+  <span class="eyebrow"><%= expense ? 'MODIFICATION' : 'NOUVELLE OPÉRATION' %></span>
+  <h2><%= expense ? 'Modifier la dépense' : 'Ajouter une dépense' %></h2>
+  <p>Enregistrez les informations utiles au suivi de cette opération.</p>
 </div>
-<form method="POST" action="/expenses">
+<form method="POST" action="<%= expense ? `/expenses/${expense.id}/update` : '/expenses' %>" enctype="multipart/form-data">
   <input type="hidden" name="return_to" value="/expenses" />
   <div class="form-grid">
-    <label>Intitulé
-      <input type="text" name="title" required />
+    <label>Désignation
+      <input type="text" name="title" value="<%= expense?.title || '' %>" maxlength="250" required />
     </label>
     <label>Catégorie
       <select name="category_id" required>
-        <% categories.forEach((category) => { %><option value="<%= category.id %>"><%= category.name %></option><% }) %>
+        <% categories.forEach((category) => { %><option value="<%= category.id %>" <%= expense && Number(expense.category_id) === Number(category.id) ? 'selected' : '' %>><%= category.name %></option><% }) %>
       </select>
     </label>
     <label>Montant (FCFA)
-      <input type="number" name="amount" step="0.01" min="0" required />
+      <input type="number" name="amount" step="1" min="1" value="<%= expense?.amount ?? '' %>" required />
     </label>
-    <label>Date
-      <input type="date" name="expense_date" value="<%= new Date().toISOString().slice(0, 10) %>" required />
+    <label>Date de la dépense
+      <input type="date" name="expense_date" value="<%= expense ? String(expense.expense_date).slice(0, 10) : new Date().toISOString().slice(0, 10) %>" required />
     </label>
-    <label>Référence / justificatif
-      <input type="text" name="reference" />
+    <label>Mois de rattachement
+      <input type="month" name="month_key" value="<%= expense?.month_key || (expense ? String(expense.expense_date).slice(0, 7) : new Date().toISOString().slice(0, 7)) %>" required />
     </label>
-    <label>Description
-      <textarea name="description" rows="3"></textarea>
+    <label>Bénéficiaire
+      <input type="text" name="beneficiary" value="<%= expense?.beneficiary || '' %>" />
+    </label>
+    <label>Personne ayant payé
+      <input type="text" name="paid_by" value="<%= expense?.paid_by || '' %>" />
+    </label>
+    <label>Mode de paiement
+      <select name="payment_method">
+        <option value="">Non précisé</option>
+        <% ['Espèces', 'Virement', 'Mobile money', 'Chèque', 'Autre'].forEach((method) => { %>
+          <option value="<%= method %>" <%= expense?.payment_method === method ? 'selected' : '' %>><%= method %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>Référence
+      <input type="text" name="reference" value="<%= expense?.reference || '' %>" />
+    </label>
+    <label>Justificatif (PDF ou image, 10 Mo max.)
+      <input type="file" name="receipt" accept=".pdf,image/jpeg,image/png,image/webp" />
+    </label>
+    <label class="form-grid-wide">Commentaire
+      <textarea name="description" rows="3"><%= expense?.description || '' %></textarea>
     </label>
   </div>
-  <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer la dépense</button></div>
+  <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn"><%= expense ? 'Enregistrer les modifications' : 'Enregistrer la dépense' %></button></div>
 </form>

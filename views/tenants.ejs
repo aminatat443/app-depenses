@@ -1,0 +1,88 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Locataires & logements',
+  pageDescription: 'Gérez les logements, les occupants et leurs loyers mensuels.',
+  activePage: 'tenants'
+}) %>
+
+<section class="page-toolbar">
+  <div><h2><%= tenants.length %> locataire<%= tenants.length === 1 ? '' : 's' %></h2><p><%= units.length %> logement<%= units.length === 1 ? '' : 's' %> enregistré<%= units.length === 1 ? '' : 's' %>.</p></div>
+  <div class="table-actions">
+    <button class="button button-subtle" type="button" data-modal-template="unit-create">Ajouter un logement</button>
+    <button class="button button-primary" type="button" data-modal-template="tenant-create"><span aria-hidden="true">＋</span> Ajouter un locataire</button>
+  </div>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Répertoire des locataires</h2><p>L’historique des loyers reste conservé après désactivation.</p></div></div>
+  <% if (tenants.length) { %>
+    <div class="table-wrap">
+      <table class="transactions-table">
+        <thead><tr><th>LOGEMENT</th><th>LOCATAIRE</th><th>PERSONNES</th><th>TÉLÉPHONE</th><th>ENTRÉE</th><th class="amount-cell">LOYER MENSUEL</th><th>STATUT</th><th>ACTIONS</th></tr></thead>
+        <tbody>
+          <% tenants.forEach((tenant) => { %>
+            <tr>
+              <td><strong><%= tenant.floor %> · <%= tenant.unit_label %></strong><br /><small><%= tenant.housing_type || 'Logement' %></small></td>
+              <td><%= tenant.first_name %> <%= tenant.last_name %></td>
+              <td><%= tenant.people_count %></td>
+              <td><%= tenant.phone || '—' %></td>
+              <td><%= tenant.entry_date ? formatDate(tenant.entry_date) : '—' %></td>
+              <td class="amount-cell"><strong><%= formatCurrency(tenant.monthly_rent) %></strong></td>
+              <td><span class="category-pill"><%= tenant.is_active ? 'Actif' : 'Inactif' %></span></td>
+              <td class="table-actions">
+                <button class="table-action" type="button" data-modal-template="tenant-edit-<%= tenant.id %>">Modifier</button>
+                <% if (tenant.is_active) { %><button class="table-action danger" type="button" data-modal-confirm="/tenants/<%= tenant.id %>/deactivate" data-modal-title="Désactiver ce locataire ?" data-modal-message="Son historique financier sera conservé." data-modal-submit="Désactiver" data-modal-danger="true">Désactiver</button><% } %>
+              </td>
+            </tr>
+            <template id="tenant-edit-<%= tenant.id %>">
+              <div class="modal-heading"><span class="eyebrow">RÉPERTOIRE</span><h2>Modifier le locataire</h2></div>
+              <form method="POST" action="/tenants/<%= tenant.id %>/update">
+                <div class="form-grid">
+                  <label>Logement<select name="unit_id" required><% units.forEach((unit) => { %><option value="<%= unit.id %>" <%= Number(unit.id) === Number(tenant.unit_id) ? 'selected' : '' %>><%= unit.floor %> · <%= unit.label %></option><% }) %></select></label>
+                  <label>Prénom<input name="first_name" value="<%= tenant.first_name %>" required /></label>
+                  <label>Nom<input name="last_name" value="<%= tenant.last_name %>" required /></label>
+                  <label>Nombre de personnes<input type="number" name="people_count" min="1" value="<%= tenant.people_count %>" required /></label>
+                  <label>Loyer mensuel (FCFA)<input type="number" name="monthly_rent" min="0" step="1" value="<%= tenant.monthly_rent %>" required /></label>
+                  <label>Date d’entrée<input type="date" name="entry_date" value="<%= tenant.entry_date ? String(tenant.entry_date).slice(0, 10) : '' %>" /></label>
+                  <label>Téléphone<input name="phone" value="<%= tenant.phone || '' %>" /></label>
+                </div>
+                <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer</button></div>
+              </form>
+            </template>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } else { %><div class="empty-state table-empty"><strong>Aucun locataire enregistré</strong><span>Ajoutez d’abord un logement, puis un locataire.</span></div><% } %>
+</section>
+
+<template id="unit-create">
+  <div class="modal-heading"><span class="eyebrow">LOGEMENT</span><h2>Ajouter un logement</h2></div>
+  <form method="POST" action="/units">
+    <div class="form-grid">
+      <label>Étage<select name="floor" required><% floors.forEach((floor) => { %><option value="<%= floor %>"><%= floor %></option><% }) %></select></label>
+      <label>Numéro / nom du logement<input name="label" maxlength="100" required /></label>
+      <label>Catégorie de logement<input name="housing_type" placeholder="Studio, appartement…" /></label>
+      <label>Commentaire<textarea name="notes" rows="2"></textarea></label>
+    </div>
+    <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Ajouter le logement</button></div>
+  </form>
+</template>
+
+<template id="tenant-create">
+  <div class="modal-heading"><span class="eyebrow">RÉPERTOIRE</span><h2>Ajouter un locataire</h2></div>
+  <% if (units.length) { %>
+    <form method="POST" action="/tenants">
+      <div class="form-grid">
+        <label>Logement<select name="unit_id" required><% units.forEach((unit) => { %><option value="<%= unit.id %>"><%= unit.floor %> · <%= unit.label %></option><% }) %></select></label>
+        <label>Prénom<input name="first_name" required /></label>
+        <label>Nom<input name="last_name" required /></label>
+        <label>Nombre de personnes<input type="number" name="people_count" min="1" value="1" required /></label>
+        <label>Loyer mensuel (FCFA)<input type="number" name="monthly_rent" min="0" step="1" required /></label>
+        <label>Date d’entrée<input type="date" name="entry_date" /></label>
+        <label>Téléphone<input name="phone" /></label>
+      </div>
+      <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Ajouter le locataire</button></div>
+    </form>
+  <% } else { %><p>Créez un logement avant d’ajouter un locataire.</p><div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Fermer</button></div><% } %>
+</template>
+<%- include('partials/page-end') %>

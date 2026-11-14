@@ -11,7 +11,7 @@
 
 <section class="panel-card import-guidance">
   <span class="tool-icon tool-import"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m-4 4 4-4 4 4"/><path d="M5 14v5h14v-5"/></svg></span>
-  <div><strong>Import historique 2026 avec vérification</strong><p>Seules les dépenses datées du 1er janvier au 31 août 2026 sont candidates. Les autres dates ne seront pas importées.</p></div>
+  <div><strong>Import historique à partir de 2026 avec vérification</strong><p>Les opérations datées avant le 1er janvier 2026 sont exclues. Les mois de l’année complète et les années suivantes peuvent être importés.</p></div>
 </section>
 
 <% if (!initialImportComplete) { %>
@@ -29,15 +29,32 @@
   <section class="panel-card import-latest"><div><h2>Aucun import récent</h2><p>Choisissez un fichier Excel pour commencer.</p></div></section>
 <% } %>
 
+<% if (latestReport) { %>
+  <%
+    const reportTotalBoutique = latestReport.monthly.reduce((sum, month) => sum + month.totalBoutique, 0);
+    const reportTotalOther = latestReport.monthly.reduce((sum, month) => sum + month.totalOther, 0);
+  %>
+  <section class="panel-card page-table-card">
+    <div class="panel-header"><div><h2>Rapport du dernier import</h2><p><%= latestReport.detectedCount %> lignes source reconnues : <%= latestReport.tenantCount %> locataires, <%= latestReport.rentPaymentCount %> statuts de loyer, <%= latestReport.expenseCount + latestReport.groceryCount %> dépenses/marchandises, <%= latestReport.incomeCount %> recettes, <%= latestReport.savingsCount %> soldes d’épargne mensuels et <%= latestReport.totalCount %> totaux/soldes non importés. Il reste <%= latestReport.unparsedCount %> ligne(s) inconnue(s), <%= latestReport.incompleteCount %> incomplète(s) et <%= latestReport.duplicateCount %> doublon(s).</p></div></div>
+    <div class="table-wrap"><table class="transactions-table">
+      <thead><tr><th>MOIS</th><th class="amount-cell">BOUTIQUE</th><th class="amount-cell">AUTRES DÉPENSES</th><th class="amount-cell">TOTAL GÉNÉRAL</th></tr></thead>
+      <tbody>
+        <% latestReport.monthly.forEach((month) => { %><tr><td><%= month.label %></td><td class="amount-cell"><%= formatCurrency(month.totalBoutique) %></td><td class="amount-cell"><%= formatCurrency(month.totalOther) %></td><td class="amount-cell"><strong><%= formatCurrency(month.totalGeneral) %></strong></td></tr><% }) %>
+        <tr><td><strong>TOTAL JANVIER–AOÛT</strong></td><td class="amount-cell"><strong><%= formatCurrency(reportTotalBoutique) %></strong></td><td class="amount-cell"><strong><%= formatCurrency(reportTotalOther) %></strong></td><td class="amount-cell"><strong><%= formatCurrency(reportTotalBoutique + reportTotalOther) %></strong></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+<% } %>
+
 <template id="import-create">
   <div class="modal-heading">
-    <span class="eyebrow">IMPORTATION EXCEL</span>
+    <span class="eyebrow">IMPORTATION DE DONNÉES</span>
     <h2>Sélectionner un fichier</h2>
-    <p>Formats acceptés : .xlsx et .xls. Le contenu sera prévisualisé avant import.</p>
+    <p>Formats acceptés : .xlsx, .xls et .csv. Le contenu sera prévisualisé avant import.</p>
   </div>
   <form method="POST" action="/import" enctype="multipart/form-data">
     <label>Fichier à analyser
-      <input type="file" name="file" accept=".xlsx,.xls" required />
+      <input type="file" name="file" accept=".xlsx,.xls,.csv,text/csv" required />
     </label>
     <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Analyser le fichier</button></div>
   </form>

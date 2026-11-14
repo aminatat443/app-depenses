@@ -1,0 +1,81 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Épargne',
+  pageDescription: 'Suivez les versements et retraits transférés vers l’épargne.',
+  activePage: 'savings'
+}) %>
+
+<section class="page-toolbar">
+  <div><h2>Comptes d’épargne</h2><p>L’épargne pension père est protégée, séparée des revenus et exclue du budget disponible.</p></div>
+  <div class="table-actions">
+    <button class="button button-subtle" type="button" data-modal-template="savings-account-create">Créer un compte</button>
+    <button class="button button-primary" type="button" data-modal-template="savings-transaction-create"><span aria-hidden="true">＋</span> Enregistrer un mouvement</button>
+  </div>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Réserve protégée · Épargne pension père</h2><p>Aucun déficit ni dépense courante ne peut diminuer cette réserve automatiquement. Chaque mouvement exige une confirmation explicite.</p></div></div>
+  <% const protectedAccount = accounts.find((account) => account.is_protected); %>
+  <div class="financial-summary-grid monthly-finance-grid">
+    <article class="finance-metric"><span>Montant initial · premier solde enregistré</span><strong><%= protectedAccount ? formatCurrency(protectedAccount.initial_balance || 0) : formatCurrency(0) %></strong></article>
+    <article class="finance-metric"><span>Solde actuel protégé</span><strong><%= protectedAccount ? formatCurrency(protectedAccount.balance) : formatCurrency(0) %></strong><% if (protectedAccount && protectedAccount.snapshot_month) { %><small>Dernier solde observé : <%= protectedAccount.snapshot_month %></small><% } %></article>
+  </div>
+</section>
+
+<section class="financial-summary-grid monthly-finance-grid">
+  <% accounts.filter((account) => !account.is_protected).forEach((account) => { %><article class="finance-metric"><span><%= account.name %></span><strong><%= formatCurrency(account.balance) %></strong><% if (account.snapshot_month) { %><small>Solde observé au <%= account.snapshot_month %></small><% } %></article><% }) %>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Soldes mensuels observés</h2><p>Ces instantanés ne sont pas des versements et ne modifient pas le cumul des mouvements.</p></div></div>
+  <% if (balanceSnapshots.length) { %>
+    <div class="table-wrap"><table class="transactions-table">
+      <thead><tr><th>MOIS</th><th>COMPTE</th><th>FICHIER SOURCE</th><th class="amount-cell">SOLDE OBSERVÉ (FCFA)</th></tr></thead>
+      <tbody><% balanceSnapshots.forEach((row) => { %><tr>
+        <td><%= row.month_key %></td><td><strong><%= row.account_name %></strong></td>
+        <td><%= row.source_file_name || 'Saisie manuelle' %><% if (row.source_sheet) { %><small><%= row.source_sheet %>, ligne <%= row.source_row %></small><% } %></td>
+        <td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td>
+      </tr><% }) %></tbody>
+    </table></div>
+  <% } else { %><div class="empty-state table-empty"><strong>Aucun solde mensuel importé</strong></div><% } %>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Historique des mouvements</h2><p>Les retraits ne peuvent pas dépasser le solde d’un compte.</p></div></div>
+  <% if (transactions.length) { %>
+    <div class="table-wrap"><table class="transactions-table">
+      <thead><tr><th>DATE</th><th>COMPTE</th><th>TYPE</th><th>COMMENTAIRE</th><th class="amount-cell">MONTANT</th></tr></thead>
+      <tbody><% transactions.forEach((row) => { %><tr>
+        <td class="date-cell"><%= formatDate(row.transaction_date) %></td>
+        <td><strong><%= row.account_name %></strong><% if (row.is_protected) { %><br /><small>Compte protégé</small><% } %></td>
+        <td><span class="category-pill"><%= row.transaction_type === 'deposit' ? 'Versement' : 'Retrait' %></span></td>
+        <td><%= row.comment || '—' %></td>
+        <td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td>
+      </tr><% }) %></tbody>
+    </table></div>
+  <% } else { %><div class="empty-state table-empty"><strong>Aucun mouvement d’épargne</strong><span>Créez un compte puis enregistrez un versement.</span></div><% } %>
+</section>
+
+<template id="savings-account-create">
+  <div class="modal-heading"><span class="eyebrow">ÉPARGNE</span><h2>Créer un compte d’épargne</h2></div>
+  <form method="POST" action="/savings/accounts">
+    <label>Nom du compte<input name="name" maxlength="100" required /></label>
+    <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Créer le compte</button></div>
+  </form>
+</template>
+<template id="savings-transaction-create">
+  <div class="modal-heading"><span class="eyebrow">MOUVEMENT D’ÉPARGNE</span><h2>Enregistrer un mouvement</h2></div>
+  <% if (accounts.length) { %>
+    <form method="POST" action="/savings/transactions">
+      <div class="form-grid">
+        <label>Compte<select name="account_id" required><% accounts.forEach((account) => { %><option value="<%= account.id %>"><%= account.name %><%= account.is_protected ? ' · COMPTE PROTÉGÉ' : '' %> · <%= formatCurrency(account.balance) %></option><% }) %></select></label>
+        <label>Type<select name="transaction_type" required><option value="deposit">Versement vers l’épargne</option><option value="withdrawal">Retrait de l’épargne</option></select></label>
+        <label>Date<input type="date" name="transaction_date" value="<%= new Date().toISOString().slice(0, 10) %>" required /></label>
+        <label>Montant (FCFA)<input type="number" name="amount" min="1" step="1" required /></label>
+        <label>Commentaire<input name="comment" /></label>
+      </div>
+      <label class="form-field-wide"><input type="checkbox" name="protected_confirmation" value="1" /> Je confirme volontairement tout mouvement effectué sur le compte protégé « Épargne pension père ».</label>
+      <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer le mouvement</button></div>
+    </form>
+  <% } else { %><p>Créez un compte d’épargne avant d’enregistrer un mouvement.</p><div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Fermer</button></div><% } %>
+</template>
+<%- include('partials/page-end') %>

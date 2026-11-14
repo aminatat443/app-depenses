@@ -5,19 +5,25 @@
 }) %>
 
 <section class="page-toolbar">
-  <div><h2>Opérations · <%= monthKey %></h2><p><%= expenseList.length %> dépense<%= expenseList.length > 1 ? 's' : '' %> sur la période</p></div>
+  <div><h2>Opérations · <%= monthKey %></h2><p><%= totalCount %> dépense<%= totalCount === 1 ? '' : 's' %> sur la période</p></div>
   <button class="button button-primary" type="button" data-modal-template="expense-create"><span aria-hidden="true">＋</span> Ajouter une dépense</button>
 </section>
 
+<%- include('partials/monthly-balance-summary', { finance }) %>
+
 <section class="panel-card page-filter-card">
   <form method="GET" action="/expenses" class="page-filter-form">
-    <label>Mois
-      <input type="month" name="month" value="<%= monthKey %>" />
+    <label>Mois<input type="month" name="month" value="<%= monthKey %>" /></label>
+    <label>Catégorie
+      <select name="category">
+        <option value="">Toutes les catégories</option>
+        <% categories.forEach((category) => { %><option value="<%= category.id %>" <%= selectedCategory === String(category.id) ? 'selected' : '' %>><%= category.name %></option><% }) %>
+      </select>
     </label>
     <label>Recherche
-      <input type="search" name="search" value="<%= search || '' %>" placeholder="Intitulé, description, référence" />
+      <input type="search" name="search" value="<%= search || '' %>" placeholder="Désignation, bénéficiaire, commentaire" />
     </label>
-    <button class="button button-subtle" type="submit">Filtrer les dépenses</button>
+    <button class="button button-subtle" type="submit">Filtrer</button>
   </form>
 </section>
 
@@ -29,26 +35,52 @@
   <% if (expenseList.length) { %>
     <div class="table-wrap">
       <table class="transactions-table">
-        <thead><tr><th>DATE</th><th>INTITULÉ</th><th>CATÉGORIE</th><th>RÉFÉRENCE</th><th>DESCRIPTION</th><th class="amount-cell">MONTANT</th><th></th></tr></thead>
+        <thead><tr><th>DATE</th><th>DÉSIGNATION</th><th>CATÉGORIE</th><th>BÉNÉFICIAIRE</th><th>RÉFÉRENCE</th><th class="amount-cell">MONTANT</th><th>ACTIONS</th></tr></thead>
         <tbody>
           <% expenseList.forEach((row) => { %>
             <tr>
               <td class="date-cell"><%= formatDate(row.expense_date) %></td>
               <td><strong><%= row.title %></strong></td>
               <td><span class="category-pill"><%= row.category_name %></span></td>
+              <td><%= row.beneficiary || '—' %></td>
               <td><%= row.reference || '—' %></td>
-              <td><%= row.description || '—' %></td>
               <td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td>
-              <td><button class="table-action danger" type="button" data-modal-confirm="/expenses/<%= row.id %>/delete" data-modal-title="Supprimer cette dépense ?" data-modal-message="Cette opération sera supprimée de l’historique." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button></td>
+              <td class="table-actions">
+                <button class="table-action" type="button" data-modal-template="expense-details-<%= row.id %>">Détail</button>
+                <button class="table-action" type="button" data-modal-template="expense-edit-<%= row.id %>">Modifier</button>
+                <button class="table-action danger" type="button" data-modal-confirm="/expenses/<%= row.id %>/delete" data-modal-title="Supprimer cette dépense ?" data-modal-message="Cette opération et ses justificatifs seront supprimés de l’historique." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+              </td>
             </tr>
+            <template id="expense-edit-<%= row.id %>"><%- include('partials/expense-form', { categories, expense: row }) %></template>
+            <template id="expense-details-<%= row.id %>">
+              <div class="modal-heading"><span class="eyebrow">DÉTAIL DE L’OPÉRATION</span><h2><%= row.title %></h2><p><%= row.category_name %> · <%= formatDate(row.expense_date) %></p></div>
+              <dl class="detail-list">
+                <div><dt>Montant</dt><dd><%= formatCurrency(row.amount) %></dd></div>
+                <div><dt>Mois rattaché</dt><dd><%= row.month_key || String(row.expense_date).slice(0, 7) %></dd></div>
+                <div><dt>Bénéficiaire</dt><dd><%= row.beneficiary || '—' %></dd></div>
+                <div><dt>Payé par</dt><dd><%= row.paid_by || '—' %></dd></div>
+                <div><dt>Mode de paiement</dt><dd><%= row.payment_method || '—' %></dd></div>
+                <div><dt>Référence</dt><dd><%= row.reference || '—' %></dd></div>
+                <div><dt>Commentaire</dt><dd><%= row.description || '—' %></dd></div>
+                <% if (Number(row.attachment_count) > 0) { %><div><dt>Justificatif</dt><dd><a class="text-link" href="/expenses/<%= row.id %>/receipt" target="_blank" rel="noopener">Ouvrir le fichier</a></dd></div><% } %>
+              </dl>
+              <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Fermer</button></div>
+            </template>
           <% }) %>
         </tbody>
       </table>
     </div>
+    <% if (totalCount > pageSize) { %>
+      <nav class="pagination" aria-label="Pagination">
+        <% if (page > 1) { %><a class="button button-subtle" href="/expenses?month=<%= monthKey %>&category=<%= selectedCategory %>&search=<%= encodeURIComponent(search) %>&page=<%= page - 1 %>">Précédent</a><% } %>
+        <span>Page <%= page %> / <%= Math.ceil(totalCount / pageSize) %></span>
+        <% if (page * pageSize < totalCount) { %><a class="button button-subtle" href="/expenses?month=<%= monthKey %>&category=<%= selectedCategory %>&search=<%= encodeURIComponent(search) %>&page=<%= page + 1 %>">Suivant</a><% } %>
+      </nav>
+    <% } %>
   <% } else { %>
     <div class="empty-state table-empty"><span class="empty-icon">⌁</span><strong>Aucune dépense pour ce mois</strong><span>Ajoutez une dépense ou ajustez les filtres.</span></div>
   <% } %>
 </section>
 
-<template id="expense-create"><%- include('partials/expense-form', { categories }) %></template>
+<template id="expense-create"><%- include('partials/expense-form', { categories, expense: null }) %></template>
 <%- include('partials/page-end') %>

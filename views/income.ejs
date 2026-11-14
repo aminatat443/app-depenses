@@ -1,0 +1,226 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Revenus mensuels',
+  pageDescription: 'Consultez les sommes réellement reçues pour la période sélectionnée.',
+  activePage: 'income'
+}) %>
+
+<section class="income-toolbar">
+  <div class="income-toolbar-copy">
+    <span class="eyebrow">PÉRIODE DE SUIVI</span>
+    <p>Choisissez le mois à consulter ou ajoutez une recette réellement reçue.</p>
+  </div>
+  <div class="income-toolbar-actions">
+    <form method="GET" action="/income" class="income-period-form">
+      <label for="income-month">Mois et année</label>
+      <input id="income-month" type="month" name="month" value="<%= monthKey %>" required />
+      <button class="button button-subtle" type="submit">Afficher</button>
+    </form>
+    <button class="button button-primary income-add-button" type="button" data-modal-template="income-create">
+      <span aria-hidden="true">＋</span> Ajouter un revenu
+    </button>
+  </div>
+</section>
+
+<% if (notice) { %><div class="income-notice" role="status"><span aria-hidden="true">✓</span><%= notice %></div><% } %>
+
+<section class="income-total-card" aria-label="Total des revenus encaissés">
+  <div class="income-total-copy">
+    <span class="income-card-icon" aria-hidden="true">↗</span>
+    <div>
+      <span class="eyebrow">TOTAL DES REVENUS ENCAISSÉS</span>
+      <p>Sommes effectivement reçues en <%= monthKey %></p>
+    </div>
+  </div>
+  <strong class="income-total-amount"><%= formatCurrency(finance.incomeTotal) %></strong>
+  <div class="income-total-breakdown">
+    <span>Pape <strong><%= formatCurrency(finance.papeAmount) %></strong></span>
+    <span>Pension père <strong><%= formatCurrency(finance.pensionAmount) %></strong></span>
+    <span>Loyers <strong><%= formatCurrency(finance.rentReceived) %></strong></span>
+    <span>Autres <strong><%= formatCurrency(finance.otherIncome) %></strong></span>
+  </div>
+</section>
+
+<%- include('partials/monthly-balance-summary', { finance }) %>
+
+<section class="income-source-grid" aria-label="Sources de revenus du mois">
+  <article class="income-source-card">
+    <div class="income-source-heading">
+      <span class="income-card-icon income-icon-blue" aria-hidden="true">P</span>
+      <span class="income-source-tag">SOURCE PRINCIPALE</span>
+    </div>
+    <h3>Pape</h3>
+    <strong class="income-source-amount"><%= formatCurrency(finance.papeAmount) %></strong>
+    <p class="income-source-date"><%= revenues.papeReceivedDate ? `Reçu le ${formatDate(revenues.papeReceivedDate)}` : 'Date de réception non renseignée' %></p>
+    <button class="button button-subtle income-edit-button" type="button"
+      data-modal-template="income-monthly-edit" data-income-edit-source="Pape"
+      data-income-edit-amount="<%= finance.papeAmount %>"
+      data-income-edit-date="<%= revenues.papeReceivedDate ? new Date(revenues.papeReceivedDate).toISOString().slice(0, 10) : '' %>"
+      data-income-edit-comment="<%= revenues.comment || '' %>">
+      Modifier
+    </button>
+  </article>
+
+  <article class="income-source-card">
+    <div class="income-source-heading">
+      <span class="income-card-icon income-icon-green" aria-hidden="true">P</span>
+      <span class="income-source-tag">SOURCE PRINCIPALE</span>
+    </div>
+    <h3>Pension père</h3>
+    <strong class="income-source-amount"><%= formatCurrency(finance.pensionAmount) %></strong>
+    <% if (revenues.pensionReceivedDate) { %>
+      <p class="income-source-date">Reçue le <%= formatDate(revenues.pensionReceivedDate) %></p>
+    <% } else if (!revenues.isSaved && finance.pensionAmount === 0) { %>
+      <p class="income-source-date">Préremplie à <%= formatCurrency(revenues.pensionAmount) %> lors de la saisie</p>
+    <% } else { %>
+      <p class="income-source-date">Date de réception non renseignée</p>
+    <% } %>
+    <button class="button button-subtle income-edit-button" type="button"
+      data-modal-template="income-monthly-edit" data-income-edit-source="Pension père"
+      data-income-edit-amount="<%= revenues.isSaved || finance.pensionAmount > 0 ? finance.pensionAmount : revenues.pensionAmount %>"
+      data-income-edit-date="<%= revenues.pensionReceivedDate ? new Date(revenues.pensionReceivedDate).toISOString().slice(0, 10) : '' %>"
+      data-income-edit-comment="<%= revenues.comment || '' %>">
+      Modifier
+    </button>
+  </article>
+
+  <article class="income-source-card">
+    <div class="income-source-heading">
+      <span class="income-card-icon income-icon-amber" aria-hidden="true">⌂</span>
+      <span class="income-source-tag">PAIEMENTS RÉELS</span>
+    </div>
+    <h3>Loyers encaissés</h3>
+    <strong class="income-source-amount"><%= formatCurrency(finance.rentReceived) %></strong>
+    <p class="income-source-date"><%= rentPayments.length %> paiement<%= rentPayments.length === 1 ? '' : 's' %> reçu<%= rentPayments.length === 1 ? '' : 's' %> ce mois</p>
+    <button class="button button-subtle income-edit-button" type="button"
+      data-modal-template="rent-payments-detail" <%= rentPayments.length ? '' : 'disabled' %>>
+      Voir les paiements
+    </button>
+  </article>
+
+  <article class="income-source-card">
+    <div class="income-source-heading">
+      <span class="income-card-icon income-icon-violet" aria-hidden="true">＋</span>
+      <span class="income-source-tag">RECETTES DIVERSES</span>
+    </div>
+    <h3>Autres revenus</h3>
+    <strong class="income-source-amount"><%= formatCurrency(finance.otherIncome) %></strong>
+    <p class="income-source-date"><%= incomes.length %> entrée<%= incomes.length === 1 ? '' : 's' %> enregistrée<%= incomes.length === 1 ? '' : 's' %></p>
+    <button class="button button-subtle income-edit-button" type="button" data-modal-template="income-create">
+      Ajouter une recette
+    </button>
+  </article>
+</section>
+
+<section class="panel-card income-entries-card">
+  <div class="panel-header">
+    <div><h2>Autres revenus enregistrés</h2><p>Chaque recette reste modifiable sans créer une seconde opération.</p></div>
+    <span class="income-entry-count"><%= incomes.length %> opération<%= incomes.length === 1 ? '' : 's' %></span>
+  </div>
+  <% if (incomes.length) { %>
+    <div class="income-entry-list">
+      <% incomes.forEach((income) => { %>
+        <article class="income-entry">
+          <span class="income-entry-mark" aria-hidden="true">↗</span>
+          <div class="income-entry-copy">
+            <strong><%= income.title %></strong>
+            <span><%= income.source %> · <%= income.category_name %></span>
+            <small><%= income.income_date ? formatDate(income.income_date) : 'Date non renseignée' %><%= income.comment ? ` · ${income.comment}` : '' %></small>
+          </div>
+          <strong class="income-entry-amount"><%= formatCurrency(income.amount) %></strong>
+          <div class="income-entry-actions">
+            <button class="table-action" type="button" data-modal-template="income-edit-<%= income.id %>">Modifier</button>
+            <button class="table-action danger" type="button" data-modal-confirm="/income/<%= income.id %>/delete"
+              data-modal-title="Supprimer ce revenu ?" data-modal-message="La suppression sera inscrite dans l’historique des modifications."
+              data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+          </div>
+        </article>
+        <template id="income-edit-<%= income.id %>">
+          <div class="modal-heading"><span class="eyebrow">MODIFICATION</span><h2>Modifier le revenu</h2></div>
+          <form method="POST" action="/income/<%= income.id %>/update">
+            <div class="form-grid">
+              <label>Date<input type="date" name="income_date" value="<%= income.income_date ? new Date(income.income_date).toISOString().slice(0, 10) : '' %>" required /></label>
+              <label>Mois de rattachement<input type="month" name="month_key" value="<%= income.month_key %>" required /></label>
+              <label>Désignation<input name="title" value="<%= income.title %>" required /></label>
+              <label>Catégorie<select name="category_id" required><% categories.forEach((category) => { %><option value="<%= category.id %>" <%= Number(category.id) === Number(income.category_id) ? 'selected' : '' %>><%= category.name %></option><% }) %></select></label>
+              <label>Montant (FCFA)<input type="number" name="amount" min="1" step="1" value="<%= income.amount %>" required /></label>
+              <label>Source<input name="source" value="<%= income.source %>" required /></label>
+              <label>Mode de paiement<select name="payment_method"><option value="">Non précisé</option><% ['Espèces', 'Virement', 'Mobile money', 'Chèque', 'Autre'].forEach((method) => { %><option value="<%= method %>" <%= income.payment_method === method ? 'selected' : '' %>><%= method %></option><% }) %></select></label>
+              <label>Commentaire<input name="comment" value="<%= income.comment || '' %>" /></label>
+            </div>
+            <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer</button></div>
+          </form>
+        </template>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="income-empty-state"><span class="income-empty-icon" aria-hidden="true">＋</span><strong>Aucun autre revenu pour cette période</strong><span>Ajoutez une recette ponctuelle avec le bouton en haut de page.</span></div>
+  <% } %>
+</section>
+
+<template id="income-monthly-edit">
+  <div class="modal-heading"><span class="eyebrow">REVENUS MENSUELS</span><h2 data-income-edit-title>Modifier le revenu</h2><p>Cette modification met à jour la source pour ce mois, sans créer une opération supplémentaire.</p></div>
+  <form method="POST" action="/income/monthly" data-income-monthly-form>
+    <input type="hidden" name="month_key" value="<%= monthKey %>" />
+    <input type="hidden" name="pape_amount" value="<%= finance.papeAmount %>" />
+    <input type="hidden" name="pension_amount" value="<%= finance.pensionAmount %>" />
+    <input type="hidden" name="pape_received_date" value="<%= revenues.papeReceivedDate ? new Date(revenues.papeReceivedDate).toISOString().slice(0, 10) : '' %>" />
+    <input type="hidden" name="pension_received_date" value="<%= revenues.pensionReceivedDate ? new Date(revenues.pensionReceivedDate).toISOString().slice(0, 10) : '' %>" />
+    <input type="hidden" name="comment" value="<%= revenues.comment || '' %>" />
+    <input type="hidden" name="income_source" value="" />
+    <div class="form-grid">
+      <label>Montant reçu (FCFA)<input type="number" name="amount" min="0" step="1" required /></label>
+      <label>Date de réception<input type="date" name="received_date" /></label>
+      <label class="form-field-wide">Commentaire facultatif<input name="source_comment" maxlength="1000" /></label>
+    </div>
+    <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="button button-primary">Enregistrer</button></div>
+  </form>
+</template>
+
+<template id="income-create">
+  <div class="modal-heading"><span class="eyebrow">NOUVEAU MOUVEMENT</span><h2>Ajouter un revenu</h2><p>Enregistrez uniquement les montants réellement reçus.</p></div>
+  <form method="POST" action="/income" data-income-entry-form
+    data-default-pension="<%= revenues.isSaved || finance.pensionAmount > 0 ? finance.pensionAmount : revenues.pensionAmount %>">
+    <input type="hidden" name="month_key" value="<%= monthKey %>" />
+    <input type="hidden" name="pape_amount" value="<%= finance.papeAmount %>" />
+    <input type="hidden" name="pension_amount" value="<%= finance.pensionAmount %>" />
+    <input type="hidden" name="pape_received_date" value="<%= revenues.papeReceivedDate ? new Date(revenues.papeReceivedDate).toISOString().slice(0, 10) : '' %>" />
+    <input type="hidden" name="pension_received_date" value="<%= revenues.pensionReceivedDate ? new Date(revenues.pensionReceivedDate).toISOString().slice(0, 10) : '' %>" />
+    <input type="hidden" name="income_source" value="" />
+    <label class="income-entry-type-label">Type de revenu
+      <select name="income_type" data-income-type>
+        <option value="other">Autre revenu</option>
+        <option value="pape">Pape</option>
+        <option value="pension">Pension père</option>
+      </select>
+    </label>
+    <div class="form-grid">
+      <label>Montant reçu (FCFA)<input type="number" name="amount" min="1" step="1" required /></label>
+      <label>Date de réception<input type="date" name="income_date" required /></label>
+      <label class="form-field-wide">Commentaire facultatif<input name="comment" maxlength="1000" /></label>
+    </div>
+    <div class="form-grid" data-other-income-fields>
+      <label>Désignation<input name="title" placeholder="Ex. Recette exceptionnelle" required /></label>
+      <label>Source<input name="source" placeholder="Ex. Vente, remboursement…" required /></label>
+      <label>Catégorie<select name="category_id" required><% categories.forEach((category) => { %><option value="<%= category.id %>"><%= category.name %></option><% }) %></select></label>
+      <label>Mode de paiement<select name="payment_method"><option value="">Non précisé</option><% ['Espèces', 'Virement', 'Mobile money', 'Chèque', 'Autre'].forEach((method) => { %><option value="<%= method %>"><%= method %></option><% }) %></select></label>
+    </div>
+    <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="button button-primary">Enregistrer</button></div>
+  </form>
+</template>
+
+<template id="rent-payments-detail">
+  <div class="modal-heading"><span class="eyebrow">LOYERS ENCAISSÉS · <%= monthKey %></span><h2>Détail des paiements reçus</h2><p>Seuls les versements réellement enregistrés sont affichés.</p></div>
+  <% if (rentPayments.length) { %>
+    <div class="rent-payment-list">
+      <% rentPayments.forEach((payment) => { %>
+        <article class="rent-payment-item">
+          <div><strong><%= payment.first_name %> <%= payment.last_name %></strong><span><%= payment.floor %> · <%= payment.unit_label %></span></div>
+          <div><strong><%= formatCurrency(payment.amount) %></strong><span><%= payment.payment_date ? formatDate(payment.payment_date) : 'Date non renseignée' %><%= payment.payment_method ? ` · ${payment.payment_method}` : '' %></span></div>
+        </article>
+      <% }) %>
+    </div>
+    <div class="rent-payment-total"><span>Total encaissé</span><strong><%= formatCurrency(finance.rentReceived) %></strong></div>
+  <% } else { %><div class="income-empty-state"><strong>Aucun paiement reçu pour cette période</strong></div><% } %>
+</template>
+
+<%- include('partials/page-end') %>

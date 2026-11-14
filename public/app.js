@@ -1,4 +1,54 @@
 (() => {
+  const loginForm = document.querySelector('.login-form');
+  loginForm?.addEventListener('submit', () => {
+    const button = loginForm.querySelector('.login-submit');
+    const label = loginForm.querySelector('[data-login-label]');
+    if (!button || !label) return;
+    button.disabled = true;
+    button.classList.add('is-loading');
+    label.textContent = 'Connexion en cours…';
+  });
+
+  document.querySelector('[data-toggle-password]')?.addEventListener('click', (event) => {
+    const button = event.currentTarget;
+    const password = document.getElementById('login-password');
+    if (!password) return;
+    const visible = password.type === 'password';
+    password.type = visible ? 'text' : 'password';
+    button.textContent = visible ? 'Masquer' : 'Afficher';
+    button.setAttribute('aria-label', visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+    button.setAttribute('aria-pressed', String(visible));
+  });
+
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted && document.body.dataset.privatePage === 'true') window.location.reload();
+  });
+
+  document.querySelectorAll('.transactions-table').forEach((table) => {
+    const headers = Array.from(table.querySelectorAll('thead th'), (cell) => cell.textContent.trim());
+    const rows = table.querySelectorAll('tbody tr');
+    if (headers.length) {
+      table.dataset.responsiveCards = 'true';
+      rows.forEach((row) => {
+        Array.from(row.cells).forEach((cell, index) => {
+          if (cell.tagName !== 'TH' && cell.colSpan === 1 && headers[index]) {
+            cell.dataset.label ||= headers[index];
+          }
+        });
+      });
+      return;
+    }
+
+    rows.forEach((row) => {
+      const rowHeading = row.querySelector('th')?.textContent.trim();
+      if (!rowHeading) return;
+      table.dataset.responsiveCards = 'true';
+      Array.from(row.cells).forEach((cell) => {
+        if (cell.tagName !== 'TH' && cell.colSpan === 1) cell.dataset.label ||= rowHeading;
+      });
+    });
+  });
+
   const modal = document.getElementById('app-modal');
   const modalContent = document.getElementById('modal-content');
   if (!modal || !modalContent) return;
@@ -23,7 +73,64 @@
     error.className = 'modal-error';
     error.setAttribute('role', 'alert');
     error.textContent = message;
-    openModal(error);
+    modalContent.querySelector('.modal-error')?.remove();
+    modalContent.prepend(error);
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+  };
+
+  const configureIncomeEntry = (form) => {
+    const type = form.querySelector('[data-income-type]')?.value || 'other';
+    const previousType = form.dataset.configuredIncomeType;
+    const otherFields = form.querySelector('[data-other-income-fields]');
+    const isOther = type === 'other';
+    form.action = isOther ? '/income' : '/income/monthly';
+    if (otherFields) {
+      otherFields.hidden = !isOther;
+      otherFields.querySelectorAll('input, select').forEach((field) => {
+        field.disabled = !isOther;
+      });
+    }
+
+    const amount = form.elements.namedItem('amount');
+    const date = form.elements.namedItem('income_date');
+    if (amount) amount.min = isOther ? '1' : '0';
+    if (date) date.required = isOther;
+    if (!isOther && amount && previousType !== type) {
+      const currentAmount = form.elements.namedItem(type === 'pape' ? 'pape_amount' : 'pension_amount');
+      const currentValue = Number(currentAmount?.value || 0);
+      amount.value = type === 'pension' && currentValue === 0
+        ? form.dataset.defaultPension || '180000'
+        : String(currentValue);
+      const currentDate = form.elements.namedItem(type === 'pape' ? 'pape_received_date' : 'pension_received_date');
+      date.value = currentDate?.value || '';
+    }
+    form.dataset.configuredIncomeType = type;
+  };
+
+  const prepareIncomeSubmission = (form) => {
+    if (form.matches('[data-income-entry-form]')) {
+      const type = form.querySelector('[data-income-type]')?.value || 'other';
+      if (type !== 'other') {
+        const amount = form.elements.namedItem('amount').value;
+        const date = form.elements.namedItem('income_date').value;
+        const amountField = form.elements.namedItem(type === 'pape' ? 'pape_amount' : 'pension_amount');
+        const dateField = form.elements.namedItem(type === 'pape' ? 'pape_received_date' : 'pension_received_date');
+        amountField.value = amount;
+        dateField.value = date;
+      }
+    }
+
+    if (form.matches('[data-income-monthly-form]')) {
+      const source = form.elements.namedItem('income_source').value;
+      const isPape = source === 'Pape';
+      form.elements.namedItem(isPape ? 'pape_amount' : 'pension_amount').value =
+        form.elements.namedItem('amount').value;
+      form.elements.namedItem(isPape ? 'pape_received_date' : 'pension_received_date').value =
+        form.elements.namedItem('received_date').value;
+      form.elements.namedItem('comment').value = form.elements.namedItem('source_comment').value;
+    }
   };
 
   const confirmModal = (trigger) => {
@@ -86,7 +193,12 @@
         body,
         credentials: 'same-origin',
       });
-      if (!response.ok) throw new Error(`L’action a échoué (${response.status}).`);
+      if (!response.ok) {
+        const responseText = await response.text();
+        const errorDocument = new DOMParser().parseFromString(responseText, 'text/html');
+        const message = (errorDocument.body.textContent || '').trim();
+        throw new Error(message || `L’action a échoué (${response.status}).`);
+      }
 
       if (response.redirected && new URL(response.url).pathname !== window.location.pathname) {
         const html = await response.text();
@@ -94,6 +206,11 @@
         const content = doc.querySelector('.page-content') || doc.querySelector('main');
         if (!content) throw new Error('La page demandée est indisponible.');
         openModal(content.cloneNode(true));
+        return;
+      }
+
+      if (response.redirected && new URL(response.url).href !== window.location.href) {
+        window.location.assign(response.url);
         return;
       }
 
@@ -120,6 +237,22 @@
     const template = document.getElementById(trigger.dataset.modalTemplate);
     if (template instanceof HTMLTemplateElement) {
       const content = template.content.cloneNode(true);
+      if (template.id === 'income-monthly-edit') {
+        const form = content.querySelector('[data-income-monthly-form]');
+        const source = trigger.dataset.incomeEditSource || '';
+        if (form) {
+          form.elements.namedItem('income_source').value = source;
+          form.elements.namedItem('amount').value = trigger.dataset.incomeEditAmount || '0';
+          form.elements.namedItem('received_date').value = trigger.dataset.incomeEditDate || '';
+          form.elements.namedItem('source_comment').value = trigger.dataset.incomeEditComment || '';
+          const title = content.querySelector('[data-income-edit-title]');
+          if (title) title.textContent = `Modifier ${source}`;
+        }
+      }
+      if (template.id === 'income-create') {
+        const form = content.querySelector('[data-income-entry-form]');
+        if (form) configureIncomeEntry(form);
+      }
       if (template.id === 'export-confirmation') {
         const year = document.getElementById('export-year')?.value || new Date().getFullYear();
         const heading = content.querySelector('h2');
@@ -138,7 +271,15 @@
   modalContent.addEventListener('submit', (event) => {
     if (!(event.target instanceof HTMLFormElement)) return;
     event.preventDefault();
+    prepareIncomeSubmission(event.target);
     submitModalForm(event.target);
+  });
+
+  modalContent.addEventListener('change', (event) => {
+    if (event.target.matches('[data-income-type]')) {
+      const form = event.target.closest('[data-income-entry-form]');
+      if (form) configureIncomeEntry(form);
+    }
   });
 
   document.addEventListener('keydown', (event) => {

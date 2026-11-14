@@ -20,6 +20,22 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
       <span>Dépenses du mois</span>
     </a>
+    <a class="nav-item <%= activePage === 'tenants' ? 'is-active' : '' %>" href="/tenants" <%= activePage === 'tenants' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6m2 2a5 5 0 0 1 3 5v1"/></svg>
+      <span>Locataires &amp; logements</span>
+    </a>
+    <a class="nav-item <%= activePage === 'rents' ? 'is-active' : '' %>" href="/rents" <%= activePage === 'rents' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 11h6M9 15h6"/></svg>
+      <span>Loyers &amp; paiements</span>
+    </a>
+    <a class="nav-item <%= activePage === 'income' ? 'is-active' : '' %>" href="/income" <%= activePage === 'income' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M17 7c0-2-2-3-5-3S7 5 7 7s2 3 5 4 5 2 5 4-2 4-5 4-5-2-5-4"/></svg>
+      <span>Revenus mensuels</span>
+    </a>
+    <a class="nav-item <%= activePage === 'savings' ? 'is-active' : '' %>" href="/savings" <%= activePage === 'savings' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9H4V9Z"/><path d="M4 11h16m-6 3h3"/></svg>
+      <span>Épargne</span>
+    </a>
     <a class="nav-item <%= activePage === 'groceries' ? 'is-active' : '' %>" href="/groceries" <%= activePage === 'groceries' ? 'aria-current="page"' : '' %>>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5L4 8Z"/><path d="M9 8a3 3 0 0 1 6 0M8 12v4M12 12v4M16 12v4"/></svg>
       <span>Compte boutique</span>
@@ -53,6 +69,31 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7Z"/></svg>
       <span>Paramètres · catégories</span>
     </a>
+    <form method="POST" action="/logout" class="sidebar-logout">
+      <button class="nav-item" type="submit"><span aria-hidden="true">↪</span><span>Déconnexion</span></button>
+    </form>
     <div class="sidebar-status"><span class="status-dot"></span><span>Données enregistrées localement</span></div>
   </div>
+
+  <nav class="mobile-primary-nav" aria-label="Navigation principale">
+    <a class="nav-item <%= activePage === 'overview' ? 'is-active' : '' %>" href="/" <%= activePage === 'overview' ? 'aria-current="page"' : '' %>><span>Vue</span></a>
+    <a class="nav-item <%= activePage === 'expenses' ? 'is-active' : '' %>" href="/expenses" <%= activePage === 'expenses' ? 'aria-current="page"' : '' %>><span>Dépenses</span></a>
+    <a class="nav-item <%= activePage === 'tenants' ? 'is-active' : '' %>" href="/tenants" <%= activePage === 'tenants' ? 'aria-current="page"' : '' %>><span>Locataires</span></a>
+    <a class="nav-item <%= activePage === 'rents' ? 'is-active' : '' %>" href="/rents" <%= activePage === 'rents' ? 'aria-current="page"' : '' %>><span>Loyers</span></a>
+    <a class="nav-item <%= activePage === 'income' ? 'is-active' : '' %>" href="/income" <%= activePage === 'income' ? 'aria-current="page"' : '' %>><span>Revenus</span></a>
+  </nav>
+  <details class="mobile-more-nav">
+    <summary aria-label="Autres sections">•••<span>Plus</span></summary>
+    <nav class="mobile-more-menu" aria-label="Autres sections">
+      <a href="/savings">Épargne pension père</a>
+      <a href="/groceries">Compte boutique</a>
+      <a href="/history">Historique</a>
+      <a href="/monthly">Bilans &amp; statistiques</a>
+      <a href="/import">Importation Excel</a>
+      <a href="/export">Exportation Excel</a>
+      <a href="/backup">Sauvegardes</a>
+      <a href="/categories">Paramètres · catégories</a>
+      <form method="POST" action="/logout"><button type="submit">Déconnexion</button></form>
+    </nav>
+  </details>
 </aside>

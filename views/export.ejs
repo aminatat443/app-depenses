@@ -1,28 +1,76 @@
 <%- include('partials/page-start', {
   pageTitle: 'Exportation Excel',
-  pageDescription: 'Téléchargez un classeur annuel pour conserver ou partager vos bilans.',
+  pageDescription: 'Les classeurs Excel reprennent la présentation du fichier de référence et les données de la base.',
   activePage: 'export'
 }) %>
 
 <section class="panel-card export-page-card">
   <div class="tool-icon tool-report"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M5 16v4h14v-4"/></svg></div>
   <div class="export-page-copy">
-    <span class="eyebrow">CLASSEUR ANNUEL</span>
-    <h2>Vos dépenses, organisées dans Excel.</h2>
-    <p>Le classeur rassemble les dépenses ordinaires et les achats boutique dans des feuilles mensuelles, avec un récapitulatif annuel.</p>
+    <span class="eyebrow">MODÈLE EXCEL ORIGINAL</span>
+    <h2>Retrouvez la présentation de votre classeur.</h2>
+    <p>Chaque feuille mensuelle conserve la disposition et les styles de référence, avec les montants mis à jour depuis l’application.</p>
     <div class="export-page-actions">
-      <button class="button button-primary" type="button" data-modal-template="export-confirmation">Préparer l’export <span aria-hidden="true">→</span></button>
+      <form method="GET" action="/export/<%= year %>" class="export-annual-form">
+        <%- include('partials/export-carryover-option') %>
+        <button class="button button-primary" type="submit">Télécharger l’année <%= year %></button>
+      </form>
       <a class="text-link" href="/monthly">Consulter les bilans mensuels</a>
     </div>
   </div>
 </section>
 
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Exporter un mois</h2><p>Le fichier ne contient que la feuille du mois choisi.</p></div></div>
+  <form method="GET" action="/export/month" class="export-year-form">
+    <input type="hidden" name="year" value="<%= year %>" />
+    <label class="export-year-field">Mois
+      <select name="month" required>
+        <% ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'].forEach((monthName, index) => { %>
+          <option value="<%= index + 1 %>"><%= monthName %></option>
+        <% }) %>
+      </select>
+    </label>
+    <%- include('partials/export-carryover-option') %>
+    <button class="button button-primary" type="submit">Télécharger le mois</button>
+  </form>
+</section>
+
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Exporter plusieurs mois</h2><p>Sélectionnez une ou plusieurs feuilles pour créer un classeur commun.</p></div></div>
+  <form method="GET" action="/export/months" class="export-year-form">
+    <input type="hidden" name="year" value="<%= year %>" />
+    <label class="export-year-field">Mois à inclure
+      <select name="months" multiple size="6" required>
+        <% ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'].forEach((monthName, index) => { %>
+          <option value="<%= index + 1 %>"><%= monthName %></option>
+        <% }) %>
+      </select>
+    </label>
+    <%- include('partials/export-carryover-option') %>
+    <button class="button button-primary" type="submit">Télécharger les mois sélectionnés</button>
+  </form>
+</section>
+
 <section class="panel-card export-info-card">
-  <div><h2>Année à exporter</h2><p>Le téléchargement inclura les 12 mois de l’année choisie.</p></div>
-  <label class="export-year-field">Année
-    <input id="export-year" type="number" min="2000" max="2100" value="<%= year %>" />
-  </label>
+  <div><h2>Année à exporter</h2><p>Choisissez l’année puis sélectionnez un format.</p></div>
+  <form method="GET" action="/export" class="export-year-form">
+    <label class="export-year-field">Année
+      <input id="export-year" name="year" type="number" min="2000" max="2100" value="<%= year %>" />
+    </label>
+    <button class="button button-subtle" type="submit">Choisir l’année</button>
+  </form>
 </section>
 
 <template id="export-confirmation"><%- include('partials/export-confirmation', { year }) %></template>
+<section class="panel-card page-table-card">
+  <div class="panel-header"><div><h2>Exports complémentaires</h2><p>Les fichiers CSV sont encodés pour Excel et peuvent être réimportés pour les dépenses.</p></div></div>
+  <div class="export-format-links">
+    <a class="button button-subtle" href="/export/csv/<%= year %>/expenses">Dépenses CSV</a>
+    <a class="button button-subtle" href="/export/csv/<%= year %>/groceries">Compte boutique CSV</a>
+    <a class="button button-subtle" href="/export/csv/<%= year %>/incomes">Recettes CSV</a>
+    <a class="button button-subtle" href="/export/csv/<%= year %>/rents">Loyers CSV</a>
+    <a class="button button-subtle" href="/export/pdf/year/<%= year %>">Bilan annuel PDF</a>
+  </div>
+</section>
 <%- include('partials/page-end') %>

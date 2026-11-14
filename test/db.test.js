@@ -1,95 +1,149 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const Database = require('better-sqlite3');
 
-const initialize = (dbPath) => execFileSync(
-  process.execPath,
-  ['-e', "require('./src/db').initializeDatabase()"],
-  { cwd: path.join(__dirname, '..'), env: { ...process.env, DB_PATH: dbPath } },
-);
+delete process.env.DATABASE_URL;
+process.env.PGHOST = '/var/run/postgresql';
+process.env.PGUSER = 'root';
+process.env.PGDATABASE = 'app_depenses_db_test';
 
-test('initializeDatabase adds the source column to legacy backup tables', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'app-depenses-db-'));
-  const dbPath = path.join(directory, 'app.db');
-  const legacyDb = new Database(dbPath);
-  legacyDb.exec(`
-    CREATE TABLE backup_runs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      file_name TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      storage TEXT NOT NULL DEFAULT 'local',
-      status TEXT NOT NULL DEFAULT 'done',
-      metadata TEXT
-    );
-    INSERT INTO backup_runs (file_name) VALUES ('existing.db');
-  `);
-  legacyDb.close();
+const { db, initializeDatabase } = require('../src/db');
 
+test('PostgreSQL schema initialization is repeatable and retains grocery detail flags', async () => {
+  await initializeDatabase();
+  await initializeDatabase();
+
+  const columns = await db.prepare(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'grocery_items'
+  `).all();
+  assert.ok(columns.some((column) => column.column_name === 'quantity_known'));
+  assert.ok(columns.some((column) => column.column_name === 'unit_price_known'));
+  const rentColumns = await db.prepare(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'rent_payments'
+  `).all();
+  assert.ok(rentColumns.some((column) => column.column_name === 'received_month_key'));
+  const revenueColumns = await db.prepare(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'monthly_revenues'
+  `).all();
+  assert.ok(revenueColumns.some((column) => column.column_name === 'pape_received_date'));
+  assert.ok(revenueColumns.some((column) => column.column_name === 'pension_received_date'));
+  const protectedAccounts = await db.prepare(`
+    SELECT id FROM savings_accounts WHERE is_protected = TRUE
+  `).all();
+  assert.equal(protectedAccounts.length, 1);
+
+  const inserted = await db.prepare(`
+    INSERT INTO grocery_items (item_name, purchase_date, quantity, unit_price, total_amount)
+    VALUES ('Test postgres', '2026-01-05', 2, 2500, 5000)
+  `).run();
   try {
-    initialize(dbPath);
-    const migratedDb = new Database(dbPath);
-    try {
-      const columns = migratedDb.prepare('PRAGMA table_info(backup_runs)').all();
-      assert.ok(columns.some((column) => column.name === 'source'));
-      assert.deepEqual(
-        migratedDb.prepare('SELECT file_name, source FROM backup_runs').get(),
-        { file_name: 'existing.db', source: 'manual' },
-      );
-    } finally {
-      migratedDb.close();
-    }
+    const grocery = await db.prepare(`
+      SELECT item_name, quantity, unit_price, total_amount, quantity_known, unit_price_known
+      FROM grocery_items WHERE id = ?
+    `).get(inserted.lastInsertRowid);
+    assert.deepEqual(grocery, {
+      item_name: 'Test postgres',
+      quantity: 2,
+      unit_price: 2500,
+      total_amount: 5000,
+      quantity_known: 1,
+      unit_price_known: 1,
+    });
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    await db.prepare('DELETE FROM grocery_items WHERE id = ?').run(inserted.lastInsertRowid);
   }
 });
 
-test('initializeDatabase preserves legacy groceries and marks their detail fields as known', () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'app-depenses-grocery-db-'));
-  const dbPath = path.join(directory, 'app.db');
-  const legacyDb = new Database(dbPath);
-  legacyDb.exec(`
-    CREATE TABLE grocery_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      item_name TEXT NOT NULL,
-      purchase_date TEXT NOT NULL,
-      quantity REAL NOT NULL,
-      unit TEXT,
-      unit_price REAL NOT NULL,
-      total_amount REAL NOT NULL,
-      notes TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-    INSERT INTO grocery_items (item_name, purchase_date, quantity, unit_price, total_amount)
-    VALUES ('Riz', '2026-01-05', 2, 2500, 5000);
-  `);
-  legacyDb.close();
+test('legacy Pape and pension records are backfilled once without deleting their history', async () => {
+  await db.prepare("DELETE FROM settings WHERE key = 'monthly_revenues_backfill_v1'").run();
+  await db.prepare(`
+    INSERT INTO income_categories (name) VALUES ('Pape'), ('Pension père')
+    ON CONFLICT (name) DO NOTHING
+  `).run();
+  const categories = await db.prepare(`
+    SELECT id, name FROM income_categories WHERE name IN ('Pape', 'Pension père')
+  `).all();
+  const papeCategory = categories.find((category) => category.name === 'Pape');
+  const pensionCategory = categories.find((category) => category.name === 'Pension père');
+  const pape = await db.prepare(`
+    INSERT INTO incomes (income_date, title, category_id, amount, source, month_key)
+    VALUES ('2026-03-03', 'Pape historique', ?, 350000, 'Pape', '2026-03')
+  `).run(papeCategory.id);
+  const pension = await db.prepare(`
+    INSERT INTO incomes (income_date, title, category_id, amount, source, month_key)
+    VALUES ('2026-03-05', 'Pension historique', ?, 180000, 'Pension père', '2026-03')
+  `).run(pensionCategory.id);
 
   try {
-    initialize(dbPath);
-    const migratedDb = new Database(dbPath);
-    try {
-      const columns = migratedDb.prepare('PRAGMA table_info(grocery_items)').all();
-      assert.ok(columns.some((column) => column.name === 'quantity_known'));
-      assert.ok(columns.some((column) => column.name === 'unit_price_known'));
-      assert.deepEqual(
-        migratedDb.prepare('SELECT item_name, quantity, unit_price, total_amount, quantity_known, unit_price_known FROM grocery_items').get(),
-        {
-          item_name: 'Riz',
-          quantity: 2,
-          unit_price: 2500,
-          total_amount: 5000,
-          quantity_known: 1,
-          unit_price_known: 1,
-        },
-      );
-    } finally {
-      migratedDb.close();
-    }
+    await initializeDatabase();
+    const revenue = await db.prepare(`
+      SELECT * FROM monthly_revenues WHERE month_key = '2026-03'
+    `).get();
+    assert.equal(Number(revenue.pape_amount), 350000);
+    assert.equal(revenue.pape_received_date, '2026-03-03');
+    assert.equal(Number(revenue.pension_amount), 180000);
+    assert.equal(revenue.pension_received_date, '2026-03-05');
+    const retained = await db.prepare(`
+      SELECT COUNT(*) AS count FROM incomes WHERE id IN (?, ?)
+    `).get(pape.lastInsertRowid, pension.lastInsertRowid);
+    assert.equal(Number(retained.count), 2);
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    await db.prepare("DELETE FROM monthly_revenues WHERE month_key = '2026-03'").run();
+    await db.prepare('DELETE FROM incomes WHERE id IN (?, ?)').run(pape.lastInsertRowid, pension.lastInsertRowid);
+    await db.prepare(`
+      UPDATE settings SET value = 'done:0' WHERE key = 'monthly_revenues_backfill_v1'
+    `).run();
   }
+});
+
+test('imported rents move to the prior obligation month while preserving their cash month', async () => {
+  const migrationDb = db;
+  const initialize = initializeDatabase;
+  await migrationDb.prepare("DELETE FROM settings WHERE key = 'rent_sheet_previous_month_v1'").run();
+  const unit = await migrationDb.prepare(`
+    INSERT INTO units (floor, label) VALUES ('Rez-de-chaussée', 'MIGRATION-TEST') RETURNING id
+  `).get();
+  const tenant = await migrationDb.prepare(`
+    INSERT INTO tenants (unit_id, first_name, last_name, monthly_rent)
+    VALUES (?, 'Migration', 'Test', 15000) RETURNING id
+  `).get(unit.id);
+  const obligation = await migrationDb.prepare(`
+    INSERT INTO rent_obligations (tenant_id, month_key, expected_amount)
+    VALUES (?, '2026-02', 15000) RETURNING id
+  `).get(tenant.id);
+  await migrationDb.prepare(`
+    INSERT INTO rent_payments (obligation_id, amount, payment_date, comment)
+    VALUES (?, 15000, NULL, 'Statut source : Payé (Février, ligne 3). Date absente du classeur.')
+  `).run(obligation.id);
+
+  try {
+    await initialize();
+    const updatedObligation = await migrationDb.prepare(`
+      SELECT month_key FROM rent_obligations WHERE id = ?
+    `).get(obligation.id);
+    const payment = await migrationDb.prepare(`
+      SELECT received_month_key FROM rent_payments WHERE obligation_id = ?
+    `).get(obligation.id);
+    assert.equal(updatedObligation.month_key, '2026-01');
+    assert.equal(payment.received_month_key, '2026-02');
+    assert.equal(Number((await migrationDb.prepare(`
+      SELECT COUNT(*) AS count FROM audit_log
+      WHERE entity_type = 'rent_obligation' AND entity_id = ? AND action = 'period_corrected'
+    `).get(String(obligation.id))).count), 1);
+  } finally {
+    await migrationDb.prepare('DELETE FROM rent_payments WHERE obligation_id = ?').run(obligation.id);
+    await migrationDb.prepare('DELETE FROM rent_obligations WHERE id = ?').run(obligation.id);
+    await migrationDb.prepare('DELETE FROM tenants WHERE id = ?').run(tenant.id);
+    await migrationDb.prepare('DELETE FROM units WHERE id = ?').run(unit.id);
+    await migrationDb.prepare(`
+      DELETE FROM audit_log WHERE entity_type = 'rent_obligation' AND entity_id = ?
+    `).run(String(obligation.id));
+    await migrationDb.prepare("UPDATE settings SET value = 'done:1' WHERE key = 'rent_sheet_previous_month_v1'").run();
+  }
+});
+
+test.after(async () => {
+  await db.close();
 });

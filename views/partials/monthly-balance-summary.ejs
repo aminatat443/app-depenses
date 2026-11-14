@@ -1,0 +1,7 @@
+<section class="financial-summary-grid monthly-balance-summary" aria-label="Récapitulatif financier <%= finance.monthKey %>">
+  <article class="finance-metric"><span>Revenus du mois</span><strong><%= formatCurrency(finance.incomeTotal) %></strong></article>
+  <article class="finance-metric"><span>Report du mois précédent</span><strong><%= formatCurrency(finance.openingBalance) %></strong></article>
+  <article class="finance-metric"><span>Total des ressources disponibles</span><strong><%= formatCurrency(finance.resourcesAvailable) %></strong></article>
+  <article class="finance-metric"><span>Dépenses du mois</span><strong><%= formatCurrency(finance.totalExpenses) %></strong></article>
+  <article class="finance-metric finance-closing"><span>Restant final du mois</span><strong class="<%= finance.closingBalance < 0 ? 'is-negative' : '' %>"><%= formatCurrency(finance.closingBalance) %></strong></article>
+</section>

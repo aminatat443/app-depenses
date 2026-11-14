@@ -1,9 +1,24 @@
 <div class="modal-heading">
-  <span class="eyebrow">EXPORT ANNUEL</span>
-  <h2>Exporter le bilan <%= year %></h2>
-  <p>Le fichier Excel contiendra les opérations mensuelles et le récapitulatif annuel.</p>
+  <span class="eyebrow"><%= typeof month === 'number' ? 'EXPORT MENSUEL' : 'EXPORT ANNUEL' %></span>
+  <h2>Exporter le bilan <%= typeof month === 'number' ? `${year}-${String(month).padStart(2, '0')}` : year %></h2>
+  <p>Choisissez le format de fichier à télécharger.</p>
 </div>
-<div class="modal-actions">
-  <button type="button" class="secondary-btn" data-close-modal>Annuler</button>
-  <a class="button button-primary" href="/export/<%= year %>">Télécharger le fichier Excel</a>
-</div>
+<% if (typeof month === 'number') { %>
+  <form method="GET" action="/export/month/<%= year %>/<%= month %>" class="export-option-form">
+    <%- include('export-carryover-option') %>
+    <div class="modal-actions">
+      <button type="button" class="secondary-btn" data-close-modal>Annuler</button>
+      <a class="button button-subtle" href="/export/pdf/month/<%= year %>/<%= month %>">PDF mensuel</a>
+      <button class="button button-primary" type="submit">Excel mensuel</button>
+    </div>
+  </form>
+<% } else { %>
+  <form method="GET" action="/export/<%= year %>" class="export-option-form">
+    <%- include('export-carryover-option') %>
+    <div class="modal-actions">
+      <button type="button" class="secondary-btn" data-close-modal>Annuler</button>
+      <a class="button button-subtle" href="/export/pdf/year/<%= year %>">PDF annuel</a>
+      <button class="button button-primary" type="submit">Excel annuel</button>
+    </div>
+  </form>
+<% } %>

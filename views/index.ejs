@@ -3,77 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f5f7f2" />
+    <meta name="theme-color" content="#f4f7fb" />
     <title>Vue d’ensemble · Maison</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="app-shell">
     <div class="app-frame">
-      <aside class="sidebar" aria-label="Navigation principale">
-        <a class="brand" href="/" aria-label="Maison, vue d’ensemble">
-          <span class="brand-mark">M</span>
-          <span class="brand-copy"><strong>Maison</strong><small>GESTION FAMILIALE</small></span>
-        </a>
-
-        <div class="household-switch">
-          <span class="avatar">M</span>
-          <span><strong>Notre foyer</strong><small>Compte familial</small></span>
-          <span class="switch-chevron" aria-hidden="true">⌄</span>
-        </div>
-
-        <nav class="side-nav">
-          <span class="nav-caption">ESPACE MAISON</span>
-          <a class="nav-item is-active" href="/" aria-current="page">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
-            <span>Vue d’ensemble</span>
-          </a>
-          <a class="nav-item" href="/expenses">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
-            <span>Dépenses du mois</span>
-          </a>
-          <a class="nav-item" href="/groceries">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5L4 8Z"/><path d="M9 8a3 3 0 0 1 6 0M8 12v4M12 12v4M16 12v4"/></svg>
-            <span>Compte boutique</span>
-          </a>
-          <a class="nav-item" href="/history">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h15M15 4l4 3-4 3M20 17H5m4-3-4 3 4 3"/></svg>
-            <span>Historique</span>
-          </a>
-          <a class="nav-item" href="/monthly">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 6-7"/></svg>
-            <span>Bilans &amp; statistiques</span>
-          </a>
-
-          <span class="nav-caption nav-caption-secondary">OUTILS</span>
-          <a class="nav-item" href="/import">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m-4 4 4-4 4 4"/><path d="M5 14v5h14v-5"/></svg>
-            <span>Importation Excel</span>
-          </a>
-          <a class="nav-item" href="/export">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m4-4-4 4-4-4"/><path d="M5 16v4h14v-4"/></svg>
-            <span>Exportation Excel</span>
-          </a>
-          <a class="nav-item" href="/backup">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 2.8 7.7 7 10 4.2-2.3 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
-            <span>Sauvegardes</span>
-          </a>
-        </nav>
-
-        <div class="sidebar-bottom">
-          <a class="nav-item" href="/categories">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7Z"/></svg>
-            <span>Paramètres · catégories</span>
-          </a>
-          <div class="sidebar-status"><span class="status-dot"></span><span>Données enregistrées localement</span></div>
-        </div>
-      </aside>
+      <%- include('partials/sidebar', { activePage: 'overview' }) %>
 
       <main class="main-area">
         <header class="page-header">
           <div class="page-heading">
             <div class="eyebrow">MAISON / VUE D’ENSEMBLE</div>
-            <h1>Les dépenses du foyer, en clair.</h1>
-            <p>Un aperçu simple des achats et dépenses de la maison.</p>
+            <h1>Votre foyer, en équilibre.</h1>
+            <p>La situation financière de <%= dashboard.monthLabel %>, en un coup d’œil.</p>
           </div>
           <div class="header-tools">
             <form class="search-form" id="dashboard-search" role="search">
@@ -96,33 +39,43 @@
           </div>
         </header>
 
-        <section class="summary-grid" aria-label="Résumé du mois">
-          <article class="metric-card metric-featured">
-            <div class="metric-heading"><span>Dépenses totales du mois</span><span class="metric-icon">↗</span></div>
-            <div class="metric-value"><%= formatCurrency(dashboard.currentMonthTotal) %></div>
-            <div class="metric-foot"><span><%= dashboard.monthLabel %></span><span class="trend-note <%= dashboard.monthDelta > 0 ? 'is-up' : 'is-down' %>"><%= dashboard.monthDelta > 0 ? '↑' : '↓' %> <%= formatCurrency(Math.abs(dashboard.monthDelta)) %> vs mois précédent</span></div>
+        <section class="summary-grid dashboard-kpis" aria-label="Indicateurs financiers du mois">
+          <article class="metric-card metric-income">
+            <div class="metric-heading"><span>Revenus encaissés</span><span class="metric-icon">↗</span></div>
+            <div class="metric-value"><%= formatCurrency(finance.incomeTotal) %></div>
+            <div class="metric-foot"><span>Hors épargne protégée</span><a href="/income?month=<%= finance.monthKey %>">Détail →</a></div>
           </article>
-          <article class="metric-card">
-            <div class="metric-heading"><span>Compte boutique</span><span class="metric-icon icon-soft-green">⌂</span></div>
-            <div class="metric-value"><%= formatCurrency(dashboard.groceryTotal) %></div>
-            <div class="metric-foot"><span>Achats et ravitaillements</span><a href="/groceries">Voir le compte <span aria-hidden="true">→</span></a></div>
+          <article class="metric-card metric-expense">
+            <div class="metric-heading"><span>Dépenses du mois</span><span class="metric-icon">↘</span></div>
+            <div class="metric-value"><%= formatCurrency(finance.totalExpenses) %></div>
+            <div class="metric-foot"><span><%= dashboard.operationCount %> opérations</span><a href="/expenses">Détail →</a></div>
           </article>
-          <article class="metric-card">
-            <div class="metric-heading"><span>Autres dépenses</span><span class="metric-icon icon-soft-coral">↗</span></div>
-            <div class="metric-value"><%= formatCurrency(dashboard.otherExpenses) %></div>
-            <div class="metric-foot"><span>Factures, services, autres</span><a href="/expenses">Voir le détail <span aria-hidden="true">→</span></a></div>
+          <article class="metric-card metric-balance">
+            <div class="metric-heading"><span>Solde disponible</span><span class="metric-icon">◈</span></div>
+            <div class="metric-value <%= finance.closingBalance < 0 ? 'is-negative' : '' %>"><%= formatCurrency(finance.closingBalance) %></div>
+            <div class="metric-foot"><span>Report précédent : <%= formatCurrency(finance.openingBalance) %></span><a href="/monthly?year=<%= finance.monthKey.slice(0, 4) %>&month=<%= Number(finance.monthKey.slice(5, 7)) %>">Voir le bilan →</a></div>
           </article>
-          <article class="metric-card">
-            <div class="metric-heading"><span>Opérations du mois</span><span class="metric-icon icon-soft-blue">≋</span></div>
-            <div class="metric-value"><%= dashboard.operationCount %></div>
-            <div class="metric-foot"><span>Sur la période sélectionnée</span><a href="/history">Consulter l’historique <span aria-hidden="true">→</span></a></div>
+          <article class="metric-card metric-rent">
+            <div class="metric-heading"><span>Loyers encaissés</span><span class="metric-icon">⌂</span></div>
+            <div class="metric-value"><%= formatCurrency(finance.rentReceived) %></div>
+            <div class="metric-foot"><span>Sur <%= formatCurrency(finance.rentExpected) %> attendus</span><a href="/rents?month=<%= finance.monthKey %>">Suivi →</a></div>
+          </article>
+          <article class="metric-card metric-arrears">
+            <div class="metric-heading"><span>Loyers impayés</span><span class="metric-icon">!</span></div>
+            <div class="metric-value"><%= formatCurrency(finance.rentOutstanding) %></div>
+            <div class="metric-foot"><span>Reste à percevoir</span><a href="/rents?month=<%= finance.monthKey %>">Voir les loyers →</a></div>
+          </article>
+          <article class="metric-card metric-savings">
+            <div class="metric-heading"><span>Épargne pension père</span><span class="metric-icon">▣</span></div>
+            <div class="metric-value"><%= formatCurrency(finance.protectedSavingsBalance) %></div>
+            <div class="metric-foot"><span>Réserve protégée · hors solde</span><a href="/savings">Historique →</a></div>
           </article>
         </section>
 
         <section class="middle-grid">
           <article class="panel-card chart-panel">
             <div class="panel-header">
-              <div><h2>Évolution des dépenses</h2><p>Compte boutique et dépenses ordinaires</p></div>
+              <div><h2>Revenus et dépenses</h2><p>Montants réellement enregistrés sur la période</p></div>
               <div class="period-switch" aria-label="Période du graphique">
                 <% [3, 6, 12].forEach((period) => { %>
                   <a class="<%= dashboard.period === period ? 'is-selected' : '' %>" href="/?month=<%= dashboard.monthKey %>&period=<%= period %>" <%= dashboard.period === period ? 'aria-current="true"' : '' %>><%= period %>M</a>
@@ -130,25 +83,25 @@
               </div>
             </div>
             <div class="chart-legend">
-              <span><i class="legend-dot legend-grocery"></i>Compte boutique</span>
-              <span><i class="legend-dot legend-expense"></i>Autres dépenses</span>
+              <span><i class="legend-dot legend-income"></i>Revenus encaissés</span>
+              <span><i class="legend-dot legend-expense"></i>Dépenses enregistrées</span>
               <span class="chart-unit">Montants en FCFA</span>
             </div>
-            <div class="bar-chart" role="img" aria-label="Comparaison mensuelle des dépenses sur <%= dashboard.period %> mois">
+            <div class="bar-chart" role="img" aria-label="Comparaison mensuelle des revenus et dépenses sur <%= dashboard.period %> mois">
               <div class="chart-scale" aria-hidden="true">
-                <% if (dashboard.trendMax <= 1) { %>
+                <% if (dashboard.financialTrendMax <= 1) { %>
                   <span>—</span><span>—</span><span>—</span><span>0</span>
                 <% } else { %>
-                  <span><%= formatCurrency(dashboard.trendMax) %></span><span><%= formatCurrency(dashboard.trendMax * 0.66) %></span><span><%= formatCurrency(dashboard.trendMax * 0.33) %></span><span>0</span>
+                  <span><%= formatCurrency(dashboard.financialTrendMax) %></span><span><%= formatCurrency(dashboard.financialTrendMax * 0.66) %></span><span><%= formatCurrency(dashboard.financialTrendMax * 0.33) %></span><span>0</span>
                 <% } %>
               </div>
               <div class="chart-plot" style="--chart-columns:<%= dashboard.period %>">
                 <div class="chart-grid-lines" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-                <% dashboard.trend.forEach((item) => { %>
+                <% dashboard.financialTrend.forEach((item) => { %>
                   <div class="chart-month">
                     <div class="bar-pair">
-                      <span class="chart-bar bar-grocery" title="Compte boutique : <%= formatCurrency(item.groceries) %>" style="--bar-height:<%= item.groceries ? Math.max(2, (item.groceries / dashboard.trendMax) * 100) : 0 %>%"></span>
-                      <span class="chart-bar bar-expense" title="Autres dépenses : <%= formatCurrency(item.expenses) %>" style="--bar-height:<%= item.expenses ? Math.max(2, (item.expenses / dashboard.trendMax) * 100) : 0 %>%"></span>
+                      <span class="chart-bar bar-income" title="Revenus encaissés : <%= formatCurrency(item.income) %>" style="--bar-height:<%= item.income ? Math.max(2, (item.income / dashboard.financialTrendMax) * 100) : 0 %>%"></span>
+                      <span class="chart-bar bar-expense" title="Dépenses enregistrées : <%= formatCurrency(item.expenses) %>" style="--bar-height:<%= item.expenses ? Math.max(2, (item.expenses / dashboard.financialTrendMax) * 100) : 0 %>%"></span>
                     </div>
                     <span class="chart-month-label"><%= item.label %></span>
                   </div>
@@ -156,7 +109,7 @@
               </div>
             </div>
             <div class="chart-foot">
-              <span>Les montants sont calculés à partir des opérations enregistrées.</span>
+              <span>L’épargne pension père reste exclue des revenus disponibles.</span>
               <a href="/monthly?year=<%= dashboard.year %>">Voir le bilan <span aria-hidden="true">→</span></a>
             </div>
           </article>
@@ -179,27 +132,48 @@
               <div class="empty-state"><span class="empty-icon">⌁</span><strong>Aucune dépense par catégorie</strong><span>Les opérations apparaîtront ici.</span></div>
             <% } %>
             <div class="panel-total"><span>Total des dépenses ordinaires</span><strong><%= formatCurrency(dashboard.categoryTotal) %></strong></div>
+            <details class="source-breakdown">
+              <summary><span>Revenus par source</span><span>Voir la répartition</span></summary>
+              <% const incomeSources = [
+                { label: 'Pape', amount: finance.papeAmount },
+                { label: 'Pension du père', amount: finance.pensionAmount },
+                { label: 'Loyers encaissés', amount: finance.rentReceived },
+                { label: 'Autres revenus', amount: finance.otherIncome },
+              ].filter((source) => Number(source.amount) > 0); %>
+              <% if (incomeSources.length) { %>
+                <div class="source-breakdown-list">
+                  <% incomeSources.forEach((source) => { %>
+                    <div class="source-breakdown-item">
+                      <div><span><%= source.label %></span><strong><%= formatCurrency(source.amount) %></strong></div>
+                      <span class="source-breakdown-track"><i style="--source-width:<%= (source.amount / finance.incomeTotal) * 100 %>%"></i></span>
+                    </div>
+                  <% }) %>
+                </div>
+              <% } else { %>
+                <p class="source-breakdown-empty">Aucun revenu encaissé pour ce mois.</p>
+              <% } %>
+            </details>
           </article>
 
-          <article class="panel-card grocery-panel">
+          <article class="panel-card balance-panel">
             <div class="panel-header">
-              <div><h2>Compte boutique</h2><p><%= dashboard.groceryCount %> ravitaillement<%= dashboard.groceryCount > 1 ? 's' : '' %> ce mois-ci</p></div>
-              <a class="quiet-link" href="/groceries" aria-label="Ouvrir le compte boutique">→</a>
+              <div><h2>Évolution du solde</h2><p>Après dépenses, épargne suivie séparément</p></div>
+              <a class="quiet-link" href="/monthly?year=<%= dashboard.year %>" aria-label="Consulter le bilan annuel">→</a>
             </div>
-            <div class="grocery-total">
-              <span>Total du mois</span>
-              <strong><%= formatCurrency(dashboard.groceryTotal) %></strong>
-            </div>
-            <% if (dashboard.groceryItems.length) { %>
-              <ul class="grocery-list">
-                <% dashboard.groceryItems.slice(0, 3).forEach((item) => { %>
-                  <li><span><strong><%= item.item_name %></strong><small><%= formatDate(item.purchase_date) %><% if (item.quantity) { %> · <%= item.quantity %> <%= item.unit || '' %><% } %></small></span><strong><%= formatCurrency(item.total_amount) %></strong></li>
+            <% if (dashboard.financialTrend.some((item) => item.closingBalance !== 0)) { %>
+              <div class="balance-chart" role="img" aria-label="Solde disponible en fin de mois sur <%= dashboard.period %> mois">
+                <% dashboard.financialTrend.forEach((item) => { %>
+                  <div class="balance-month">
+                    <span class="balance-value"><%= formatCurrency(item.closingBalance) %></span>
+                    <span class="balance-track" title="<%= item.label %> : <%= formatCurrency(item.closingBalance) %>"><i class="<%= item.closingBalance < 0 ? 'is-negative' : '' %>" style="--balance-height:<%= item.closingBalance ? Math.max(3, (Math.abs(item.closingBalance) / dashboard.balanceTrendMaxAbs) * 100) : 2 %>%"></i></span>
+                    <span class="chart-month-label"><%= item.label %></span>
+                  </div>
                 <% }) %>
-              </ul>
+              </div>
             <% } else { %>
-              <div class="empty-state empty-compact"><strong>Aucun ravitaillement ce mois-ci</strong><span>Ajoutez un achat pour le suivre ici.</span></div>
+              <div class="empty-state empty-compact"><strong>Aucun solde disponible sur cette période</strong><span>Les soldes apparaîtront à mesure que les opérations seront enregistrées.</span></div>
             <% } %>
-            <a class="button button-subtle button-full" href="/groceries">Ouvrir le compte boutique</a>
+            <div class="balance-note">Les reports de mois précédents sont inclus.</div>
           </article>
         </section>
 
@@ -253,11 +227,11 @@
       </main>
     </div>
 
-    <template id="expense-create"><%- include('partials/expense-form', { categories }) %></template>
+    <template id="expense-create"><%- include('partials/expense-form', { categories, expense: null }) %></template>
     <div id="app-modal" class="app-modal" aria-hidden="true">
       <div class="modal-backdrop" data-close-modal="true"></div>
       <div class="modal-panel" role="dialog" aria-modal="true" aria-label="Page de l’application">
-        <button class="close-modal" aria-label="Fermer">×</button>
+        <button class="close-modal" type="button" aria-label="Fermer" data-close-modal>×</button>
         <div id="modal-content"></div>
       </div>
     </div>

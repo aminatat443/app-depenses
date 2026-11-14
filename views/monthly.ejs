@@ -31,6 +31,23 @@
   <article class="metric-card metric-featured"><div class="metric-heading"><span>Total général</span></div><div class="metric-value"><%= formatCurrency(totalGeneral) %></div><div class="metric-foot"><span><%= monthLabel %></span></div></article>
 </section>
 
+<%- include('partials/monthly-balance-summary', { finance }) %>
+
+<section class="financial-summary-grid monthly-context-grid" aria-label="Autres indicateurs mensuels">
+  <article class="finance-metric"><span>Loyers attendus / impayés</span><strong><%= formatCurrency(finance.rentExpected) %> / <%= formatCurrency(finance.rentOutstanding) %></strong></article>
+  <article class="finance-metric"><span>Épargne cumulée</span><strong><%= formatCurrency(finance.savingsBalance) %></strong><small>Versements : <%= formatCurrency(finance.savingsDeposits) %></small></article>
+</section>
+
+<section class="panel-card balance-correction-card">
+  <div><h2>Correction du solde reporté</h2><p>Une correction est historisée et s’applique à partir de ce mois.</p></div>
+  <form method="POST" action="/balances/adjustment">
+    <input type="hidden" name="month_key" value="<%= finance.monthKey %>" />
+    <label>Nouveau solde initial (FCFA)<input type="number" step="1" name="opening_balance" value="<%= finance.openingBalance %>" required /></label>
+    <label>Motif de la correction<input type="text" name="reason" maxlength="500" required /></label>
+    <button class="button button-subtle" type="submit">Enregistrer la correction</button>
+  </form>
+</section>
+
 <section class="report-tables">
   <article class="panel-card page-table-card">
     <div class="panel-header"><div><h2>Dépenses ordinaires</h2><p><%= monthlyOther.length %> opération<%= monthlyOther.length > 1 ? 's' : '' %>.</p></div></div>
@@ -52,5 +69,5 @@
   </article>
 </section>
 
-<template id="monthly-export"><%- include('partials/export-confirmation', { year }) %></template>
+<template id="monthly-export"><%- include('partials/export-confirmation', { year, month }) %></template>
 <%- include('partials/page-end') %>

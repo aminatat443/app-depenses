@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "node --watch src/app.js",
+    "create-admin": "node scripts/create-admin.js",
+    "migrate:sqlite": "node src/migrate-sqlite-to-postgres.js",
     "test": "node --test"
   },
   "keywords": [],
@@ -14,10 +16,14 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1168.0",
     "better-sqlite3": "^13.1.1",
+    "csv-parse": "^7.0.3",
     "dotenv": "^18.0.10",
     "ejs": "^7.0.2",
+    "exceljs": "^4.4.0",
     "express": "^5.3.0",
     "multer": "^2.5.0",
-    "xlsx": "^0.18.5"
+    "pdfkit": "^0.20.2",
+    "pg": "^8.23.1",
+    "xlsx-js-style": "^1.2.0"
   }
 }
