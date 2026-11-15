@@ -309,9 +309,11 @@
     modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
     syncPageScrollLock();
-    const initialFocus = modalContent.querySelector(
-      'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
-    ) || modal.querySelector('.close-modal');
+    const initialFocus = modalContent.querySelector('[data-modal-initial-focus]')
+      || modalContent.querySelector(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+      )
+      || modal.querySelector('.close-modal');
     initialFocus?.focus();
   };
 
