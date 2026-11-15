@@ -20,6 +20,6 @@
             <h1><%= pageTitle %></h1>
             <p><%= pageDescription %></p>
           </div>
-          <%- include('global-search') %>
+          <%- include('global-search', { isDashboard: activePage === 'overview' }) %>
         </header>
         <div class="page-content">

@@ -22,7 +22,7 @@
             <p>La situation financière de <%= dashboard.monthLabel %>, en un coup d’œil.</p>
           </div>
           <div class="header-tools">
-            <%- include('partials/global-search') %>
+            <%- include('partials/global-search', { isDashboard: true }) %>
             <a class="button button-outline export-button" href="/export">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M5 16v4h14v-4"/></svg>
               Exporter

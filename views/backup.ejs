@@ -21,7 +21,7 @@
     <div class="table-wrap"><table class="transactions-table">
       <thead><tr><th>NOM DU FICHIER</th><th>EMPLACEMENT</th><th></th></tr></thead>
       <tbody><% backups.forEach((backup) => { %>
-        <tr><td><strong><%= backup %></strong></td><td>Stockage local</td><td><button class="table-action danger" type="button" data-modal-confirm="/backup/restore/<%= encodeURIComponent(backup) %>" data-modal-title="Restaurer cette sauvegarde ?" data-modal-message="La base de données actuelle sera remplacée par cette copie." data-modal-submit="Restaurer la sauvegarde" data-modal-danger="true">Restaurer</button></td></tr>
+        <tr><td><strong><%= backup %></strong></td><td>Stockage local</td><td><button class="table-action danger backup-restore-action" type="button" aria-label="Restaurer la sauvegarde <%= backup %>" title="Restaurer" data-modal-confirm="/backup/restore/<%= encodeURIComponent(backup) %>" data-modal-title="Restaurer cette sauvegarde ?" data-modal-message="La base de données actuelle sera remplacée par cette copie." data-modal-submit="Restaurer la sauvegarde" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'restore' }) %><span class="backup-restore-label">Restaurer</span></button></td></tr>
       <% }) %></tbody>
     </table></div>
   <% } else { %>

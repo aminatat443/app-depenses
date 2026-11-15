@@ -368,26 +368,23 @@ router.post('/rents/generate', async (req, res) => {
   res.redirect(`/rents?month=${encodeURIComponent(monthKey)}&generated=${generated}`);
 });
 
-router.post('/rents/mark-all-paid', async (req, res) => {
-  const monthKey = String(req.body.month_key || '');
-  const paymentDateInput = String(req.body.payment_date || '').trim();
-  const paymentDate = paymentDateInput || null;
-  if (!validMonth(monthKey) || (paymentDate && !validDate(paymentDate))) {
-    return res.status(400).send('Vérifiez le mois et la date facultative du paiement.');
-  }
-
-  const markedCount = await db.transaction(async () => {
-    await db.prepare(`
-      SELECT id FROM rent_obligations WHERE month_key = ? ORDER BY id FOR UPDATE
-    `).all(monthKey);
+async function markRentObligationsPaid(userId, monthKey, paymentDate, obligationIds, action) {
+  const placeholders = obligationIds?.map(() => '?').join(', ');
+  const idClause = obligationIds ? ` AND id IN (${placeholders})` : '';
+  const obligationIdClause = obligationIds ? ` AND o.id IN (${placeholders})` : '';
+  return db.transaction(async () => {
+    const locked = await db.prepare(`
+      SELECT id FROM rent_obligations WHERE month_key = ?${idClause} ORDER BY id FOR UPDATE
+    `).all(monthKey, ...(obligationIds || []));
+    if (obligationIds && locked.length !== obligationIds.length) return null;
     const obligations = await db.prepare(`
       SELECT o.id, o.month_key, o.expected_amount, COALESCE(SUM(p.amount), 0) AS amount_paid
       FROM rent_obligations o
       LEFT JOIN rent_payments p ON p.obligation_id = o.id
-      WHERE o.month_key = ?
+      WHERE o.month_key = ?${obligationIdClause}
       GROUP BY o.id
       ORDER BY o.id
-    `).all(monthKey);
+    `).all(monthKey, ...(obligationIds || []));
     let count = 0;
     let totalAmount = 0;
     for (const obligation of obligations) {
@@ -402,21 +399,59 @@ router.post('/rents/mark-all-paid', async (req, res) => {
         remaining,
         paymentDate,
         paymentDate ? paymentDate.slice(0, 7) : monthKey,
-        req.user.id,
+        userId,
       );
       count += 1;
       totalAmount += remaining;
     }
     if (count) {
-      await writeAudit(req.user.id, 'rent_payment', monthKey, 'mark_all_paid', null, {
+      await writeAudit(userId, 'rent_payment', monthKey, action, null, {
         count,
         totalAmount,
         paymentDate,
+        obligationIds,
       });
     }
-    return count;
+    return { count };
   });
-  res.redirect(`/rents?month=${encodeURIComponent(monthKey)}&marked=${markedCount}`);
+}
+
+router.post('/rents/mark-all-paid', async (req, res) => {
+  const monthKey = String(req.body.month_key || '');
+  const paymentDateInput = String(req.body.payment_date || '').trim();
+  const paymentDate = paymentDateInput || null;
+  if (!validMonth(monthKey) || (paymentDate && !validDate(paymentDate))) {
+    return res.status(400).send('Vérifiez le mois et la date facultative du paiement.');
+  }
+
+  const result = await markRentObligationsPaid(
+    req.user.id, monthKey, paymentDate, null, 'mark_all_paid',
+  );
+  res.redirect(`/rents?month=${encodeURIComponent(monthKey)}&marked=${result.count}`);
+});
+
+router.post('/rents/mark-selected-paid', async (req, res) => {
+  const monthKey = String(req.body.month_key || '');
+  const paymentDateInput = String(req.body.payment_date || '').trim();
+  const paymentDate = paymentDateInput || null;
+  const submittedIds = Array.isArray(req.body.obligation_ids)
+    ? req.body.obligation_ids
+    : [req.body.obligation_ids];
+  if (!validMonth(monthKey) || !submittedIds.length
+    || submittedIds.some((value) => !/^\d+$/.test(String(value || '')))
+    || (paymentDate && !validDate(paymentDate))) {
+    return res.status(400).send('Vérifiez le mois, les loyers sélectionnés et la date facultative du paiement.');
+  }
+  const obligationIds = [...new Set(submittedIds.map(Number))];
+  if (obligationIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+    return res.status(400).send('La sélection des loyers est invalide.');
+  }
+
+  const result = await markRentObligationsPaid(
+    req.user.id, monthKey, paymentDate, obligationIds, 'mark_selected_paid',
+  );
+  if (!result) return res.status(400).send('Un loyer sélectionné ne correspond pas au mois affiché.');
+  res.redirect(`/rents?month=${encodeURIComponent(monthKey)}&marked=${result.count}`);
 });
 
 router.post('/rents/:id/payments', async (req, res) => {

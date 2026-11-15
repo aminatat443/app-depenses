@@ -75,6 +75,10 @@ test('GET / returns dashboard HTML', async () => {
     assert.match(text, /Gestion des dépenses familiales/i);
     assert.match(text, /class="metric-card metric-income dashboard-metric-link" href="\/income\?month=/);
     assert.match(text, /class="metric-card metric-expense dashboard-metric-link" href="\/expenses\?month=/);
+    const arrearsCard = text.match(/<a class="metric-card metric-arrears dashboard-metric-link"[\s\S]*?<\/a>/);
+    assert.ok(arrearsCard);
+    assert.match(arrearsCard[0], /href="\/rents\?month=[^"]+"/);
+    assert.doesNotMatch(arrearsCard[0], /data-modal-template/);
     assert.match(text, /class="metric-card metric-savings dashboard-metric-link" href="\/savings"/);
     assert.match(text, /src="\/theme\.js"/);
     assert.match(text, /data-theme-toggle/);
@@ -329,6 +333,7 @@ test('sidebar links open pages and page actions expose modal triggers', async ()
       assert.match(text, /id="main-sidebar"/);
       assert.match(text, /data-mobile-sidebar-toggle/);
       assert.match(text, /id="global-search"/);
+      assert.match(text, /aria-label="Rechercher sur cette page"/);
       assert.match(text, /class="mobile-nav-overlay" data-mobile-nav-close hidden/);
       assert.doesNotMatch(text, /mobile-primary-nav|mobile-more-trigger/);
       assert.match(text, /src="\/app.js"/);
@@ -344,6 +349,7 @@ test('sidebar links open pages and page actions expose modal triggers', async ()
     const dashboardHtml = await dashboard.text();
     assert.match(dashboardHtml, /class="close-modal"[^>]*data-close-modal/);
     assert.match(dashboardHtml, /data-mobile-sidebar-toggle/);
+    assert.match(dashboardHtml, /aria-label="Rechercher dans l’application"/);
     const incomePage = await authedFetch(`http://127.0.0.1:${port}/income?month=2026-11`);
     const incomeHtml = await incomePage.text();
     assert.match(incomeHtml, /Revenus mensuels/);
@@ -793,6 +799,66 @@ test('rent payments can omit dates and mark all remaining obligations paid', asy
     assert.deepEqual(payments.map((payment) => Number(payment.amount)), [25000, 75000]);
     assert.ok(payments.every((payment) => payment.payment_date === null));
     assert.ok(payments.every((payment) => payment.received_month_key === '2027-01'));
+
+    for (const index of [1, 2]) {
+      const unitLabel = `BULK-SELECT-${index}`;
+      await postForm('/units', { floor: 'Rez-de-chaussée', label: unitLabel, housing_type: 'Studio' });
+      const selectedUnit = await db.prepare('SELECT id FROM units WHERE label = ?').get(unitLabel);
+      await postForm('/tenants', {
+        unit_id: String(selectedUnit.id),
+        first_name: `Choix${index}`,
+        last_name: 'Paiement',
+        people_count: '1',
+        monthly_rent: String(50000 * index),
+        entry_date: '2026-01-01',
+        phone: '',
+      });
+    }
+    await postForm('/rents/generate', { month_key: '2027-03' });
+    const selectedObligations = await db.prepare(`
+      SELECT o.id, o.expected_amount FROM rent_obligations o
+      JOIN tenants t ON t.id = o.tenant_id
+      WHERE t.first_name IN ('Choix1', 'Choix2') AND o.month_key = '2027-03'
+      ORDER BY t.first_name
+    `).all();
+    assert.equal(selectedObligations.length, 2);
+    const selectedPage = await (await authedFetch(`${baseUrl}/rents?month=2027-03`)).text();
+    assert.match(selectedPage, /data-rent-select-all/);
+    assert.match(selectedPage, /data-rent-selected-trigger disabled/);
+    assert.match(selectedPage, /id="rent-mark-selected-paid"/);
+    const selectedForm = selectedPage.split('id="rent-mark-selected-paid"')[1].split('</template>')[0];
+    assert.match(selectedForm, /type="date" name="payment_date"/);
+    assert.doesNotMatch(selectedForm, /name="payment_date"[^>]*required/);
+
+    const selectedBody = new URLSearchParams({ month_key: '2027-03' });
+    selectedObligations.forEach((row) => selectedBody.append('obligation_ids', String(row.id)));
+    const selectedResponse = await authedFetch(`${baseUrl}/rents/mark-selected-paid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: selectedBody,
+    });
+    assert.equal(selectedResponse.status, 200);
+    assert.match(await selectedResponse.text(), /2 loyers marqués comme payés/);
+    const selectedPayments = await db.prepare(`
+      SELECT p.amount, p.payment_date, p.received_month_key FROM rent_payments p
+      WHERE p.obligation_id = ANY(?)
+      ORDER BY p.obligation_id
+    `).all(selectedObligations.map((row) => row.id));
+    assert.equal(selectedPayments.length, 2);
+    assert.deepEqual(
+      selectedPayments.map((payment) => Number(payment.amount)),
+      selectedObligations.map((row) => Number(row.expected_amount)),
+    );
+    assert.ok(selectedPayments.every((payment) => payment.payment_date === null));
+    assert.ok(selectedPayments.every((payment) => payment.received_month_key === '2027-03'));
+    const unselectedObligation = await db.prepare(`
+      SELECT o.id FROM rent_obligations o
+      JOIN tenants t ON t.id = o.tenant_id
+      LEFT JOIN rent_payments p ON p.obligation_id = o.id
+      WHERE t.first_name = 'Paiement' AND t.last_name = 'Groupé' AND o.month_key = '2027-03'
+      GROUP BY o.id HAVING COALESCE(SUM(p.amount), 0) = 0
+    `).get();
+    assert.ok(unselectedObligation);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

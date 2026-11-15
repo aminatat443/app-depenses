@@ -66,6 +66,16 @@
     document.body.append(alertStack);
   }
 
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+    const arrearsLink = event.target.closest('a.metric-arrears[href]');
+    if (!arrearsLink || event.button !== 0
+      || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.location.assign(arrearsLink.href);
+  }, true);
+
   const isZeroNumber = (input) => /^[-+]?0(?:[.,]0*)?$/.test(input.value.trim());
   const clearZeroBeforeEntry = (input) => {
     if (input instanceof HTMLInputElement && input.type === 'number' && isZeroNumber(input)) {
@@ -152,7 +162,7 @@
   const sidebarDrawerQuery = window.matchMedia('(max-width: 1024px)');
   let mobileMenuReturnFocus = null;
 
-  const setMobileMenu = (open) => {
+  const setMobileMenu = (open, restoreFocus = true) => {
     if (!sidebar || !mobileMenuTrigger || !mobileMenuOverlay || !sidebarDrawerQuery.matches) return;
     sidebar.classList.toggle('mobile-menu-open', open);
     mobileMenuTrigger.setAttribute('aria-expanded', String(open));
@@ -166,7 +176,7 @@
       mobileMenuReturnFocus = mobileMenuTrigger;
       mobileMenu.querySelector('[data-mobile-sidebar-close]')?.focus();
     } else {
-      if (mobileMenuReturnFocus instanceof HTMLElement && mobileMenuReturnFocus.isConnected) {
+      if (restoreFocus && mobileMenuReturnFocus instanceof HTMLElement && mobileMenuReturnFocus.isConnected) {
         mobileMenuReturnFocus.focus();
       }
       mobileMenuReturnFocus = null;
@@ -176,7 +186,14 @@
   mobileMenuTrigger?.addEventListener('click', () => {
     setMobileMenu(mobileMenuTrigger.getAttribute('aria-expanded') !== 'true');
   });
-  mobileMenuOverlay?.addEventListener('click', () => setMobileMenu(false));
+  mobileMenuOverlay?.addEventListener('click', () => setMobileMenu(false, false));
+  document.addEventListener('click', (event) => {
+    if (!sidebar?.classList.contains('mobile-menu-open')
+      || !(event.target instanceof Node)
+      || sidebar.contains(event.target)
+      || mobileMenuTrigger?.contains(event.target)) return;
+    setMobileMenu(false, false);
+  });
   mobileMenu?.addEventListener('click', (event) => {
     if (event.target.closest('[data-mobile-sidebar-close], a, form button')) {
       setMobileMenu(false);
@@ -504,6 +521,8 @@
 
     const trigger = event.target.closest('[data-modal-template], [data-modal-confirm], [data-close-modal]');
     if (!trigger || !modal || !modalContent) return;
+    if (trigger instanceof HTMLTableRowElement
+      && event.target.closest('a, button, input, select, textarea, form, label')) return;
 
     if (trigger.hasAttribute('data-close-modal')) {
       closeModal();
@@ -539,6 +558,26 @@
       const download = content.querySelector('a[href^="/export/"]');
       if (heading) heading.textContent = `Exporter le bilan ${year}`;
       if (download) download.href = `/export/${encodeURIComponent(year)}`;
+    }
+    if (template.id === 'rent-mark-selected-paid') {
+      const selectedIds = Array.from(
+        document.querySelectorAll('[data-rent-payment-select]:checked'),
+        (checkbox) => checkbox.value,
+      );
+      const inputs = content.querySelector('[data-rent-selected-inputs]');
+      selectedIds.forEach((value) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'obligation_ids';
+        input.value = value;
+        inputs?.append(input);
+      });
+      const selectedCount = content.querySelector('[data-rent-selected-count]');
+      if (selectedCount) selectedCount.textContent = String(selectedIds.length);
+      const selectedLabel = content.querySelector('[data-rent-selected-label]');
+      if (selectedLabel) {
+        selectedLabel.textContent = selectedIds.length === 1 ? 'loyer sélectionné' : 'loyers sélectionnés';
+      }
     }
     openModal(content, trigger);
   });
@@ -579,6 +618,29 @@
       if (incomeForm) configureIncomeEntry(incomeForm);
     }
   });
+  const syncRentPaymentSelection = () => {
+    const checkboxes = Array.from(document.querySelectorAll('[data-rent-payment-select]'));
+    const selectedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
+    const markSelectedButton = document.querySelector('[data-rent-selected-trigger]');
+    const selectAll = document.querySelector('[data-rent-select-all]');
+    if (markSelectedButton instanceof HTMLButtonElement) markSelectedButton.disabled = selectedCount === 0;
+    if (selectAll instanceof HTMLInputElement) {
+      selectAll.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
+      selectAll.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+    }
+  };
+  document.addEventListener('change', (event) => {
+    if (!(event.target instanceof HTMLInputElement)) return;
+    if (event.target.matches('[data-rent-select-all]')) {
+      document.querySelectorAll('[data-rent-payment-select]').forEach((checkbox) => {
+        checkbox.checked = event.target.checked;
+      });
+      syncRentPaymentSelection();
+    } else if (event.target.matches('[data-rent-payment-select]')) {
+      syncRentPaymentSelection();
+    }
+  });
+  syncRentPaymentSelection();
   modalContent?.addEventListener('submit', (event) => {
     if (!(event.target instanceof HTMLFormElement) || event.target.method.toUpperCase() === 'GET') return;
     event.preventDefault();
@@ -795,7 +857,9 @@
       currentRoot.replaceWith(nextRoot);
       enhanceTables(nextRoot);
       filterCurrentPageItems(globalQuery);
-      if (globalQuery) runGlobalSearch(nextRoot.querySelector('#global-search input'));
+      if (globalQuery && nextSearchInput && document.body.dataset.page === 'overview') {
+        runGlobalSearch(nextSearchInput);
+      }
       window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
     } catch (error) {
       if (error.name === 'AbortError' || liveFilterControllers.get(form) !== controller) return;
@@ -868,6 +932,12 @@
       return;
     }
     const localMatchCount = filterCurrentPageItems(query);
+    if (document.body.dataset.page !== 'overview') {
+      results.replaceChildren();
+      results.hidden = true;
+      form.setAttribute('aria-expanded', 'false');
+      return;
+    }
     const controller = new AbortController();
     globalSearchController = controller;
     results.replaceChildren();
@@ -936,6 +1006,13 @@
         return;
       }
       filterCurrentPageItems(input.value);
+      if (document.body.dataset.page !== 'overview') {
+        const results = document.getElementById('global-search-results');
+        results?.replaceChildren();
+        if (results) results.hidden = true;
+        input.closest('#global-search')?.setAttribute('aria-expanded', 'false');
+        return;
+      }
       const results = document.getElementById('global-search-results');
       const form = input.closest('#global-search');
       if (results) {

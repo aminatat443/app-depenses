@@ -12,6 +12,7 @@
       <button class="button button-primary" type="submit">Générer les loyers attendus</button>
     </form>
     <% if (obligations.some((row) => Number(row.expected_amount) > Number(row.amount_paid))) { %>
+      <button class="button button-subtle" type="button" data-modal-template="rent-mark-selected-paid" data-rent-selected-trigger disabled>Marquer la sélection comme payée</button>
       <button class="button button-subtle" type="button" data-modal-template="rent-mark-all-paid">Marquer tous les loyers comme payés</button>
     <% } %>
   </div>
@@ -36,11 +37,12 @@
   <div class="panel-header"><div><h2>Échéances du mois</h2><p><%= obligations.length %> obligation<%= obligations.length === 1 ? '' : 's' %> générée<%= obligations.length === 1 ? '' : 's' %>.</p></div><a class="text-link" href="/tenants">Gérer les locataires →</a></div>
   <% if (obligations.length) { %>
     <div class="table-wrap"><table class="transactions-table">
-      <thead><tr><th>LOGEMENT</th><th>LOCATAIRE</th><th class="amount-cell">ATTENDU</th><th class="amount-cell">PAYÉ</th><th class="amount-cell">RESTANT</th><th>STATUT</th><th>ACTION</th></tr></thead>
+      <thead><tr><th class="rent-select-cell"><label class="rent-select-control"><input type="checkbox" data-rent-select-all aria-label="Sélectionner tous les loyers impayés" /><span class="sr-only">Sélectionner tous les loyers impayés</span></label></th><th>LOGEMENT</th><th>LOCATAIRE</th><th class="amount-cell">ATTENDU</th><th class="amount-cell">PAYÉ</th><th class="amount-cell">RESTANT</th><th>STATUT</th><th>ACTION</th></tr></thead>
       <tbody><% obligations.forEach((row) => {
         const remaining = Math.max(0, Number(row.expected_amount) - Number(row.amount_paid));
       %>
         <tr <% if (remaining > 0) { %>data-modal-template="rent-payment-<%= row.id %>" aria-label="Enregistrer un paiement de loyer pour <%= row.first_name %> <%= row.last_name %>"<% } else { %>data-row-href="/history?type=rent&amp;month=<%= encodeURIComponent(monthKey) %>&amp;search=<%= encodeURIComponent(row.first_name + ' ' + row.last_name) %>" aria-label="Voir les paiements de loyer de <%= row.first_name %> <%= row.last_name %>"<% } %> tabindex="0">
+          <td class="rent-select-cell"><% if (remaining > 0) { %><label class="rent-select-control"><input type="checkbox" value="<%= row.id %>" data-rent-payment-select aria-label="Sélectionner le loyer de <%= row.first_name %> <%= row.last_name %>" /><span class="sr-only">Sélectionner le loyer</span></label><% } else { %>—<% } %></td>
           <td><%= row.floor %> · <%= row.unit_label %></td>
           <td><strong><%= row.first_name %> <%= row.last_name %></strong></td>
           <td class="amount-cell"><%= formatCurrency(row.expected_amount) %></td>
@@ -71,6 +73,17 @@
   <div class="modal-heading"><span class="eyebrow">PAIEMENTS DU MOIS</span><h2>Marquer tous les loyers comme payés</h2><p>Le solde restant de chaque loyer de <%= monthKey %> sera enregistré comme paiement.</p></div>
   <form method="POST" action="/rents/mark-all-paid">
     <input type="hidden" name="month_key" value="<%= monthKey %>" />
+    <div class="form-grid">
+      <label>Date du paiement (facultative)<input type="date" name="payment_date" /></label>
+    </div>
+    <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal data-modal-initial-focus>Annuler</button><button type="submit" class="primary-btn">Marquer comme payé</button></div>
+  </form>
+</template>
+<template id="rent-mark-selected-paid">
+  <div class="modal-heading"><span class="eyebrow">PAIEMENTS DU MOIS</span><h2>Marquer la sélection comme payée</h2><p><span data-rent-selected-count>0</span> <span data-rent-selected-label>loyers sélectionnés</span> pour <%= monthKey %>. Chaque solde restant sera enregistré comme paiement.</p></div>
+  <form method="POST" action="/rents/mark-selected-paid">
+    <input type="hidden" name="month_key" value="<%= monthKey %>" />
+    <div data-rent-selected-inputs></div>
     <div class="form-grid">
       <label>Date du paiement (facultative)<input type="date" name="payment_date" /></label>
     </div>
