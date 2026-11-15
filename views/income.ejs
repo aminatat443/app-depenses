@@ -83,7 +83,7 @@
     </button>
   </article>
 
-  <article class="income-source-card">
+  <article class="income-source-card income-source-card-clickable" data-modal-template="rent-payments-detail">
     <div class="income-source-heading">
       <span class="income-card-icon income-icon-amber" aria-hidden="true">⌂</span>
       <span class="income-source-tag">PAIEMENTS RÉELS</span>
@@ -91,8 +91,7 @@
     <h3>Loyers encaissés</h3>
     <strong class="income-source-amount"><%= formatCurrency(finance.rentReceived) %></strong>
     <p class="income-source-date"><%= rentPayments.length %> paiement<%= rentPayments.length === 1 ? '' : 's' %> reçu<%= rentPayments.length === 1 ? '' : 's' %> ce mois</p>
-    <button class="button button-subtle income-edit-button" type="button"
-      data-modal-template="rent-payments-detail" <%= rentPayments.length ? '' : 'disabled' %>>
+    <button class="button button-subtle income-edit-button" type="button" data-modal-template="rent-payments-detail">
       Voir les paiements
     </button>
   </article>

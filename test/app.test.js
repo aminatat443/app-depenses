@@ -348,6 +348,7 @@ test('sidebar links open pages and page actions expose modal triggers', async ()
     const incomeHtml = await incomePage.text();
     assert.match(incomeHtml, /Revenus mensuels/);
     assert.match(incomeHtml, /class="income-source-card"/);
+    assert.match(incomeHtml, /class="income-source-card income-source-card-clickable" data-modal-template="rent-payments-detail"/);
     assert.match(incomeHtml, /data-modal-template="income-create"/);
     assert.match(incomeHtml, /data-default-pension="180000"/);
     assert.doesNotMatch(incomeHtml, /Sources mensuelles principales/);
@@ -728,6 +729,72 @@ test('monthly revenues, exceptional income, rent and protected savings stay sepa
     assert.match(historyHtml, /data-row-href="\/savings\?open=savings-details-\d+"/);
   } finally {
     server.close();
+  }
+});
+
+test('rent payments can omit dates and mark all remaining obligations paid', async () => {
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const postForm = (route, values) => authedFetch(`${baseUrl}${route}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(values),
+  });
+
+  try {
+    await postForm('/units', { floor: 'Rez-de-chaussée', label: 'BULK-PAYMENT-1', housing_type: 'Studio' });
+    const unit = await db.prepare("SELECT id FROM units WHERE label = 'BULK-PAYMENT-1'").get();
+    assert.ok(unit);
+    await postForm('/tenants', {
+      unit_id: String(unit.id),
+      first_name: 'Paiement',
+      last_name: 'Groupé',
+      people_count: '1',
+      monthly_rent: '100000',
+      entry_date: '2026-01-01',
+      phone: '',
+    });
+    await postForm('/rents/generate', { month_key: '2027-01' });
+    const obligation = await db.prepare(`
+      SELECT o.id FROM rent_obligations o JOIN tenants t ON t.id = o.tenant_id
+      WHERE t.first_name = 'Paiement' AND t.last_name = 'Groupé' AND o.month_key = '2027-01'
+    `).get();
+    assert.ok(obligation);
+
+    const partialPayment = await postForm(`/rents/${obligation.id}/payments`, { amount: '25000' });
+    assert.equal(partialPayment.status, 200);
+    const rentsPage = await (await authedFetch(`${baseUrl}/rents?month=2027-01`)).text();
+    assert.match(rentsPage, /Marquer tous les loyers comme payés/);
+    assert.match(rentsPage, /Date du paiement \(facultative\)/);
+    assert.match(rentsPage, /name="payment_date"[^>]*\/>/);
+
+    const remainingObligations = await db.prepare(`
+      SELECT COUNT(*) AS count FROM (
+        SELECT o.id, o.expected_amount, COALESCE(SUM(p.amount), 0) AS amount_paid
+        FROM rent_obligations o
+        LEFT JOIN rent_payments p ON p.obligation_id = o.id
+        WHERE o.month_key = ?
+        GROUP BY o.id
+      ) AS month_obligations
+      WHERE expected_amount > amount_paid
+    `).get('2027-01');
+    const markAllResponse = await postForm('/rents/mark-all-paid', { month_key: '2027-01' });
+    assert.equal(markAllResponse.status, 200);
+    const markAllHtml = await markAllResponse.text();
+    const markedCount = Number(remainingObligations.count);
+    const markedNotice = `${markedCount} loyer${markedCount === 1 ? '' : 's'} marqué${markedCount === 1 ? '' : 's'} comme payé${markedCount === 1 ? '' : 's'}.`;
+    assert.ok(markAllHtml.includes(markedNotice));
+
+    const payments = await db.prepare(`
+      SELECT amount, payment_date, received_month_key FROM rent_payments
+      WHERE obligation_id = ? ORDER BY id
+    `).all(obligation.id);
+    assert.deepEqual(payments.map((payment) => Number(payment.amount)), [25000, 75000]);
+    assert.ok(payments.every((payment) => payment.payment_date === null));
+    assert.ok(payments.every((payment) => payment.received_month_key === '2027-01'));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
   }
 });
 

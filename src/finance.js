@@ -346,6 +346,7 @@ router.get('/rents', async (req, res) => {
     paymentDetails,
     totals,
     generated: req.query.generated,
+    marked: req.query.marked,
     paymentMethods: ['Espèces', 'Virement', 'Mobile money', 'Chèque', 'Autre'],
   });
 });
@@ -367,13 +368,65 @@ router.post('/rents/generate', async (req, res) => {
   res.redirect(`/rents?month=${encodeURIComponent(monthKey)}&generated=${generated}`);
 });
 
+router.post('/rents/mark-all-paid', async (req, res) => {
+  const monthKey = String(req.body.month_key || '');
+  const paymentDateInput = String(req.body.payment_date || '').trim();
+  const paymentDate = paymentDateInput || null;
+  if (!validMonth(monthKey) || (paymentDate && !validDate(paymentDate))) {
+    return res.status(400).send('Vérifiez le mois et la date facultative du paiement.');
+  }
+
+  const markedCount = await db.transaction(async () => {
+    await db.prepare(`
+      SELECT id FROM rent_obligations WHERE month_key = ? ORDER BY id FOR UPDATE
+    `).all(monthKey);
+    const obligations = await db.prepare(`
+      SELECT o.id, o.month_key, o.expected_amount, COALESCE(SUM(p.amount), 0) AS amount_paid
+      FROM rent_obligations o
+      LEFT JOIN rent_payments p ON p.obligation_id = o.id
+      WHERE o.month_key = ?
+      GROUP BY o.id
+      ORDER BY o.id
+    `).all(monthKey);
+    let count = 0;
+    let totalAmount = 0;
+    for (const obligation of obligations) {
+      const remaining = Math.round((Number(obligation.expected_amount) - Number(obligation.amount_paid)) * 100) / 100;
+      if (remaining <= 0) continue;
+      await db.prepare(`
+        INSERT INTO rent_payments (
+          obligation_id, amount, payment_date, received_month_key, created_by
+        ) VALUES (?, ?, ?, ?, ?)
+      `).run(
+        obligation.id,
+        remaining,
+        paymentDate,
+        paymentDate ? paymentDate.slice(0, 7) : monthKey,
+        req.user.id,
+      );
+      count += 1;
+      totalAmount += remaining;
+    }
+    if (count) {
+      await writeAudit(req.user.id, 'rent_payment', monthKey, 'mark_all_paid', null, {
+        count,
+        totalAmount,
+        paymentDate,
+      });
+    }
+    return count;
+  });
+  res.redirect(`/rents?month=${encodeURIComponent(monthKey)}&marked=${markedCount}`);
+});
+
 router.post('/rents/:id/payments', async (req, res) => {
   const obligationId = Number(req.params.id);
   const amount = amountValue(req.body.amount);
-  const paymentDate = String(req.body.payment_date || '');
+  const paymentDateInput = String(req.body.payment_date || '').trim();
+  const paymentDate = paymentDateInput || null;
   if (!Number.isSafeInteger(obligationId) || amount === null || amount <= 0
-    || !/^\d{4}-\d{2}-\d{2}$/.test(paymentDate)) {
-    return res.status(400).send('Vérifiez le montant et la date du paiement.');
+    || (paymentDate && !validDate(paymentDate))) {
+    return res.status(400).send('Vérifiez le montant et la date facultative du paiement.');
   }
   const obligation = await db.transaction(async () => {
     const row = await db.prepare('SELECT * FROM rent_obligations WHERE id = ? FOR UPDATE').get(obligationId);
@@ -391,7 +444,7 @@ router.post('/rents/:id/payments', async (req, res) => {
       obligationId,
       amount,
       paymentDate,
-      paymentDate.slice(0, 7),
+      paymentDate ? paymentDate.slice(0, 7) : row.month_key,
       req.body.payment_method || null,
       req.body.comment || null,
       req.user.id,

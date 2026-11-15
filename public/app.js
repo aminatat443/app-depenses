@@ -149,11 +149,11 @@
   const mobileMenu = sidebar;
   const mobileMenuTrigger = document.querySelector('[data-mobile-sidebar-toggle]');
   const mobileMenuOverlay = document.querySelector('.mobile-nav-overlay');
-  const mobileSidebarQuery = window.matchMedia('(max-width: 680px)');
+  const sidebarDrawerQuery = window.matchMedia('(max-width: 1024px)');
   let mobileMenuReturnFocus = null;
 
   const setMobileMenu = (open) => {
-    if (!sidebar || !mobileMenuTrigger || !mobileMenuOverlay || !mobileSidebarQuery.matches) return;
+    if (!sidebar || !mobileMenuTrigger || !mobileMenuOverlay || !sidebarDrawerQuery.matches) return;
     sidebar.classList.toggle('mobile-menu-open', open);
     mobileMenuTrigger.setAttribute('aria-expanded', String(open));
     mobileMenuTrigger.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
@@ -184,7 +184,7 @@
   });
   const syncMobileSidebarMode = () => {
     if (!sidebar || !mobileMenuTrigger || !mobileMenuOverlay) return;
-    if (mobileSidebarQuery.matches) {
+    if (sidebarDrawerQuery.matches) {
       const open = sidebar.classList.contains('mobile-menu-open');
       sidebar.setAttribute('aria-hidden', String(!open));
       sidebar.inert = !open;
@@ -202,7 +202,7 @@
     }
     syncPageScrollLock();
   };
-  mobileSidebarQuery.addEventListener('change', syncMobileSidebarMode);
+  sidebarDrawerQuery.addEventListener('change', syncMobileSidebarMode);
   syncMobileSidebarMode();
 
   const modal = document.getElementById('app-modal');

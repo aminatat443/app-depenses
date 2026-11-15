@@ -554,6 +554,8 @@ svg { display: block; }
 .app-page-area .page-header { min-height: 94px; }
 .page-content { display: grid; min-width: 0; gap: 14px; }
 .page-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.page-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.page-toolbar-actions form { margin: 0; }
 .page-toolbar h2, .page-filter-card h2 { margin: 0; color: var(--color-text); font-size: 17px; letter-spacing: -.025em; }
 .page-toolbar p, .page-filter-card p { margin: 4px 0 0; color: var(--color-muted); font-size: 11px; }
 .page-filter-card { display: grid; gap: 11px; padding: 14px 16px; }
@@ -1002,6 +1004,7 @@ svg { display: block; }
   transition: transform .16s ease, box-shadow .16s ease;
 }
 .income-source-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(24, 39, 62, .08); }
+.income-source-card-clickable { cursor: pointer; }
 .income-source-heading { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 7px; }
 .income-card-icon {
   display: grid;
@@ -1107,6 +1110,9 @@ svg { display: block; }
   .page-content { gap: 10px; }
   .page-toolbar { align-items: stretch; flex-direction: column; gap: 10px; }
   .page-toolbar > .button { width: 100%; }
+  .page-toolbar-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .page-toolbar-actions > * { width: 100%; }
+  .page-toolbar-actions form .button { width: 100%; }
   .page-filter-form { display: grid; grid-template-columns: 1fr; }
   .page-filter-form label { min-width: 0; }
   .page-filter-form .button { width: 100%; }
@@ -2057,6 +2063,9 @@ button:disabled { cursor: wait; opacity: .65; }
   .page-content { gap: 11px; }
   .page-toolbar { align-items: stretch; flex-direction: column; gap: 10px; }
   .page-toolbar > .button { width: 100%; }
+  .page-toolbar-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .page-toolbar-actions > * { width: 100%; }
+  .page-toolbar-actions form .button { width: 100%; }
   .page-filter-card { padding: 14px; }
   .page-filter-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .page-filter-form label, .export-year-field { min-width: 0; }
@@ -3961,4 +3970,161 @@ html[data-theme="dark"] .app-page-area .page-filter-card {
   border-color: #303640;
   background: #181b22;
   box-shadow: var(--shadow-card);
+}
+
+@media (max-width: 1024px) {
+  .mobile-sidebar-toggle {
+    position: fixed;
+    z-index: 98;
+    top: max(10px, env(safe-area-inset-top));
+    left: 10px;
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 11px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+  }
+  .mobile-sidebar-toggle svg {
+    display: block;
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.7;
+  }
+  .sidebar {
+    position: fixed;
+    z-index: 100;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: min(292px, 86vw);
+    height: 100vh;
+    height: 100dvh;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    overflow: hidden;
+    padding: max(18px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom));
+    border: 1px solid var(--color-border);
+    border-left: 0;
+    border-radius: 0 15px 15px 0;
+    background: var(--color-bg);
+    box-shadow: 12px 0 36px rgba(15, 23, 42, .12);
+    transform: translateX(-102%);
+    visibility: hidden;
+    transition: transform .2s ease, visibility .2s ease;
+  }
+  .sidebar.mobile-menu-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+  .sidebar > .brand {
+    display: flex;
+    min-width: 0;
+    padding-right: 42px;
+  }
+  .sidebar .brand-copy { display: grid; min-width: 0; gap: 3px; }
+  .sidebar .brand-copy strong { min-width: 0; line-height: 1.1; }
+  .sidebar .brand-copy small { display: block; min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+  .sidebar > .side-nav {
+    display: flex;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: stretch;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .sidebar .nav-caption { display: block; }
+  .sidebar .nav-item {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    min-height: 43px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 9px 11px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .sidebar .nav-item > span {
+    display: block;
+    max-width: none;
+    overflow: visible;
+    text-align: left;
+    text-overflow: clip;
+    white-space: normal;
+    -webkit-line-clamp: unset;
+  }
+  .sidebar .nav-item svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+  }
+  .sidebar > .sidebar-bottom {
+    display: flex;
+    width: auto;
+    flex: 0 0 auto;
+    flex-direction: column;
+    justify-items: stretch;
+  }
+  .sidebar .sidebar-user-copy { display: grid; }
+  .sidebar .sidebar-logout .nav-item {
+    width: 100%;
+    min-height: 39px;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 9px 11px;
+  }
+  .sidebar .sidebar-logout .nav-item > span { display: block; }
+  .sidebar .sidebar-logout .nav-item svg { width: 17px; height: 17px; flex-basis: 17px; }
+  .mobile-sidebar-close {
+    position: absolute;
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg);
+    color: var(--color-muted);
+    font: inherit;
+    font-size: 23px;
+    line-height: 1;
+  }
+  .mobile-nav-overlay { display: none; }
+  .mobile-nav-overlay:not([hidden]) {
+    position: fixed;
+    z-index: 99;
+    inset: 0;
+    display: block;
+    background: rgba(15, 23, 42, .34);
+    backdrop-filter: blur(1px);
+  }
+}
+@media (min-width: 681px) and (max-width: 1024px) {
+  .app-frame { display: block; }
+  .main-area {
+    grid-column: auto;
+    min-width: 0;
+    padding: 62px 20px 24px;
+  }
+}
+@media (max-width: 1024px) {
+  html[data-theme="dark"] .sidebar { box-shadow: 12px 0 36px rgba(0, 0, 0, .35); }
 }
