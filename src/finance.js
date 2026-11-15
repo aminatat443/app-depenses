@@ -43,7 +43,10 @@ async function getMonthlyFinance(monthKey) {
   const expenses = await db.prepare(`
     SELECT COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) AS month,
       SUM(CASE WHEN c.type = 'boutique' THEN e.amount ELSE 0 END) AS boutique,
-      SUM(CASE WHEN c.type <> 'boutique' THEN e.amount ELSE 0 END) AS other
+      SUM(CASE WHEN c.type <> 'boutique' AND e.funding_source <> 'protected_savings'
+        THEN e.amount ELSE 0 END) AS other,
+      SUM(CASE WHEN c.type <> 'boutique' AND e.funding_source = 'protected_savings'
+        THEN e.amount ELSE 0 END) AS protected_savings
     FROM expenses e JOIN categories c ON c.id = e.category_id
     WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) >= '2026-01'
       AND COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) <= ?
@@ -132,6 +135,7 @@ async function getMonthlyFinance(monthKey) {
       const override = overrideByMonth.get(key);
       if (override !== null && override !== undefined) openingBalance = Number(override);
       const otherExpenses = Number(monthlyExpenses.other || 0);
+      const protectedSavingsExpenses = Number(monthlyExpenses.protected_savings || 0);
       const boutiqueExpenses = Number(monthlyExpenses.boutique || 0) + Number(monthlyGrocery.total || 0);
       const legacyPape = monthlyIncome
         .filter((income) => normalizeSource(income.source) === 'pape')
@@ -167,6 +171,7 @@ async function getMonthlyFinance(monthKey) {
         rentExpected: Number(rentObligation.expected || 0),
         rentOutstanding: Math.max(0, Number(rentObligation.expected || 0) - Number(rentObligation.received || 0)),
         otherExpenses,
+        protectedSavingsExpenses,
         boutiqueExpenses,
         totalExpenses,
         savingsDeposits,
@@ -191,6 +196,7 @@ async function getMonthlyFinance(monthKey) {
     rentExpected: 0,
     rentOutstanding: 0,
     otherExpenses: 0,
+    protectedSavingsExpenses: 0,
     boutiqueExpenses: 0,
     totalExpenses: 0,
     savingsDeposits: 0,
@@ -319,6 +325,16 @@ router.get('/rents', async (req, res) => {
     GROUP BY o.id, t.first_name, t.last_name, u.floor, u.label
     ORDER BY u.floor, u.label, t.last_name, t.first_name
   `).all(monthKey);
+  const paymentDetails = await db.prepare(`
+    SELECT p.id, p.amount, p.payment_date, p.payment_method, p.comment, o.month_key,
+      o.expected_amount, t.first_name, t.last_name, u.floor, u.label AS unit_label
+    FROM rent_payments p
+    JOIN rent_obligations o ON o.id = p.obligation_id
+    JOIN tenants t ON t.id = o.tenant_id
+    JOIN units u ON u.id = t.unit_id
+    WHERE o.month_key = ?
+    ORDER BY p.payment_date DESC, p.id DESC
+  `).all(monthKey);
   const totals = obligations.reduce((result, row) => {
     result.expected += Number(row.expected_amount);
     result.received += Number(row.amount_paid);
@@ -327,6 +343,7 @@ router.get('/rents', async (req, res) => {
   res.render('rents', {
     monthKey,
     obligations,
+    paymentDetails,
     totals,
     generated: req.query.generated,
     paymentMethods: ['Espèces', 'Virement', 'Mobile money', 'Chèque', 'Autre'],
@@ -579,7 +596,7 @@ router.post('/income-categories', async (req, res) => {
 });
 
 router.get('/savings', async (req, res) => {
-  const [accounts, transactions, balanceSnapshots] = await Promise.all([
+  const [accounts, transactions, balanceSnapshots, categories] = await Promise.all([
     db.prepare(`
       SELECT a.id, a.name, a.is_protected,
         COALESCE(snapshot.amount, 0) + COALESCE(SUM(CASE
@@ -603,8 +620,10 @@ router.get('/savings', async (req, res) => {
       ORDER BY a.name
     `).all(),
     db.prepare(`
-      SELECT t.*, a.name AS account_name, a.is_protected FROM savings_transactions t
+      SELECT t.*, a.name AS account_name, a.is_protected, e.title AS related_expense_title
+      FROM savings_transactions t
       JOIN savings_accounts a ON a.id = t.account_id
+      LEFT JOIN expenses e ON e.id = t.related_expense_id
       ORDER BY transaction_date DESC, t.id DESC LIMIT 100
     `).all(),
     db.prepare(`
@@ -612,8 +631,110 @@ router.get('/savings', async (req, res) => {
       FROM savings_balance_snapshots s JOIN savings_accounts a ON a.id = s.account_id
       ORDER BY s.month_key DESC, s.id DESC LIMIT 100
     `).all(),
+    db.prepare("SELECT * FROM categories WHERE type <> 'boutique' ORDER BY name").all(),
   ]);
-  res.render('savings', { accounts, transactions, balanceSnapshots });
+  const requestedTransactionId = /^savings-details-(\d+)$/.exec(String(req.query.open || ''))?.[1];
+  if (requestedTransactionId && !transactions.some((transaction) => Number(transaction.id) === Number(requestedTransactionId))) {
+    const requestedTransaction = await db.prepare(`
+      SELECT t.*, a.name AS account_name, a.is_protected, e.title AS related_expense_title
+      FROM savings_transactions t
+      JOIN savings_accounts a ON a.id = t.account_id
+      LEFT JOIN expenses e ON e.id = t.related_expense_id
+      WHERE t.id = ?
+    `).get(Number(requestedTransactionId));
+    if (requestedTransaction) transactions.push(requestedTransaction);
+  }
+  res.render('savings', { accounts, transactions, balanceSnapshots, categories });
+});
+
+router.post('/savings/protected-expenses', async (req, res) => {
+  const title = String(req.body.title || '').trim();
+  const categoryId = Number(req.body.category_id);
+  const amount = amountValue(req.body.amount);
+  const expenseDate = String(req.body.expense_date || '');
+  const monthKey = validMonth(req.body.month_key) ? String(req.body.month_key) : expenseDate.slice(0, 7);
+  const description = String(req.body.description || '').trim();
+  if (!title || title.length > 250 || !Number.isSafeInteger(categoryId) || !validDate(expenseDate)
+    || !validMonth(monthKey) || amount === null || amount <= 0
+    || req.body.protected_confirmation !== '1') {
+    return res.status(400).send('Vérifiez la désignation, la catégorie, la date, le montant et la confirmation de cette dépense protégée.');
+  }
+  const category = await db.prepare("SELECT id FROM categories WHERE id = ? AND type <> 'boutique'")
+    .get(categoryId);
+  if (!category) return res.status(400).send('Catégorie de dépense invalide.');
+
+  try {
+    await db.transaction(async () => {
+      const account = await db.prepare(`
+        SELECT id FROM savings_accounts WHERE is_protected = TRUE ORDER BY id LIMIT 1 FOR UPDATE
+      `).get();
+      if (!account) throw Object.assign(new Error('Le compte d’épargne protégée est introuvable.'), { status: 404 });
+
+      const snapshot = await db.prepare(`
+        SELECT month_key, amount FROM savings_balance_snapshots
+        WHERE account_id = ? ORDER BY month_key DESC LIMIT 1
+      `).get(account.id);
+      if (snapshot && (monthKey <= snapshot.month_key || expenseDate.slice(0, 7) <= snapshot.month_key)) {
+        throw Object.assign(new Error(
+          `La période et la date de la dépense doivent être postérieures au dernier solde observé (${snapshot.month_key}).`,
+        ), { status: 400 });
+      }
+      const balance = await db.prepare(`
+        SELECT COALESCE(?, 0) + COALESCE(SUM(CASE
+          WHEN t.transaction_type = 'deposit' THEN t.amount ELSE -t.amount
+        END), 0) AS balance
+        FROM savings_transactions t
+        WHERE t.account_id = ?
+          AND (?::varchar IS NULL OR to_char(t.transaction_date, 'YYYY-MM') > ?)
+      `).get(snapshot?.amount ?? null, account.id, snapshot?.month_key ?? null, snapshot?.month_key ?? null);
+      if (Number(balance.balance) < amount) {
+        throw Object.assign(new Error('La dépense dépasse le solde de l’épargne protégée.'), { status: 400 });
+      }
+
+      const expense = await db.prepare(`
+        INSERT INTO expenses (
+          title, category_id, amount, expense_date, description, reference, beneficiary,
+          paid_by, payment_method, month_key, funding_source, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'protected_savings', ?)
+      `).run(
+        title,
+        categoryId,
+        amount,
+        expenseDate,
+        description,
+        String(req.body.reference || '').trim(),
+        String(req.body.beneficiary || '').trim(),
+        String(req.body.paid_by || '').trim(),
+        String(req.body.payment_method || '').trim(),
+        monthKey,
+        req.user.id,
+      );
+      const transaction = await db.prepare(`
+        INSERT INTO savings_transactions (
+          account_id, transaction_date, transaction_type, amount, comment, related_expense_id, created_by
+        ) VALUES (?, ?, 'withdrawal', ?, ?, ?, ?)
+      `).run(
+        account.id,
+        expenseDate,
+        amount,
+        `Dépense financée par l’épargne protégée : ${title}`,
+        expense.lastInsertRowid,
+        req.user.id,
+      );
+      const expenseRow = await db.prepare('SELECT * FROM expenses WHERE id = ?').get(expense.lastInsertRowid);
+      await writeAudit(req.user.id, 'expense', expense.lastInsertRowid, 'create', null, expenseRow);
+      await writeAudit(req.user.id, 'savings_transaction', transaction.lastInsertRowid, 'create', null, {
+        account_id: account.id,
+        transaction_type: 'withdrawal',
+        amount,
+        related_expense_id: expense.lastInsertRowid,
+      });
+    });
+  } catch (error) {
+    if (error.status) return res.status(error.status).send(error.message);
+    throw error;
+  }
+  res.redirect('/savings');
 });
 
 router.post('/savings/accounts', async (req, res) => {

@@ -4,7 +4,7 @@
   <p>Enregistrez les informations utiles au suivi de cette opération.</p>
 </div>
 <form method="POST" action="<%= expense ? `/expenses/${expense.id}/update` : '/expenses' %>" enctype="multipart/form-data">
-  <input type="hidden" name="return_to" value="/expenses" />
+  <input type="hidden" name="return_to" value="<%= returnTo %>" />
   <div class="form-grid">
     <label>Désignation
       <input type="text" name="title" value="<%= expense?.title || '' %>" maxlength="250" required />

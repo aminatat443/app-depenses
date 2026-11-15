@@ -73,6 +73,11 @@ test('GET / returns dashboard HTML', async () => {
     assert.equal(response.status, 200);
     const text = await response.text();
     assert.match(text, /Gestion des dépenses familiales/i);
+    assert.match(text, /class="metric-card metric-income dashboard-metric-link" href="\/income\?month=/);
+    assert.match(text, /class="metric-card metric-expense dashboard-metric-link" href="\/expenses\?month=/);
+    assert.match(text, /class="metric-card metric-savings dashboard-metric-link" href="\/savings"/);
+    assert.match(text, /src="\/theme\.js"/);
+    assert.match(text, /data-theme-toggle/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -89,6 +94,32 @@ test('GET /login renders without an error message', async () => {
     assert.match(html, /Connectez-vous pour accéder aux finances de votre foyer/);
     assert.match(html, /name="identifier"/);
     assert.match(html, /data-toggle-password/);
+    assert.match(html, /data-theme-toggle/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('browser tab icon is linked from all page layouts and served as SVG', async () => {
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    for (const [route, request] of [
+      ['/', (url) => authedFetch(url)],
+      ['/expenses', (url) => authedFetch(url)],
+      ['/login', (url) => fetch(url)],
+    ]) {
+      const response = await request(`${baseUrl}${route}`);
+      assert.equal(response.status, 200);
+      assert.match(await response.text(), /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg"\s*\/>/);
+    }
+
+    const icon = await fetch(`${baseUrl}/favicon.svg`);
+    assert.equal(icon.status, 200);
+    assert.match(icon.headers.get('content-type'), /image\/svg\+xml/);
+    assert.match(await icon.text(), /<svg[^>]+viewBox="0 0 64 64"/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
@@ -170,6 +201,87 @@ test('GET / renders the selected dashboard month and trend period', async () => 
   }
 });
 
+test('grocery page filters the selected month and accepts total-only pricing', async () => {
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const totalPricedItem = 'Marchandise total prix test';
+  const unitPricedItem = 'Marchandise prix unitaire test';
+
+  try {
+    const totalPriceResponse = await authedFetch(`${baseUrl}/groceries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        item_name: totalPricedItem,
+        purchase_date: '2040-04-04',
+        selected_month: '2040-04',
+        quantity: '3',
+        unit: 'sacs',
+        unit_price: '',
+        total_amount: '8500',
+      }),
+    });
+    assert.equal(totalPriceResponse.status, 200);
+    const totalPriceHtml = await totalPriceResponse.text();
+    assert.match(totalPriceHtml, /name="month" value="2040-04"/);
+    assert.match(totalPriceHtml, new RegExp(totalPricedItem));
+    assert.doesNotMatch(totalPriceHtml, new RegExp(unitPricedItem));
+
+    const totalPriceRow = await db.prepare(`
+      SELECT quantity, unit_price, total_amount, unit_price_known
+      FROM grocery_items WHERE item_name = ?
+    `).get(totalPricedItem);
+    assert.equal(Number(totalPriceRow.quantity), 3);
+    assert.equal(Number(totalPriceRow.unit_price), 0);
+    assert.equal(Number(totalPriceRow.total_amount), 8500);
+    assert.equal(Number(totalPriceRow.unit_price_known), 0);
+
+    const unitPriceResponse = await authedFetch(`${baseUrl}/groceries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        item_name: unitPricedItem,
+        purchase_date: '2040-05-04',
+        selected_month: '2040-05',
+        quantity: '2',
+        unit: 'paquets',
+        unit_price: '275',
+        total_amount: '',
+      }),
+    });
+    assert.equal(unitPriceResponse.status, 200);
+    const unitPriceHtml = await unitPriceResponse.text();
+    assert.match(unitPriceHtml, /name="month" value="2040-05"/);
+    assert.match(unitPriceHtml, new RegExp(unitPricedItem));
+    assert.doesNotMatch(unitPriceHtml, new RegExp(totalPricedItem));
+    assert.equal(Number((await db.prepare(`
+      SELECT total_amount FROM grocery_items WHERE item_name = ?
+    `).get(unitPricedItem)).total_amount), 550);
+
+    const filteredAprilResponse = await authedFetch(`${baseUrl}/groceries?month=2040-04`);
+    const filteredAprilHtml = await filteredAprilResponse.text();
+    assert.match(filteredAprilHtml, new RegExp(totalPricedItem));
+    assert.doesNotMatch(filteredAprilHtml, new RegExp(unitPricedItem));
+
+    const invalidPriceResponse = await authedFetch(`${baseUrl}/groceries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        item_name: 'Marchandise sans prix test',
+        purchase_date: '2040-05-05',
+        quantity: '1',
+        unit_price: '',
+        total_amount: '',
+      }),
+    });
+    assert.equal(invalidPriceResponse.status, 400);
+  } finally {
+    await db.prepare('DELETE FROM grocery_items WHERE item_name IN (?, ?)').run(totalPricedItem, unitPricedItem);
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('sidebar links open pages and page actions expose modal triggers', async () => {
   const server = await startServer();
   const { port } = server.address();
@@ -184,6 +296,12 @@ test('sidebar links open pages and page actions expose modal triggers', async ()
       const text = await response.text();
       assert.match(text, /class="sidebar"/);
       assert.match(text, /href="\/history"/);
+      assert.match(text, /class="side-nav" aria-label="Sections de l’application"/);
+      assert.match(text, /class="sidebar-user"/);
+      assert.match(text, /class="mobile-primary-nav" aria-label="Navigation principale"/);
+      assert.match(text, /id="global-search"/);
+      assert.match(text, /class="mobile-more-trigger[^"]*"[^>]*aria-expanded="false" aria-controls="mobile-more-menu"/);
+      assert.match(text, /id="mobile-more-menu"[^>]*aria-hidden="true" inert/);
       assert.match(text, /src="\/app.js"/);
     }
 
@@ -574,8 +692,101 @@ test('monthly revenues, exceptional income, rent and protected savings stay sepa
     assert.match(historyHtml, /Loyer encaissé/);
     assert.match(historyHtml, /Recette/);
     assert.match(historyHtml, /Épargne/);
+    assert.match(historyHtml, /data-row-href="\/rents\?month=2026-11&amp;open=rent-payment-details-\d+"/);
+    assert.match(historyHtml, /data-row-href="\/income\?month=2026-11&amp;open=income-details-\d+"/);
+    assert.match(historyHtml, /data-row-href="\/savings\?open=savings-details-\d+"/);
   } finally {
     server.close();
+  }
+});
+
+test('protected-savings expenses stay separate from current balances and appear in exports', async () => {
+  const protectedAccount = await db.prepare(`
+    SELECT id FROM savings_accounts WHERE is_protected = TRUE
+  `).get();
+  const category = await db.prepare("SELECT id FROM categories WHERE type <> 'boutique' ORDER BY id LIMIT 1").get();
+  assert.ok(protectedAccount);
+  assert.ok(category);
+  const monthKey = '2027-02';
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    const before = await (await authedFetch(
+      `${baseUrl}/finance/monthly-data?month=${monthKey}`,
+    )).json();
+    const unconfirmed = await authedFetch(`${baseUrl}/savings/protected-expenses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        title: 'Dépense protégée sans confirmation',
+        category_id: String(category.id),
+        expense_date: '2027-02-12',
+        month_key: monthKey,
+        amount: '2500',
+      }),
+    });
+    assert.equal(unconfirmed.status, 400);
+    const response = await authedFetch(`${baseUrl}/savings/protected-expenses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        title: 'Dépense test épargne protégée',
+        category_id: String(category.id),
+        expense_date: '2027-02-12',
+        month_key: monthKey,
+        amount: '2500',
+        protected_confirmation: '1',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(response.status, 302);
+    const linked = await db.prepare(`
+      SELECT e.funding_source, e.amount, t.transaction_type, t.related_expense_id
+      FROM expenses e JOIN savings_transactions t ON t.related_expense_id = e.id
+      WHERE e.title = 'Dépense test épargne protégée'
+    `).get();
+    assert.equal(linked.funding_source, 'protected_savings');
+    assert.equal(Number(linked.amount), 2500);
+    assert.equal(linked.transaction_type, 'withdrawal');
+    assert.ok(linked.related_expense_id);
+
+    const after = await (await authedFetch(
+      `${baseUrl}/finance/monthly-data?month=${monthKey}`,
+    )).json();
+    assert.equal(after.totalExpenses, before.totalExpenses);
+    assert.equal(after.closingBalance, before.closingBalance);
+    assert.equal(after.protectedSavingsExpenses, before.protectedSavingsExpenses + 2500);
+
+    const workbookResponse = await authedFetch(`${baseUrl}/export/month/2027/2`);
+    const workbook = await loadExcelJsWorkbook(Buffer.from(await workbookResponse.arrayBuffer()));
+    const sheet = workbook.getWorksheet('Février');
+    let protectedSectionRow = null;
+    for (let rowNumber = 1; rowNumber <= sheet.rowCount; rowNumber += 1) {
+      if (sheet.getCell(rowNumber, 4).value === 'Dépenses financées par l’épargne protégée') {
+        protectedSectionRow = rowNumber;
+        break;
+      }
+    }
+    assert.ok(protectedSectionRow);
+    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).value, 'Dépense test épargne protégée');
+
+    const csvResponse = await authedFetch(`${baseUrl}/export/csv/2027/expenses`);
+    const csv = await csvResponse.text();
+    assert.match(csv, /^"Date";"Mois";"Désignation";"Catégorie";"Montant";"Source de financement"/);
+    assert.match(csv, /Dépense test épargne protégée/);
+    assert.match(csv, /Épargne protégée/);
+  } finally {
+    const createdExpense = await db.prepare(`
+      SELECT id FROM expenses WHERE title = 'Dépense test épargne protégée'
+    `).get();
+    if (createdExpense) {
+      await db.prepare('DELETE FROM savings_transactions WHERE related_expense_id = ?')
+        .run(createdExpense.id);
+      await db.prepare('DELETE FROM expenses WHERE id = ?').run(createdExpense.id);
+    }
+    await new Promise((resolve) => server.close(resolve));
   }
 });
 
@@ -596,6 +807,11 @@ test('history filters financial operations and paginates large result sets', asy
     assert.equal(firstPage.status, 200);
     assert.match(firstHtml, /51 opérations retrouvées/);
     assert.match(firstHtml, /page 1 sur 2/);
+    const allSearchResults = await (await authedFetch(
+      `${baseUrl}/history?type=expense&month=2026-11&search=pagination&format=json`,
+    )).json();
+    assert.equal(allSearchResults.totalCount, 51);
+    assert.equal(allSearchResults.operations.length, 51);
     const nextHref = firstHtml.match(/href="([^"]*page=2[^"]*)"/)?.[1]?.replaceAll('&amp;', '&');
     assert.ok(nextHref);
     assert.match(nextHref, /type=expense/);
@@ -636,13 +852,31 @@ test('POST /expenses stores an ordinary expense', async () => {
     });
 
     assert.equal(response.status, 200);
+    const expensesHtml = await response.text();
+    assert.match(expensesHtml, /<tr data-modal-template="expense-details-\d+" tabindex="0"/);
     const expense = await db.prepare("SELECT * FROM expenses WHERE title = 'Electricité'").get();
+    const detailsStart = expensesHtml.indexOf(`<template id="expense-details-${expense.id}">`);
+    const detailsEnd = expensesHtml.indexOf('</template>', detailsStart);
+    const detailsHtml = expensesHtml.slice(detailsStart, detailsEnd);
+    assert.match(expensesHtml, /aria-label="Afficher le détail de Electricité"/);
+    assert.match(detailsHtml, /aria-label="Modifier Electricité"/);
+    assert.match(detailsHtml, /aria-label="Supprimer Electricité"/);
+    assert.match(detailsHtml, /data-modal-template="expense-edit-\d+">Modifier<\/button>/);
+    assert.match(detailsHtml, /data-modal-danger="true">Supprimer<\/button>/);
     assert.equal(Number(expense.amount), 25000);
     assert.equal(expense.beneficiary, 'Fournisseur test');
     assert.equal(expense.month_key, '2026-11');
     assert.ok(expense.created_by);
     const attachment = await db.prepare('SELECT * FROM expense_attachments WHERE expense_id = ?').get(expense.id);
     assert.equal(attachment.file_name, 'preuve.png');
+    const dashboardHtml = await (await authedFetch(`http://127.0.0.1:${port}/?month=2026-11`)).text();
+    assert.match(dashboardHtml, new RegExp(`data-row-href="/expenses\\?[^"]*open=expense-details-${expense.id}"`));
+    assert.match(dashboardHtml, /id="global-search-results"/);
+    const searchResponse = await authedFetch(`http://127.0.0.1:${port}/history?format=json&search=Electricité`);
+    const searchData = await searchResponse.json();
+    const searchResult = searchData.operations.find((item) => item.type === 'expense' && item.id === expense.id);
+    assert.equal(searchResponse.status, 200);
+    assert.equal(searchResult.href, `/expenses?month=2026-11&search=Electricit%C3%A9&open=expense-details-${expense.id}`);
     const receiptResponse = await authedFetch(`http://127.0.0.1:${port}/expenses/${expense.id}/receipt`);
     assert.equal(receiptResponse.status, 200);
     assert.equal(receiptResponse.headers.get('content-type'), 'image/png');
@@ -669,15 +903,24 @@ test('expense can be edited, filtered and deleted with an audit trail', async ()
     payment_method: 'Virement',
     description: 'Montant corrigé',
     reference: 'facture-1-corrigée',
+    return_to: '/history',
   };
 
   try {
+    const historyResponse = await authedFetch(`${baseUrl}/history?type=expense&search=Electricité`);
+    const historyHtml = await historyResponse.text();
+    assert.match(historyHtml, new RegExp(`data-modal-template="expense-edit-${expense.id}"`));
+    assert.match(historyHtml, new RegExp(`action="/expenses/${expense.id}/update"`));
+    assert.match(historyHtml, new RegExp(`data-row-href="/expenses\\?month=2026-11&amp;search=Electricit%C3%A9&amp;open=expense-details-${expense.id}"`));
+    assert.match(historyHtml, /name="return_to" value="\/history"/);
+
     const updateResponse = await authedFetch(`${baseUrl}/expenses/${expense.id}/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams(fields),
     });
     assert.equal(updateResponse.status, 200);
+    assert.equal(new URL(updateResponse.url).pathname, '/history');
     const filtered = await authedFetch(`${baseUrl}/expenses?month=2026-11&category=${expense.category_id}&search=corrigée`);
     assert.match(await filtered.text(), /Facture électrique corrigée/);
     assert.equal(Number((await db.prepare('SELECT amount FROM expenses WHERE id = ?').get(expense.id)).amount), 27500);
@@ -810,6 +1053,8 @@ test('monthly exports provide XLSX, CSV and PDF formats', async () => {
     assert.doesNotMatch(monthlyHtml, /name="includeCarryover" value="1" checked/);
     const exportHtml = await (await authedFetch(`${baseUrl}/export`)).text();
     assert.match(exportHtml, /\/export\/csv\/\d+\/expenses/);
+    assert.match(exportHtml, /class="export-carryover-option"/);
+    assert.match(exportHtml, /Le report reste visible dans le fichier, même si cette option est désactivée/);
     assert.match(exportHtml, /name="includeCarryover" value="1"/);
     assert.doesNotMatch(exportHtml, /name="includeCarryover" value="1" checked/);
 
@@ -861,6 +1106,37 @@ test('monthly exports provide XLSX, CSV and PDF formats', async () => {
     assert.equal((await pdfResponse.arrayBuffer()).byteLength > 100, true);
   } finally {
     server.close();
+  }
+});
+
+test('expenses page shows the selected month shop-account total', async () => {
+  const result = await db.prepare(`
+    INSERT INTO grocery_items (item_name, purchase_date, month_key, quantity, unit, unit_price, total_amount)
+    VALUES ('Compte boutique affichage test', '2027-12-03', '2027-12', 1, 'unité', 1234567, 1234567)
+  `).run();
+  const server = await startServer();
+  const { port } = server.address();
+
+  try {
+    const response = await authedFetch(`http://127.0.0.1:${port}/expenses?month=2027-12`);
+    const html = await response.text();
+    const total = Number((await db.prepare(`
+      SELECT SUM(total_amount) AS total FROM grocery_items
+      WHERE COALESCE(NULLIF(month_key, ''), to_char(purchase_date, 'YYYY-MM')) = '2027-12'
+    `).get()).total);
+    const formattedTotal = new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'XAF',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(total);
+
+    assert.equal(response.status, 200);
+    assert.match(html, /Compte boutique du mois/);
+    assert.ok(html.includes(formattedTotal));
+  } finally {
+    await db.prepare('DELETE FROM grocery_items WHERE id = ?').run(result.lastInsertRowid);
+    await new Promise((resolve) => server.close(resolve));
   }
 });
 

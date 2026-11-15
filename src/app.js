@@ -145,7 +145,8 @@ const getMonthlyTotals = async (monthKey) => {
   const expenses = await db.prepare(`
     SELECT COALESCE(SUM(amount), 0) AS total
     FROM expenses
-    WHERE COALESCE(NULLIF(month_key, ''), to_char(expense_date, 'YYYY-MM')) = ?
+    WHERE funding_source <> 'protected_savings'
+      AND COALESCE(NULLIF(month_key, ''), to_char(expense_date, 'YYYY-MM')) = ?
   `).get(monthKey);
 
   return {
@@ -173,7 +174,8 @@ const currentDashboard = async (monthKey, period) => {
       SELECT COALESCE(NULLIF(month_key, ''), to_char(expense_date, 'YYYY-MM')) AS month,
         0 AS groceries, SUM(amount) AS expenses
       FROM expenses
-      WHERE COALESCE(NULLIF(month_key, ''), to_char(expense_date, 'YYYY-MM')) BETWEEN ? AND ?
+      WHERE funding_source <> 'protected_savings'
+        AND COALESCE(NULLIF(month_key, ''), to_char(expense_date, 'YYYY-MM')) BETWEEN ? AND ?
       GROUP BY month
     )
     GROUP BY month
@@ -216,15 +218,23 @@ const currentDashboard = async (monthKey, period) => {
 
   const recentOperations = await db.prepare(`
     SELECT * FROM (
-      SELECT e.id, e.title, e.amount, e.expense_date AS date,
+      SELECT e.id,
+        CASE WHEN e.funding_source = 'protected_savings'
+          THEN (SELECT s.id FROM savings_transactions s WHERE s.related_expense_id = e.id ORDER BY s.id DESC LIMIT 1)
+          ELSE e.id
+        END AS source_id,
+        e.title, e.amount, e.expense_date AS date, e.funding_source,
         COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) AS month,
-        c.name AS category, 'expense' AS type
+        c.name AS category, 'expense' AS type, e.beneficiary,
+        CONCAT_WS(' ', e.title, c.name, e.beneficiary, e.paid_by, e.funding_source) AS search_text
       FROM expenses e
       JOIN categories c ON c.id = e.category_id
       UNION ALL
-      SELECT g.id, g.item_name AS title, g.total_amount AS amount, g.purchase_date AS date,
+      SELECT g.id, g.id AS source_id, g.item_name AS title, g.total_amount AS amount, g.purchase_date AS date,
+        'current' AS funding_source,
         COALESCE(NULLIF(g.month_key, ''), to_char(g.purchase_date, 'YYYY-MM')) AS month,
-        'Compte boutique' AS category, 'grocery' AS type
+        'Compte boutique' AS category, 'grocery' AS type, NULL AS beneficiary,
+        CONCAT_WS(' ', g.item_name, g.notes, 'Compte boutique') AS search_text
       FROM grocery_items g
     )
     WHERE month = ?
@@ -236,6 +246,7 @@ const currentDashboard = async (monthKey, period) => {
     SELECT c.name, c.color, COALESCE(SUM(e.amount), 0) AS total
     FROM categories c
     LEFT JOIN expenses e ON e.category_id = c.id
+      AND e.funding_source <> 'protected_savings'
       AND COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
     GROUP BY c.id, c.name
     HAVING SUM(e.amount) > 0
@@ -585,30 +596,71 @@ app.get('/', async (req, res) => {
 
 app.get('/groceries', async (req, res) => {
   const search = (req.query.search || '').toString().trim();
-  let query = 'SELECT * FROM grocery_items ORDER BY purchase_date DESC NULLS LAST, id DESC';
-  const params = [];
+  const requestedMonth = (req.query.month || '').toString();
+  const today = new Date();
+  const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)
+    ? requestedMonth
+    : getMonthKey(today.getFullYear(), today.getMonth() + 1);
+  let query = `
+    SELECT * FROM grocery_items
+    WHERE COALESCE(NULLIF(month_key, ''), to_char(purchase_date, 'YYYY-MM')) = ?
+  `;
+  const params = [selectedMonth];
 
   if (search) {
-    query = 'SELECT * FROM grocery_items WHERE item_name ILIKE ? OR unit ILIKE ? OR notes ILIKE ? ORDER BY purchase_date DESC NULLS LAST, id DESC';
+    query += ' AND (item_name ILIKE ? OR unit ILIKE ? OR notes ILIKE ?)';
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 
+  query += ' ORDER BY purchase_date DESC NULLS LAST, id DESC';
   const groceryList = await db.prepare(query).all(...params);
-  res.render('groceries', { groceryList, search });
+  const defaultPurchaseDate = selectedMonth === getMonthKey(today.getFullYear(), today.getMonth() + 1)
+    ? today.toISOString().slice(0, 10)
+    : `${selectedMonth}-01`;
+  res.render('groceries', { groceryList, search, selectedMonth, defaultPurchaseDate });
 });
 
 app.post('/groceries', async (req, res) => {
-  const { item_name, purchase_date, quantity, unit, unit_price, notes } = req.body;
-  const q = Number(quantity || 0);
-  const price = Number(unit_price || 0);
-  const total = q * price;
+  const itemName = String(req.body.item_name || '').trim();
+  const purchaseDate = String(req.body.purchase_date || '').trim();
+  const q = Number(req.body.quantity || 0);
+  const unitPriceInput = String(req.body.unit_price || '').trim();
+  const totalAmountInput = String(req.body.total_amount || '').trim();
+  const price = unitPriceInput ? Number(unitPriceInput) : 0;
+  const enteredTotal = totalAmountInput ? Number(totalAmountInput) : null;
+  if (
+    !itemName
+    || !isValidIsoDate(purchaseDate)
+    || !Number.isFinite(q)
+    || q <= 0
+    || (!unitPriceInput && !totalAmountInput)
+    || (unitPriceInput && (!Number.isFinite(price) || price < 0))
+    || (totalAmountInput && (!Number.isFinite(enteredTotal) || enteredTotal < 0))
+  ) {
+    return res.status(400).send('Saisissez une marchandise, une date valide, une quantité positive et un prix unitaire ou total valide.');
+  }
+  const total = enteredTotal ?? q * price;
+  const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(req.body.selected_month || ''))
+    ? String(req.body.selected_month)
+    : purchaseDate.slice(0, 7);
 
   await db.prepare(`
-    INSERT INTO grocery_items (item_name, purchase_date, month_key, quantity, unit, unit_price, total_amount, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(item_name, purchase_date, purchase_date.slice(0, 7), q, unit || '', price, total, notes || '');
+    INSERT INTO grocery_items (
+      item_name, purchase_date, month_key, quantity, unit, unit_price, total_amount, notes, unit_price_known
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    itemName,
+    purchaseDate,
+    purchaseDate.slice(0, 7),
+    q,
+    req.body.unit || '',
+    price,
+    total,
+    req.body.notes || '',
+    unitPriceInput ? 1 : 0,
+  );
 
-  res.redirect(req.body.return_to === '/history' ? '/history' : '/groceries');
+  res.redirect(req.body.return_to === '/history' ? '/history' : `/groceries?month=${selectedMonth}`);
 });
 
 app.post('/groceries/:id/delete', async (req, res) => {
@@ -628,7 +680,8 @@ app.get('/expenses', async (req, res) => {
   const pageSize = 50;
 
   let where = `
-    WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
+    WHERE e.funding_source <> 'protected_savings'
+      AND COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
   `;
   const params = [monthKey];
   if (req.query.category && /^\d+$/.test(String(req.query.category))) {
@@ -757,6 +810,10 @@ app.post('/expenses/:id/update', receiptUpload.single('receipt'), async (req, re
   const id = Number(req.params.id);
   const expense = validateExpenseInput(req.body);
   if (!Number.isSafeInteger(id) || !expense) return res.status(400).send('Données de dépense invalides.');
+  const existing = await db.prepare('SELECT funding_source FROM expenses WHERE id = ?').get(id);
+  if (existing?.funding_source === 'protected_savings') {
+    return res.status(409).send('Cette dépense est liée à un retrait de l’épargne protégée et ne peut pas être modifiée ici.');
+  }
   const category = await db.prepare('SELECT id FROM categories WHERE id = ? AND type <> ?').get(expense.categoryId, 'boutique');
   if (!category) return res.status(400).send('Catégorie de dépense invalide.');
   const before = await db.prepare('SELECT * FROM expenses WHERE id = ?').get(id);
@@ -792,6 +849,10 @@ app.post('/expenses/:id/update', receiptUpload.single('receipt'), async (req, re
 
 app.post('/expenses/:id/delete', async (req, res) => {
   const id = Number(req.params.id);
+  const existing = await db.prepare('SELECT funding_source FROM expenses WHERE id = ?').get(id);
+  if (existing?.funding_source === 'protected_savings') {
+    return res.status(409).send('Cette dépense est liée à un retrait de l’épargne protégée et ne peut pas être supprimée ici.');
+  }
   const removedFiles = await db.prepare('SELECT storage_path FROM expense_attachments WHERE expense_id = ?').all(id);
   await db.transaction(async () => {
     const before = await db.prepare('SELECT * FROM expenses WHERE id = ? FOR UPDATE').get(id);
@@ -817,6 +878,8 @@ app.get('/expenses/:id/receipt', async (req, res) => {
 
 app.get('/history', async (req, res) => {
   const search = (req.query.search || '').toString().trim();
+  const isSearchApi = req.query.format === 'json';
+  if (isSearchApi && !search) return res.json({ totalCount: 0, operations: [] });
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(req.query.month || ''))
     ? String(req.query.month)
     : '';
@@ -833,28 +896,35 @@ app.get('/history', async (req, res) => {
   const pageSize = 50;
   const operationQuery = `
     SELECT * FROM (
-      SELECT e.id, e.title, e.amount, e.expense_date AS date,
+      SELECT e.id, e.title, e.amount, e.expense_date AS date, e.funding_source,
         COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) AS month,
+        COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) AS source_month,
+        CASE WHEN e.funding_source = 'protected_savings'
+          THEN (SELECT s.id FROM savings_transactions s WHERE s.related_expense_id = e.id ORDER BY s.id DESC LIMIT 1)
+          ELSE e.id
+        END AS source_id,
         c.name AS category, 'expense' AS type, e.beneficiary,
-        CONCAT_WS(' ', e.title, c.name, e.beneficiary, e.paid_by) AS search_text
+        CONCAT_WS(' ', e.title, c.name, e.beneficiary, e.paid_by, e.funding_source) AS search_text
       FROM expenses e
       JOIN categories c ON c.id = e.category_id
       UNION ALL
-      SELECT g.id, g.item_name AS title, g.total_amount AS amount, g.purchase_date AS date,
-        COALESCE(NULLIF(g.month_key, ''), to_char(g.purchase_date, 'YYYY-MM')) AS month, 'Compte boutique' AS category,
+      SELECT g.id, g.item_name AS title, g.total_amount AS amount, g.purchase_date AS date, 'current' AS funding_source,
+        COALESCE(NULLIF(g.month_key, ''), to_char(g.purchase_date, 'YYYY-MM')) AS month,
+        COALESCE(NULLIF(g.month_key, ''), to_char(g.purchase_date, 'YYYY-MM')) AS source_month,
+        g.id AS source_id, 'Compte boutique' AS category,
         'grocery' AS type, NULL AS beneficiary,
         CONCAT_WS(' ', g.item_name, g.notes, 'Compte boutique') AS search_text
       FROM grocery_items g
       UNION ALL
-      SELECT i.id, i.title, i.amount, i.income_date AS date, i.month_key AS month,
-        c.name AS category, 'income' AS type, i.source AS beneficiary,
+      SELECT i.id, i.title, i.amount, i.income_date AS date, NULL AS funding_source, i.month_key AS month,
+        i.month_key AS source_month, i.id AS source_id, c.name AS category, 'income' AS type, i.source AS beneficiary,
         CONCAT_WS(' ', i.title, c.name, i.source) AS search_text
       FROM incomes i JOIN income_categories c ON c.id = i.category_id
       UNION ALL
       SELECT p.id, CONCAT('Loyer ', t.first_name, ' ', t.last_name) AS title,
-        p.amount, p.payment_date AS date,
+        p.amount, p.payment_date AS date, NULL AS funding_source,
         COALESCE(NULLIF(p.received_month_key, ''), to_char(p.payment_date, 'YYYY-MM'), o.month_key) AS month,
-        'Loyer' AS category,
+        o.month_key AS source_month, p.id AS source_id, 'Loyer' AS category,
         'rent' AS type, CONCAT(u.floor, ' · ', u.label) AS beneficiary,
         CONCAT_WS(' ', t.first_name, t.last_name, u.floor, u.label, p.payment_method) AS search_text
       FROM rent_payments p
@@ -862,11 +932,14 @@ app.get('/history', async (req, res) => {
       JOIN tenants t ON t.id = o.tenant_id
       JOIN units u ON u.id = t.unit_id
       UNION ALL
-      SELECT s.id, a.name AS title, s.amount, s.transaction_date AS date,
-        to_char(s.transaction_date, 'YYYY-MM') AS month, 'Épargne' AS category,
+      SELECT s.id, COALESCE(e.title, a.name) AS title, s.amount, s.transaction_date AS date,
+        CASE WHEN s.related_expense_id IS NOT NULL THEN 'protected_savings' ELSE NULL END AS funding_source,
+        to_char(s.transaction_date, 'YYYY-MM') AS month, to_char(s.transaction_date, 'YYYY-MM') AS source_month,
+        s.id AS source_id, 'Épargne' AS category,
         'savings' AS type, s.transaction_type AS beneficiary,
         CONCAT_WS(' ', a.name, s.transaction_type, s.comment) AS search_text
       FROM savings_transactions s JOIN savings_accounts a ON a.id = s.account_id
+      LEFT JOIN expenses e ON e.id = s.related_expense_id
     )
   `;
   const params = [];
@@ -896,11 +969,60 @@ app.get('/history', async (req, res) => {
   const totalCount = Number((await db.prepare(`
     SELECT COUNT(*) AS count FROM (${operationQuery}) operations ${where}
   `).get(...params)).count);
-  const operationList = await db.prepare(`
-    SELECT * FROM (${operationQuery}) operations ${where}
-    ORDER BY date DESC, type, id DESC
-    LIMIT ? OFFSET ?
-  `).all(...params, pageSize, (page - 1) * pageSize);
+  const operationList = isSearchApi
+    ? await db.prepare(`
+      SELECT * FROM (${operationQuery}) operations ${where}
+      ORDER BY date DESC, type, id DESC
+    `).all(...params)
+    : await db.prepare(`
+      SELECT * FROM (${operationQuery}) operations ${where}
+      ORDER BY date DESC, type, id DESC
+      LIMIT ? OFFSET ?
+    `).all(...params, pageSize, (page - 1) * pageSize);
+  if (isSearchApi) {
+    const operations = operationList.map((item) => {
+      let href;
+      if (item.type === 'expense' && item.funding_source === 'protected_savings') {
+        href = item.source_id
+          ? `/savings?open=savings-details-${encodeURIComponent(item.source_id)}`
+          : '/savings';
+      } else if (item.type === 'expense') {
+        href = `/expenses?month=${encodeURIComponent(item.source_month)}&search=${encodeURIComponent(item.title)}&open=expense-details-${item.id}`;
+      } else if (item.type === 'grocery') {
+        href = `/groceries?month=${encodeURIComponent(item.source_month)}&search=${encodeURIComponent(item.title)}&open=grocery-details-${item.id}`;
+      } else if (item.type === 'income') {
+        href = `/income?month=${encodeURIComponent(item.source_month)}&open=income-details-${item.id}`;
+      } else if (item.type === 'rent') {
+        href = `/rents?month=${encodeURIComponent(item.source_month)}&open=rent-payment-details-${item.id}`;
+      } else {
+        href = `/savings?open=savings-details-${item.source_id}`;
+      }
+      return {
+        id: item.id,
+        type: item.type,
+        title: item.title,
+        amount: Number(item.amount),
+        date: item.date,
+        category: item.category,
+        source_month: item.source_month,
+        source_id: item.source_id,
+        funding_source: item.funding_source,
+        search_text: item.search_text,
+        href,
+      };
+    });
+    return res.json({ totalCount, operations });
+  }
+  const editableExpenseIds = operationList
+    .filter((item) => item.type === 'expense' && item.funding_source !== 'protected_savings')
+    .map((item) => item.id);
+  const editableExpenses = editableExpenseIds.length
+    ? await db.prepare(`
+      SELECT * FROM expenses WHERE id IN (${editableExpenseIds.map(() => '?').join(', ')})
+    `).all(...editableExpenseIds)
+    : [];
+  const editableExpensesById = Object.fromEntries(editableExpenses.map((expense) => [expense.id, expense]));
+  const categories = (await readCategories()).filter((category) => category.type !== 'boutique');
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
   const pageUrl = (pageNumber) => {
     const queryParams = new URLSearchParams();
@@ -913,7 +1035,7 @@ app.get('/history', async (req, res) => {
     return `/history?${queryParams.toString()}`;
   };
   res.render('history', {
-    operationList, search, month, type, startDate, endDate,
+    operationList, editableExpensesById, categories, search, month, type, startDate, endDate,
     page: Math.min(page, pageCount), pageCount, totalCount, pageUrl,
   });
 });
@@ -951,7 +1073,16 @@ app.get('/monthly', async (req, res) => {
     SELECT e.title, e.amount, e.expense_date, c.name AS category
     FROM expenses e
     JOIN categories c ON c.id = e.category_id
-    WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
+    WHERE e.funding_source <> 'protected_savings'
+      AND COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
+    ORDER BY e.expense_date ASC
+  `).all(reportDate);
+  const protectedSavingsExpenses = await db.prepare(`
+    SELECT e.title, e.amount, e.expense_date, c.name AS category
+    FROM expenses e
+    JOIN categories c ON c.id = e.category_id
+    WHERE e.funding_source = 'protected_savings'
+      AND COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
     ORDER BY e.expense_date ASC
   `).all(reportDate);
 
@@ -971,6 +1102,7 @@ app.get('/monthly', async (req, res) => {
     month,
     monthLabel,
     monthlyOther,
+    protectedSavingsExpenses,
     monthlyGroceries,
     totalGroceries,
     totalOther,
@@ -1659,15 +1791,17 @@ async function financialExportSheets(year) {
       ORDER BY i.month_key, i.income_date, i.id
     `).all(firstMonth, lastMonth),
     db.prepare(`
-      SELECT t.transaction_date, a.name AS account, t.transaction_type, t.amount, t.comment
+      SELECT t.transaction_date, a.name AS account, t.transaction_type, t.amount, t.comment,
+        e.title AS related_expense_title
       FROM savings_transactions t JOIN savings_accounts a ON a.id = t.account_id
+      LEFT JOIN expenses e ON e.id = t.related_expense_id
       WHERE t.transaction_date >= ? AND t.transaction_date < ?
       ORDER BY t.transaction_date, t.id
     `).all(startDate, endDate),
     db.prepare(`
       SELECT e.expense_date, COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) AS month_key,
         c.name AS category, e.title, e.amount, e.beneficiary, e.paid_by,
-        e.payment_method, e.reference, e.description
+        e.payment_method, e.reference, e.description, e.funding_source
       FROM expenses e JOIN categories c ON c.id = e.category_id
       WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) BETWEEN ? AND ?
       ORDER BY month_key, e.expense_date, e.id
@@ -1707,8 +1841,15 @@ async function financialExportSheets(year) {
     },
     {
       name: 'ÉPARGNE',
-      headers: ['Date', 'Compte', 'Type', 'Montant (FCFA)', 'Commentaire'],
-      rows: savings.map((row) => [row.transaction_date, row.account, row.transaction_type === 'deposit' ? 'Versement' : 'Retrait', Number(row.amount), row.comment]),
+      headers: ['Date', 'Compte', 'Type', 'Montant (FCFA)', 'Dépense liée', 'Commentaire'],
+      rows: savings.map((row) => [
+        row.transaction_date,
+        row.account,
+        row.related_expense_title ? 'Dépense protégée' : (row.transaction_type === 'deposit' ? 'Versement' : 'Retrait'),
+        Number(row.amount),
+        row.related_expense_title,
+        row.comment,
+      ]),
       dateColumns: [0],
       amountColumns: [3],
     },
@@ -1722,16 +1863,35 @@ async function financialExportSheets(year) {
     },
     {
       name: 'DÉPENSES DÉTAILLÉES',
-      headers: ['Date', 'Mois', 'Catégorie', 'Désignation', 'Montant (FCFA)', 'Bénéficiaire', 'Payé par', 'Mode de paiement', 'Référence', 'Commentaire'],
-      rows: expenses.map((row) => [row.expense_date, row.month_key, row.category, row.title, Number(row.amount), row.beneficiary, row.paid_by, row.payment_method, row.reference, row.description]),
+      headers: ['Date', 'Mois', 'Catégorie', 'Désignation', 'Montant (FCFA)', 'Source de financement', 'Bénéficiaire', 'Payé par', 'Mode de paiement', 'Référence', 'Commentaire'],
+      rows: expenses.map((row) => [
+        row.expense_date, row.month_key, row.category, row.title, Number(row.amount),
+        row.funding_source === 'protected_savings' ? 'Épargne protégée' : 'Compte courant',
+        row.beneficiary, row.paid_by, row.payment_method, row.reference, row.description,
+      ]),
+      dateColumns: [0],
+      amountColumns: [4],
+    },
+    {
+      name: 'DÉPENSES ÉPARGNE PROTÉGÉE',
+      headers: ['Date', 'Mois', 'Catégorie', 'Désignation', 'Montant (FCFA)', 'Source de financement', 'Bénéficiaire', 'Payé par', 'Mode de paiement', 'Référence', 'Commentaire'],
+      rows: expenses.filter((row) => row.funding_source === 'protected_savings').map((row) => [
+        row.expense_date, row.month_key, row.category, row.title, Number(row.amount),
+        'Épargne protégée', row.beneficiary, row.paid_by, row.payment_method, row.reference, row.description,
+      ]),
       dateColumns: [0],
       amountColumns: [4],
     },
     {
       name: 'BILAN FINANCIER',
-      headers: ['Mois', 'Solde reporté (FCFA)', 'Recettes (FCFA)', 'Ressources disponibles (FCFA)', 'Loyers attendus (FCFA)', 'Loyers encaissés (FCFA)', 'Impayés (FCFA)', 'Dépenses (FCFA)', 'Versements épargne (FCFA)', 'Retraits épargne (FCFA)', 'Épargne cumulée (FCFA)', 'Solde final (FCFA)'],
-      rows: monthlyBalances.map((row) => [row.monthKey, row.openingBalance, row.incomeTotal, row.resourcesAvailable, row.rentExpected, row.rentReceived, row.rentOutstanding, row.totalExpenses, row.savingsDeposits, row.savingsWithdrawals, row.savingsBalance, row.closingBalance]),
-      amountColumns: Array.from({ length: 11 }, (_, index) => index + 1),
+      headers: ['Mois', 'Solde reporté (FCFA)', 'Recettes (FCFA)', 'Ressources disponibles (FCFA)', 'Loyers attendus (FCFA)', 'Loyers encaissés (FCFA)', 'Impayés (FCFA)', 'Dépenses compte courant (FCFA)', 'Dépenses épargne protégée (FCFA)', 'Versements épargne (FCFA)', 'Retraits épargne (FCFA)', 'Épargne cumulée (FCFA)', 'Solde final (FCFA)'],
+      rows: monthlyBalances.map((row) => [
+        row.monthKey, row.openingBalance, row.incomeTotal, row.resourcesAvailable,
+        row.rentExpected, row.rentReceived, row.rentOutstanding, row.totalExpenses,
+        row.protectedSavingsExpenses, row.savingsDeposits, row.savingsWithdrawals,
+        row.savingsBalance, row.closingBalance,
+      ]),
+      amountColumns: Array.from({ length: 12 }, (_, index) => index + 1),
     },
   ];
 }
@@ -1790,7 +1950,7 @@ async function exportPeriodRows(monthKey) {
   const [expenses, groceries, incomes, rents, savings, balanceSnapshots] = await Promise.all([
     db.prepare(`
       SELECT e.expense_date, e.month_key, c.name AS category, e.title, e.amount,
-        e.beneficiary, e.paid_by, e.payment_method, e.reference, e.description
+        e.beneficiary, e.paid_by, e.payment_method, e.reference, e.description, e.funding_source
       FROM expenses e JOIN categories c ON c.id = e.category_id
       WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
       ORDER BY e.expense_date, e.id
@@ -1813,8 +1973,10 @@ async function exportPeriodRows(monthKey) {
       WHERE o.month_key = ? ORDER BY u.floor, u.label, t.last_name, t.first_name, p.payment_date, p.id
     `).all(monthKey),
     db.prepare(`
-      SELECT t.transaction_date, a.name AS account, t.transaction_type, t.amount, t.comment
+      SELECT t.transaction_date, a.name AS account, t.transaction_type, t.amount, t.comment,
+        e.title AS related_expense_title
       FROM savings_transactions t JOIN savings_accounts a ON a.id = t.account_id
+      LEFT JOIN expenses e ON e.id = t.related_expense_id
       WHERE to_char(t.transaction_date, 'YYYY-MM') = ? ORDER BY t.transaction_date, t.id
     `).all(monthKey),
     db.prepare(`
@@ -1879,7 +2041,7 @@ async function getReferenceMonthData(year, month) {
       ORDER BY p.id
     `).all(monthKey),
     db.prepare(`
-      SELECT e.title, e.amount
+      SELECT e.title, e.amount, e.funding_source
       FROM expenses e
       WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
       ORDER BY e.expense_date NULLS LAST, e.id
@@ -1906,8 +2068,12 @@ async function getReferenceMonthData(year, month) {
     ))
     .map((income) => ({ source: income.source, amount: Number(income.amount) }));
   const rentReceived = rentPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+  const protectedExpenseRows = expenses
+    .filter((row) => row.funding_source === 'protected_savings')
+    .map((row) => ({ title: row.title, amount: Number(row.amount) }));
   const expenseRows = [
-    ...expenses.map((row) => ({ title: row.title, amount: Number(row.amount) })),
+    ...expenses.filter((row) => row.funding_source !== 'protected_savings')
+      .map((row) => ({ title: row.title, amount: Number(row.amount) })),
     ...groceries.map((row) => ({ title: row.title, amount: Number(row.amount) })),
   ];
   const tenantsForTemplate = tenants.map((tenant) => {
@@ -1956,6 +2122,7 @@ async function getReferenceMonthData(year, month) {
     savingsWithdrawals: Number(finance.savingsWithdrawals),
     closingBalance: Number(finance.closingBalance),
     expenses: expenseRows,
+    protectedExpenses: protectedExpenseRows,
     totalExpenses: Number(finance.totalExpenses),
   };
 }
@@ -1969,15 +2136,20 @@ app.get('/export/csv/:year/:kind', async (req, res) => {
   let headers;
   let rows;
   if (kind === 'expenses') {
-    headers = ['Date', 'Mois', 'Désignation', 'Catégorie', 'Montant', 'Bénéficiaire', 'Personne ayant payé', 'Mode de paiement', 'Référence', 'Commentaire'];
+    headers = ['Date', 'Mois', 'Désignation', 'Catégorie', 'Montant', 'Source de financement', 'Bénéficiaire', 'Personne ayant payé', 'Mode de paiement', 'Référence', 'Commentaire'];
     rows = (await db.prepare(`
       SELECT e.expense_date, COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) AS month_key,
-        e.title, c.name AS category, e.amount, e.beneficiary, e.paid_by, e.payment_method, e.reference, e.description
+        e.title, c.name AS category, e.amount, e.funding_source, e.beneficiary, e.paid_by,
+        e.payment_method, e.reference, e.description
       FROM expenses e JOIN categories c ON c.id = e.category_id
       WHERE c.type <> 'boutique'
         AND COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) BETWEEN ? AND ?
       ORDER BY month_key, e.expense_date, e.id
-    `).all(startMonth, endMonth)).map((row) => [row.expense_date, row.month_key, row.title, row.category, Number(row.amount), row.beneficiary, row.paid_by, row.payment_method, row.reference, row.description]);
+    `).all(startMonth, endMonth)).map((row) => [
+      row.expense_date, row.month_key, row.title, row.category, Number(row.amount),
+      row.funding_source === 'protected_savings' ? 'Épargne protégée' : 'Compte courant',
+      row.beneficiary, row.paid_by, row.payment_method, row.reference, row.description,
+    ]);
   } else if (kind === 'groceries') {
     headers = ['Date', 'Catégorie', 'Marchandise', 'Quantité', 'Unité', 'Prix unitaire', 'Montant', 'Commentaire'];
     rows = (await db.prepare(`
@@ -2096,14 +2268,22 @@ app.get('/export/pdf/month/:year/:month', async (req, res) => {
     ['Loyers attendus', finance.rentExpected],
     ['Loyers encaissés', finance.rentReceived],
     ['Loyers impayés', finance.rentOutstanding],
-    ['Dépenses', finance.totalExpenses],
+    ['Dépenses du compte courant', finance.totalExpenses],
+    ['Dépenses financées par l’épargne protégée', finance.protectedSavingsExpenses],
     ['Épargne cumulée', finance.savingsBalance],
     ['Solde final', finance.closingBalance],
   ].forEach(([label, amount]) => doc.text(`${label} : ${formatCurrency(amount)}`));
-  doc.moveDown().fontSize(13).font('Helvetica-Bold').text('Dépenses');
+  doc.moveDown().fontSize(13).font('Helvetica-Bold').text('Dépenses du compte courant');
   doc.fontSize(9).font('Helvetica');
-  period.expenses.forEach((row) => doc.text(`${formatDate(row.expense_date)} · ${row.category} · ${row.title} · ${formatCurrency(row.amount)}`));
+  period.expenses.filter((row) => row.funding_source !== 'protected_savings')
+    .forEach((row) => doc.text(`${formatDate(row.expense_date)} · ${row.category} · ${row.title} · ${formatCurrency(row.amount)}`));
   period.groceries.forEach((row) => doc.text(`${formatDate(row.purchase_date)} · Boutique · ${row.item_name} · ${formatCurrency(row.total_amount)}`));
+  const protectedExpenses = period.expenses.filter((row) => row.funding_source === 'protected_savings');
+  if (protectedExpenses.length) {
+    doc.moveDown().fontSize(13).font('Helvetica-Bold').text('Dépenses financées par l’épargne protégée');
+    doc.fontSize(9).font('Helvetica');
+    protectedExpenses.forEach((row) => doc.text(`${formatDate(row.expense_date)} · ${row.category} · ${row.title} · ${formatCurrency(row.amount)}`));
+  }
   doc.moveDown().fontSize(13).font('Helvetica-Bold').text('Recettes et loyers encaissés');
   doc.fontSize(9).font('Helvetica');
   period.incomes.forEach((row) => doc.text(`${formatDate(row.income_date)} · ${row.source} · ${row.title} · ${formatCurrency(row.amount)}`));
@@ -2123,7 +2303,7 @@ app.get('/export/pdf/year/:year', async (req, res) => {
   doc.pipe(res);
   doc.fontSize(18).font('Helvetica-Bold').text(`Bilan annuel · ${year}`);
   doc.moveDown().fontSize(9).font('Helvetica-Bold');
-  doc.text('Mois             Recettes       Loyers attendus       Dépenses       Épargne        Solde final');
+  doc.text('Mois             Recettes       Loyers attendus       Dépenses courantes       Épargne        Dépenses protégées       Solde final');
   doc.font('Helvetica');
   reports.forEach((row) => doc.text([
     row.monthKey,
@@ -2131,6 +2311,7 @@ app.get('/export/pdf/year/:year', async (req, res) => {
     formatCurrency(row.rentExpected),
     formatCurrency(row.totalExpenses),
     formatCurrency(row.savingsBalance),
+    formatCurrency(row.protectedSavingsExpenses),
     formatCurrency(row.closingBalance),
   ].join('   ')));
   doc.moveDown().font('Helvetica-Bold').text(`Solde final de l’année : ${formatCurrency(reports.at(-1)?.closingBalance || 0)}`);

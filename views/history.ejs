@@ -5,7 +5,7 @@
 }) %>
 
 <section class="panel-card page-filter-card">
-  <form method="GET" action="/history" class="page-filter-form">
+  <form method="GET" action="/history" class="page-filter-form" data-live-search data-live-filter data-live-filter-root=".page-content">
     <label>Recherche
       <input type="search" name="search" value="<%= search || '' %>" placeholder="Intitulé, source, bénéficiaire" />
     </label>
@@ -40,19 +40,38 @@
         <thead><tr><th>DATE</th><th>OPÉRATION</th><th>TYPE</th><th>CATÉGORIE</th><th class="amount-cell">MONTANT</th><th></th></tr></thead>
         <tbody>
           <% operationList.forEach((item) => { %>
-            <tr>
+            <% const rowHref = item.type === 'expense' && item.funding_source === 'protected_savings'
+              ? item.source_id
+                ? `/savings?open=savings-details-${encodeURIComponent(item.source_id)}`
+                : `/savings?month=${encodeURIComponent(item.source_month)}`
+              : item.type === 'expense'
+              ? `/expenses?month=${encodeURIComponent(item.source_month)}&search=${encodeURIComponent(item.title)}&open=expense-details-${item.id}`
+              : item.type === 'grocery'
+                ? `/groceries?month=${encodeURIComponent(item.source_month)}&search=${encodeURIComponent(item.title)}&open=grocery-details-${item.id}`
+                : item.type === 'income'
+                  ? `/income?month=${encodeURIComponent(item.source_month)}&open=income-details-${item.id}`
+                  : item.type === 'rent'
+                    ? `/rents?month=${encodeURIComponent(item.source_month)}&open=rent-payment-details-${item.id}`
+                    : `/savings?open=savings-details-${item.source_id}`; %>
+            <tr data-row-href="<%= rowHref %>" tabindex="0" aria-label="Ouvrir <%= item.title %>">
               <td class="date-cell"><%= formatDate(item.date) %></td>
-              <td><strong><%= item.title %></strong></td>
-              <td><%= ({ expense: 'Dépense', grocery: 'Ravitaillement', income: 'Recette', rent: 'Loyer encaissé', savings: 'Épargne' })[item.type] %></td>
+              <td><strong><%= item.title %></strong><% if (item.funding_source === 'protected_savings') { %><small class="page-note">Payée depuis l’épargne protégée</small><% } %></td>
+              <td><%= item.funding_source === 'protected_savings' ? 'Dépense protégée' : ({ expense: 'Dépense', grocery: 'Ravitaillement', income: 'Recette', rent: 'Loyer encaissé', savings: 'Épargne' })[item.type] %></td>
               <td><span class="category-pill"><%= item.category %></span></td>
               <td class="amount-cell"><strong><%= formatCurrency(item.amount) %></strong></td>
               <td>
+                <% if (item.type === 'expense' && item.funding_source !== 'protected_savings') { %>
+                  <button class="table-action icon-action" type="button" aria-label="Modifier <%= item.title %>" title="Modifier" data-modal-template="expense-edit-<%= item.id %>"><%- include('partials/action-icon', { icon: 'edit' }) %></button>
+                <% } %>
                 <% if (['expense', 'grocery', 'income'].includes(item.type)) { %>
                   <% const deleteUrl = item.type === 'grocery' ? '/groceries/' + item.id + '/delete' : (item.type === 'income' ? '/income/' + item.id + '/delete' : '/expenses/' + item.id + '/delete'); %>
-                  <button class="table-action danger" type="button" data-modal-confirm="<%= deleteUrl %>" data-modal-return="/history" data-modal-title="Supprimer cette opération ?" data-modal-message="Cette ligne sera retirée de l’historique et du bilan correspondant." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+                  <button class="table-action icon-action danger" type="button" aria-label="Supprimer <%= item.title %>" title="Supprimer" data-modal-confirm="<%= deleteUrl %>" data-modal-return="/history" data-modal-title="Supprimer cette opération ?" data-modal-message="Cette ligne sera retirée de l’historique et du bilan correspondant." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
                 <% } else { %><span class="page-note">Conservé</span><% } %>
               </td>
             </tr>
+            <% if (item.type === 'expense' && editableExpensesById[item.id]) { %>
+              <template id="expense-edit-<%= item.id %>"><%- include('partials/expense-form', { categories, expense: editableExpensesById[item.id], returnTo: '/history' }) %></template>
+            <% } %>
           <% }) %>
         </tbody>
       </table>

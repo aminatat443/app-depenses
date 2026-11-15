@@ -16,11 +16,11 @@
   <div class="panel-header"><div><h2>Répertoire des locataires</h2><p>L’historique des loyers reste conservé après désactivation.</p></div></div>
   <% if (tenants.length) { %>
     <div class="table-wrap">
-      <table class="transactions-table">
+      <table class="transactions-table tenant-directory-table">
         <thead><tr><th>LOGEMENT</th><th>LOCATAIRE</th><th>PERSONNES</th><th>TÉLÉPHONE</th><th>ENTRÉE</th><th class="amount-cell">LOYER MENSUEL</th><th>STATUT</th><th>ACTIONS</th></tr></thead>
         <tbody>
           <% tenants.forEach((tenant) => { %>
-            <tr>
+            <tr data-modal-template="tenant-details-<%= tenant.id %>" tabindex="0" aria-label="Afficher la fiche de <%= tenant.first_name %> <%= tenant.last_name %>">
               <td><strong><%= tenant.floor %> · <%= tenant.unit_label %></strong><br /><small><%= tenant.housing_type || 'Logement' %></small></td>
               <td><%= tenant.first_name %> <%= tenant.last_name %></td>
               <td><%= tenant.people_count %></td>
@@ -29,7 +29,7 @@
               <td class="amount-cell"><strong><%= formatCurrency(tenant.monthly_rent) %></strong></td>
               <td><span class="category-pill"><%= tenant.is_active ? 'Actif' : 'Inactif' %></span></td>
               <td class="table-actions">
-                <button class="table-action" type="button" data-modal-template="tenant-edit-<%= tenant.id %>">Modifier</button>
+                <button class="table-action icon-action" type="button" aria-label="Modifier <%= tenant.first_name %> <%= tenant.last_name %>" title="Modifier" data-modal-template="tenant-edit-<%= tenant.id %>"><%- include('partials/action-icon', { icon: 'edit' }) %></button>
                 <% if (tenant.is_active) { %><button class="table-action danger" type="button" data-modal-confirm="/tenants/<%= tenant.id %>/deactivate" data-modal-title="Désactiver ce locataire ?" data-modal-message="Son historique financier sera conservé." data-modal-submit="Désactiver" data-modal-danger="true">Désactiver</button><% } %>
               </td>
             </tr>
@@ -47,6 +47,17 @@
                 </div>
                 <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer</button></div>
               </form>
+            </template>
+            <template id="tenant-details-<%= tenant.id %>">
+              <div class="modal-heading"><span class="eyebrow">FICHE LOCATAIRE</span><h2><%= tenant.first_name %> <%= tenant.last_name %></h2><p><%= tenant.floor %> · <%= tenant.unit_label %> · <%= tenant.housing_type || 'Logement' %></p></div>
+              <dl class="detail-list">
+                <div><dt>Personnes</dt><dd><%= tenant.people_count %></dd></div>
+                <div><dt>Loyer mensuel</dt><dd><%= formatCurrency(tenant.monthly_rent) %></dd></div>
+                <div><dt>Date d’entrée</dt><dd><%= tenant.entry_date ? formatDate(tenant.entry_date) : '—' %></dd></div>
+                <div><dt>Téléphone</dt><dd><%= tenant.phone || '—' %></dd></div>
+                <div><dt>Statut</dt><dd><%= tenant.is_active ? 'Actif' : 'Inactif' %></dd></div>
+              </dl>
+              <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Fermer</button><button type="button" class="table-action" aria-label="Modifier <%= tenant.first_name %> <%= tenant.last_name %>" data-modal-template="tenant-edit-<%= tenant.id %>">Modifier</button></div>
             </template>
           <% }) %>
         </tbody>

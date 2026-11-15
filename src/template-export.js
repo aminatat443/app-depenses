@@ -244,6 +244,19 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     }
   }
   const expenseTotalRow = initialTotalRow + expenseInsertions;
+  const protectedExpenses = data.protectedExpenses || [];
+  const protectedSectionRow = protectedExpenses.length ? expenseTotalRow + 2 : null;
+  const protectedTotalRow = protectedExpenses.length
+    ? protectedSectionRow + protectedExpenses.length + 1
+    : null;
+  if (protectedExpenses.length) {
+    const addedRows = protectedExpenses.length + 3;
+    sheet.spliceRows(expenseTotalRow + 1, 0, ...Array.from({ length: addedRows }, () => []));
+    for (let index = 0; index < addedRows; index += 1) {
+      copyRowAppearance(sheet, expenseStartRow, expenseTotalRow + 1 + index);
+    }
+    copyRowAppearance(sheet, expenseTotalRow, protectedTotalRow);
+  }
 
   [
     'NIVEAU',
@@ -349,6 +362,31 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   const expensesFormula = `SUM(E${expenseStartRow}:E${expenseTotalRow - 1})`;
   setFormula(sheet.getCell(expenseTotalRow, 5), expensesFormula, data.totalExpenses);
   sheet.getCell(expenseTotalRow, 5).numFmt = CURRENCY_FORMAT;
+  if (protectedExpenses.length) {
+    const sectionHeadingRow = protectedSectionRow;
+    const sectionLabel = sheet.getCell(sectionHeadingRow, 4);
+    sectionLabel.value = 'Dépenses financées par l’épargne protégée';
+    sectionLabel.style = clone(sheet.getCell(20 + rowShift, 4).style);
+    sheet.mergeCells(sectionHeadingRow, 4, sectionHeadingRow, 5);
+    protectedExpenses.forEach((expense, index) => {
+      const rowNumber = sectionHeadingRow + 1 + index;
+      sheet.getCell(rowNumber, 4).value = expense.title;
+      sheet.getCell(rowNumber, 5).value = Number(expense.amount);
+      sheet.getCell(rowNumber, 5).numFmt = CURRENCY_FORMAT;
+      setWrappedContent(sheet, rowNumber, 4);
+    });
+    const totalLabel = sheet.getCell(protectedTotalRow, 4);
+    totalLabel.value = 'Total réglé par l’épargne protégée';
+    totalLabel.style = clone(sheet.getCell(expenseTotalRow, 4).style);
+    const protectedFormula = `SUM(E${sectionHeadingRow + 1}:E${protectedTotalRow - 1})`;
+    setFormula(
+      sheet.getCell(protectedTotalRow, 5),
+      protectedFormula,
+      protectedExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0),
+    );
+    sheet.getCell(protectedTotalRow, 5).style = clone(sheet.getCell(expenseTotalRow, 5).style);
+    sheet.getCell(protectedTotalRow, 5).numFmt = CURRENCY_FORMAT;
+  }
 
   const balanceFormulas = buildMonthlyBalanceFormulas({
     incomeCell: `B${totalIncomeRow}`,
@@ -382,7 +420,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     if (column !== 3) setWrappedContent(sheet, 2, column, column === 2 ? 3 : column);
   }
   setWrappedContent(sheet, 20 + rowShift, 4, 5);
-  sheet.pageSetup.printArea = `A1:G${expenseTotalRow}`;
+  sheet.pageSetup.printArea = `A1:G${protectedTotalRow || expenseTotalRow}`;
 
   return {
     exportBalance,
@@ -395,6 +433,8 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     savingsRow,
     paymentTotalRow,
     expenseTotalRow,
+    protectedSectionRow,
+    protectedTotalRow,
   };
 }
 

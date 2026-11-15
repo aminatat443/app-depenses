@@ -13,7 +13,7 @@
 </section>
 
 <section class="panel-card page-filter-card">
-  <form method="GET" action="/rents" class="page-filter-form">
+  <form method="GET" action="/rents" class="page-filter-form" data-live-filter data-live-filter-root=".page-content">
     <label>Mois<input type="month" name="month" value="<%= monthKey %>" required /></label>
     <button class="button button-subtle" type="submit">Afficher</button>
   </form>
@@ -34,7 +34,7 @@
       <tbody><% obligations.forEach((row) => {
         const remaining = Math.max(0, Number(row.expected_amount) - Number(row.amount_paid));
       %>
-        <tr>
+        <tr <% if (remaining > 0) { %>data-modal-template="rent-payment-<%= row.id %>" aria-label="Enregistrer un paiement de loyer pour <%= row.first_name %> <%= row.last_name %>"<% } else { %>data-row-href="/history?type=rent&amp;month=<%= encodeURIComponent(monthKey) %>&amp;search=<%= encodeURIComponent(row.first_name + ' ' + row.last_name) %>" aria-label="Voir les paiements de loyer de <%= row.first_name %> <%= row.last_name %>"<% } %> tabindex="0">
           <td><%= row.floor %> · <%= row.unit_label %></td>
           <td><strong><%= row.first_name %> <%= row.last_name %></strong></td>
           <td class="amount-cell"><%= formatCurrency(row.expected_amount) %></td>
@@ -61,4 +61,16 @@
     </table></div>
   <% } else { %><div class="empty-state table-empty"><strong>Aucune échéance générée pour ce mois</strong><span>Utilisez « Générer les loyers attendus » après avoir enregistré les locataires actifs.</span></div><% } %>
 </section>
+<% paymentDetails.forEach((payment) => { %>
+  <template id="rent-payment-details-<%= payment.id %>">
+    <div class="modal-heading"><span class="eyebrow">APERÇU DU LOYER ENCAISSÉ</span><h2><%= payment.first_name %> <%= payment.last_name %></h2><p><%= payment.floor %> · <%= payment.unit_label %> · <%= payment.month_key %></p></div>
+    <dl class="detail-list">
+      <div><dt>Montant reçu</dt><dd><%= formatCurrency(payment.amount) %></dd></div>
+      <div><dt>Date du paiement</dt><dd><%= formatDate(payment.payment_date) %></dd></div>
+      <div><dt>Loyer attendu</dt><dd><%= formatCurrency(payment.expected_amount) %></dd></div>
+      <div><dt>Mode de paiement</dt><dd><%= payment.payment_method || 'Non précisé' %></dd></div>
+      <div><dt>Commentaire</dt><dd><%= payment.comment || '—' %></dd></div>
+    </dl>
+  </template>
+<% }) %>
 <%- include('partials/page-end') %>

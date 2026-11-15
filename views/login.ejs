@@ -3,8 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f4f7fb" />
+    <meta name="theme-color" content="#fafafa" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Connexion · Maison</title>
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="login-page">
@@ -13,6 +15,11 @@
         <span class="brand-mark">M</span>
         <span class="brand-copy"><strong>Maison</strong><small>GESTION FAMILIALE</small></span>
       </a>
+      <button class="theme-toggle login-theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+        <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.3A8.5 8.5 0 0 1 8.7 3.5 8.6 8.6 0 1 0 20.5 15.3Z"/></svg>
+        <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+        <span data-theme-label>Mode sombre</span>
+      </button>
       <span class="eyebrow">ESPACE ADMINISTRATEUR</span>
       <h1>Bienvenue</h1>
       <p class="login-description">Connectez-vous pour accéder aux finances de votre foyer.</p>

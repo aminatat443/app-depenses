@@ -98,6 +98,7 @@ async function initializeDatabase() {
       beneficiary TEXT,
       paid_by TEXT,
       payment_method TEXT,
+      funding_source TEXT NOT NULL DEFAULT 'current',
       receipt_path TEXT,
       month_key VARCHAR(7),
       created_by BIGINT,
@@ -258,6 +259,7 @@ async function initializeDatabase() {
       transaction_type TEXT NOT NULL CHECK (transaction_type IN ('deposit', 'withdrawal')),
       amount NUMERIC(18, 2) NOT NULL CHECK (amount > 0),
       comment TEXT,
+      related_expense_id BIGINT REFERENCES expenses(id) ON DELETE SET NULL,
       created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -318,6 +320,7 @@ async function initializeDatabase() {
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS beneficiary TEXT;
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS paid_by TEXT;
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS payment_method TEXT;
+    ALTER TABLE expenses ADD COLUMN IF NOT EXISTS funding_source TEXT NOT NULL DEFAULT 'current';
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS receipt_path TEXT;
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS month_key CHAR(7);
     ALTER TABLE expenses ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES users(id) ON DELETE SET NULL;
@@ -347,6 +350,7 @@ async function initializeDatabase() {
     ALTER TABLE incomes ALTER COLUMN income_date DROP NOT NULL;
     ALTER TABLE incomes ALTER COLUMN month_key TYPE VARCHAR(7);
     ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS is_protected BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE savings_transactions ADD COLUMN IF NOT EXISTS related_expense_id BIGINT REFERENCES expenses(id) ON DELETE SET NULL;
     ALTER TABLE monthly_balances ALTER COLUMN month_key TYPE VARCHAR(7);
     ALTER TABLE balance_adjustments ALTER COLUMN month_key TYPE VARCHAR(7);
     DO $$

@@ -1,104 +1,118 @@
 <aside class="sidebar" aria-label="Navigation principale">
   <a class="brand" href="/" aria-label="Maison, vue d’ensemble">
-    <span class="brand-mark">M</span>
+    <span class="brand-mark" aria-hidden="true">M</span>
     <span class="brand-copy"><strong>Maison</strong><small>GESTION FAMILIALE</small></span>
   </a>
 
-  <div class="household-switch">
-    <span class="avatar">M</span>
-    <span><strong>Notre foyer</strong><small>Compte familial</small></span>
-    <span class="switch-chevron" aria-hidden="true">⌄</span>
-  </div>
-
-  <nav class="side-nav">
-    <span class="nav-caption">ESPACE MAISON</span>
+  <nav class="side-nav" aria-label="Sections de l’application">
+    <span class="nav-caption">MAISON</span>
     <a class="nav-item <%= activePage === 'overview' ? 'is-active' : '' %>" href="/" <%= activePage === 'overview' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
-      <span>Vue d’ensemble</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Vue d’ensemble</span>
     </a>
     <a class="nav-item <%= activePage === 'expenses' ? 'is-active' : '' %>" href="/expenses" <%= activePage === 'expenses' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg>
-      <span>Dépenses du mois</span>
-    </a>
-    <a class="nav-item <%= activePage === 'tenants' ? 'is-active' : '' %>" href="/tenants" <%= activePage === 'tenants' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6m2 2a5 5 0 0 1 3 5v1"/></svg>
-      <span>Locataires &amp; logements</span>
-    </a>
-    <a class="nav-item <%= activePage === 'rents' ? 'is-active' : '' %>" href="/rents" <%= activePage === 'rents' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 11h6M9 15h6"/></svg>
-      <span>Loyers &amp; paiements</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg><span>Dépenses</span>
     </a>
     <a class="nav-item <%= activePage === 'income' ? 'is-active' : '' %>" href="/income" <%= activePage === 'income' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M17 7c0-2-2-3-5-3S7 5 7 7s2 3 5 4 5 2 5 4-2 4-5 4-5-2-5-4"/></svg>
-      <span>Revenus mensuels</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M17 7c0-2-2-3-5-3S7 5 7 7s2 3 5 4 5 2 5 4-2 4-5 4-5-2-5-4"/></svg><span>Revenus mensuels</span>
+    </a>
+    <a class="nav-item <%= activePage === 'tenants' ? 'is-active' : '' %>" href="/tenants" <%= activePage === 'tenants' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19v-1a6 6 0 0 1 12 0v1M16 5a3 3 0 0 1 0 6m2 2a5 5 0 0 1 3 5v1"/></svg><span>Locataires &amp; logements</span>
+    </a>
+    <a class="nav-item <%= activePage === 'rents' ? 'is-active' : '' %>" href="/rents" <%= activePage === 'rents' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 11h6M9 15h6"/></svg><span>Loyers &amp; paiements</span>
     </a>
     <a class="nav-item <%= activePage === 'savings' ? 'is-active' : '' %>" href="/savings" <%= activePage === 'savings' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9H4V9Z"/><path d="M4 11h16m-6 3h3"/></svg>
-      <span>Épargne</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v9H4V9Z"/><path d="M4 11h16m-6 3h3"/></svg><span>Épargne protégée</span>
     </a>
     <a class="nav-item <%= activePage === 'groceries' ? 'is-active' : '' %>" href="/groceries" <%= activePage === 'groceries' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5L4 8Z"/><path d="M9 8a3 3 0 0 1 6 0M8 12v4M12 12v4M16 12v4"/></svg>
-      <span>Compte boutique</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 12H5L4 8Z"/><path d="M9 8a3 3 0 0 1 6 0M8 12v4M12 12v4M16 12v4"/></svg><span>Compte boutique</span>
     </a>
     <a class="nav-item <%= activePage === 'history' ? 'is-active' : '' %>" href="/history" <%= activePage === 'history' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h15M15 4l4 3-4 3M20 17H5m4-3-4 3 4 3"/></svg>
-      <span>Historique</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h15M15 4l4 3-4 3M20 17H5m4-3-4 3 4 3"/></svg><span>Historique</span>
     </a>
     <a class="nav-item <%= activePage === 'monthly' ? 'is-active' : '' %>" href="/monthly" <%= activePage === 'monthly' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 6-7"/></svg>
-      <span>Bilans &amp; statistiques</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 6-7"/></svg><span>Bilans &amp; statistiques</span>
     </a>
 
-    <span class="nav-caption nav-caption-secondary">OUTILS</span>
+    <span class="nav-caption nav-caption-secondary">OUTILS &amp; COMPTE</span>
     <a class="nav-item <%= activePage === 'import' ? 'is-active' : '' %>" href="/import" <%= activePage === 'import' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m-4 4 4-4 4 4"/><path d="M5 14v5h14v-5"/></svg>
-      <span>Importation Excel</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4m-4 4 4-4 4 4"/><path d="M5 14v5h14v-5"/></svg><span>Importer un fichier</span>
     </a>
     <a class="nav-item <%= activePage === 'export' ? 'is-active' : '' %>" href="/export" <%= activePage === 'export' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m4-4-4 4-4-4"/><path d="M5 16v4h14v-4"/></svg>
-      <span>Exportation Excel</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m4-4-4 4-4-4"/><path d="M5 16v4h14v-4"/></svg><span>Exporter les données</span>
     </a>
     <a class="nav-item <%= activePage === 'backup' ? 'is-active' : '' %>" href="/backup" <%= activePage === 'backup' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 2.8 7.7 7 10 4.2-2.3 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
-      <span>Sauvegardes</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 2.8 7.7 7 10 4.2-2.3 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>Sauvegardes</span>
+    </a>
+    <a class="nav-item <%= activePage === 'settings' ? 'is-active' : '' %>" href="/categories" <%= activePage === 'settings' ? 'aria-current="page"' : '' %>>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7Z"/></svg><span>Catégories &amp; paramètres</span>
     </a>
   </nav>
 
   <div class="sidebar-bottom">
-    <a class="nav-item <%= activePage === 'settings' ? 'is-active' : '' %>" href="/categories" <%= activePage === 'settings' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7Z"/></svg>
-      <span>Paramètres · catégories</span>
-    </a>
-    <a class="nav-item <%= activePage === 'account' ? 'is-active' : '' %>" href="/account" <%= activePage === 'account' ? 'aria-current="page"' : '' %>>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20v-1a7 7 0 0 1 14 0v1M18 5l1 1 2-2"/></svg>
-      <span>Compte administrateur</span>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.3A8.5 8.5 0 0 1 8.7 3.5 8.6 8.6 0 1 0 20.5 15.3Z"/></svg>
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+      <span data-theme-label>Mode sombre</span>
+    </button>
+    <a class="sidebar-user" href="/account" <%= activePage === 'account' ? 'aria-current="page"' : '' %>>
+      <span class="sidebar-user-avatar" aria-hidden="true">A</span>
+      <span class="sidebar-user-copy"><strong>Administrateur</strong><small>Compte sécurisé</small></span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
     </a>
     <form method="POST" action="/logout" class="sidebar-logout">
-      <button class="nav-item" type="submit"><span aria-hidden="true">↪</span><span>Déconnexion</span></button>
+      <button class="nav-item" type="submit">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5m5 5H3"/><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></svg>
+        <span>Déconnexion</span>
+      </button>
     </form>
-    <div class="sidebar-status"><span class="status-dot"></span><span>Données enregistrées localement</span></div>
   </div>
 
   <nav class="mobile-primary-nav" aria-label="Navigation principale">
-    <a class="nav-item <%= activePage === 'overview' ? 'is-active' : '' %>" href="/" <%= activePage === 'overview' ? 'aria-current="page"' : '' %>><span>Vue</span></a>
-    <a class="nav-item <%= activePage === 'expenses' ? 'is-active' : '' %>" href="/expenses" <%= activePage === 'expenses' ? 'aria-current="page"' : '' %>><span>Dépenses</span></a>
-    <a class="nav-item <%= activePage === 'tenants' ? 'is-active' : '' %>" href="/tenants" <%= activePage === 'tenants' ? 'aria-current="page"' : '' %>><span>Locataires</span></a>
-    <a class="nav-item <%= activePage === 'rents' ? 'is-active' : '' %>" href="/rents" <%= activePage === 'rents' ? 'aria-current="page"' : '' %>><span>Loyers</span></a>
-    <a class="nav-item <%= activePage === 'income' ? 'is-active' : '' %>" href="/income" <%= activePage === 'income' ? 'aria-current="page"' : '' %>><span>Revenus</span></a>
+    <a class="nav-item <%= activePage === 'overview' ? 'is-active' : '' %>" href="/" <%= activePage === 'overview' ? 'aria-current="page"' : '' %> aria-label="Vue d’ensemble">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Vue</span>
+    </a>
+    <a class="nav-item <%= activePage === 'expenses' ? 'is-active' : '' %>" href="/expenses" <%= activePage === 'expenses' ? 'aria-current="page"' : '' %> aria-label="Dépenses">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg><span>Dépenses</span>
+    </a>
+    <a class="nav-item <%= activePage === 'tenants' ? 'is-active' : '' %>" href="/tenants" <%= activePage === 'tenants' ? 'aria-current="page"' : '' %> aria-label="Locataires">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19v-1a6 6 0 0 1 12 0v1m2-7a5 5 0 0 1 4 5v2"/></svg><span>Locataires</span>
+    </a>
+    <a class="nav-item <%= activePage === 'rents' ? 'is-active' : '' %>" href="/rents" <%= activePage === 'rents' ? 'aria-current="page"' : '' %> aria-label="Loyers">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 11h6"/></svg><span>Loyers</span>
+    </a>
+    <a class="nav-item <%= activePage === 'income' ? 'is-active' : '' %>" href="/income" <%= activePage === 'income' ? 'aria-current="page"' : '' %> aria-label="Revenus">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M17 7c0-2-2-3-5-3S7 5 7 7s2 3 5 4 5 2 5 4-2 4-5 4-5-2-5-4"/></svg><span>Revenus</span>
+    </a>
   </nav>
-  <details class="mobile-more-nav">
-    <summary aria-label="Autres sections">•••<span>Plus</span></summary>
-    <nav class="mobile-more-menu" aria-label="Autres sections">
-      <a href="/savings">Épargne pension père</a>
-      <a href="/groceries">Compte boutique</a>
-      <a href="/history">Historique</a>
-      <a href="/monthly">Bilans &amp; statistiques</a>
-      <a href="/import">Importation Excel</a>
-      <a href="/export">Exportation Excel</a>
-      <a href="/backup">Sauvegardes</a>
-      <a href="/categories">Paramètres · catégories</a>
-      <a href="/account">Compte administrateur</a>
-      <form method="POST" action="/logout"><button type="submit">Déconnexion</button></form>
-    </nav>
-  </details>
+
+  <div class="mobile-more-nav">
+    <button class="mobile-more-trigger <%= ['savings', 'groceries', 'history', 'monthly', 'import', 'export', 'backup', 'settings', 'account'].includes(activePage) ? 'is-active' : '' %>" type="button" aria-expanded="false" aria-controls="mobile-more-menu" aria-label="Ouvrir les autres sections">
+      <span aria-hidden="true">•••</span><span>Plus</span>
+    </button>
+  </div>
+  <div class="mobile-nav-overlay" data-mobile-nav-close hidden></div>
+  <nav class="mobile-more-menu" id="mobile-more-menu" aria-label="Autres sections" aria-hidden="true" inert>
+    <div class="mobile-menu-heading">
+      <div><span class="eyebrow">NAVIGATION</span><h2>Autres sections</h2></div>
+      <button class="mobile-menu-close" type="button" aria-label="Fermer le menu" data-mobile-nav-close>×</button>
+    </div>
+    <a href="/savings" <%= activePage === 'savings' ? 'aria-current="page"' : '' %>><span>Épargne protégée</span><span aria-hidden="true">→</span></a>
+    <a href="/groceries" <%= activePage === 'groceries' ? 'aria-current="page"' : '' %>><span>Compte boutique</span><span aria-hidden="true">→</span></a>
+    <a href="/history" <%= activePage === 'history' ? 'aria-current="page"' : '' %>><span>Historique</span><span aria-hidden="true">→</span></a>
+    <a href="/monthly" <%= activePage === 'monthly' ? 'aria-current="page"' : '' %>><span>Bilans &amp; statistiques</span><span aria-hidden="true">→</span></a>
+    <a href="/import" <%= activePage === 'import' ? 'aria-current="page"' : '' %>><span>Importation Excel</span><span aria-hidden="true">→</span></a>
+    <a href="/export" <%= activePage === 'export' ? 'aria-current="page"' : '' %>><span>Exportation Excel</span><span aria-hidden="true">→</span></a>
+    <a href="/backup" <%= activePage === 'backup' ? 'aria-current="page"' : '' %>><span>Sauvegardes</span><span aria-hidden="true">→</span></a>
+    <a href="/categories" <%= activePage === 'settings' ? 'aria-current="page"' : '' %>><span>Catégories &amp; paramètres</span><span aria-hidden="true">→</span></a>
+    <a href="/account" <%= activePage === 'account' ? 'aria-current="page"' : '' %>><span>Compte administrateur</span><span aria-hidden="true">→</span></a>
+    <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.3A8.5 8.5 0 0 1 8.7 3.5 8.6 8.6 0 1 0 20.5 15.3Z"/></svg>
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+      <span data-theme-label>Mode sombre</span>
+    </button>
+    <form method="POST" action="/logout">
+      <button type="submit"><span>Déconnexion</span><span aria-hidden="true">↗</span></button>
+    </form>
+  </nav>
 </aside>

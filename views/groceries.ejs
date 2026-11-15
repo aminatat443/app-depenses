@@ -5,18 +5,21 @@
 }) %>
 
 <section class="page-toolbar">
-  <div><h2>Ravitaillements enregistrés</h2><p><%= groceryList.length %> ligne<%= groceryList.length > 1 ? 's' : '' %> dans le compte boutique.</p></div>
+  <div><h2>Ravitaillements de <%= selectedMonth %></h2><p><%= groceryList.length %> ligne<%= groceryList.length > 1 ? 's' : '' %> pour ce mois.</p></div>
   <button class="button button-primary" type="button" data-modal-template="grocery-create"><span aria-hidden="true">＋</span> Ajouter un ravitaillement</button>
 </section>
 
 <section class="panel-card page-filter-card">
-  <form method="GET" action="/groceries" class="page-filter-form">
+  <form method="GET" action="/groceries" class="page-filter-form" data-live-search data-live-filter data-live-filter-root=".page-content">
+    <label>Mois
+      <input type="month" name="month" value="<%= selectedMonth %>" required />
+    </label>
     <label>Rechercher un achat
       <input type="search" name="search" value="<%= search || '' %>" placeholder="Marchandise, unité ou notes" />
     </label>
-    <button class="button button-subtle" type="submit">Rechercher</button>
+    <button class="button button-subtle" type="submit">Afficher</button>
   </form>
-  <p class="page-note">Les achats sont regroupés sous « Compte boutique » dans les bilans mensuels. Les quantités et prix unitaires absents du fichier source restent non renseignés.</p>
+  <p class="page-note">Seules les marchandises du mois sélectionné sont affichées. Les prix unitaires absents restent non renseignés.</p>
 </section>
 
 <section class="panel-card page-table-card">
@@ -27,7 +30,7 @@
         <thead><tr><th>DATE</th><th>MARCHANDISE</th><th>QUANTITÉ</th><th>UNITÉ</th><th>PRIX UNIT.</th><th class="amount-cell">MONTANT</th><th>NOTES</th><th></th></tr></thead>
         <tbody>
           <% groceryList.forEach((row) => { %>
-            <tr>
+            <tr data-modal-template="grocery-details-<%= row.id %>" tabindex="0" aria-label="Afficher l’aperçu de <%= row.item_name %>">
               <td class="date-cell"><%= formatDate(row.purchase_date) %></td>
               <td><strong><%= row.item_name %></strong></td>
               <td><%= row.quantity_known ? row.quantity : '—' %></td>
@@ -35,8 +38,17 @@
               <td><%= row.unit_price_known ? formatCurrency(row.unit_price) : '—' %></td>
               <td class="amount-cell"><strong><%= formatCurrency(row.total_amount) %></strong></td>
               <td><%= row.notes || '—' %></td>
-              <td><button class="table-action danger" type="button" data-modal-confirm="/groceries/<%= row.id %>/delete" data-modal-return="/groceries" data-modal-title="Supprimer ce ravitaillement ?" data-modal-message="Cette ligne sera retirée du compte boutique et des bilans." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button></td>
+              <td><button class="table-action icon-action danger" type="button" aria-label="Supprimer <%= row.item_name %>" title="Supprimer" data-modal-confirm="/groceries/<%= row.id %>/delete" data-modal-return="/groceries?month=<%= selectedMonth %>" data-modal-title="Supprimer ce ravitaillement ?" data-modal-message="Cette ligne sera retirée du compte boutique et des bilans." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button></td>
             </tr>
+            <template id="grocery-details-<%= row.id %>">
+              <div class="modal-heading"><span class="eyebrow">APERÇU DU RAVITAILLEMENT</span><h2><%= row.item_name %></h2><p><%= formatDate(row.purchase_date) %> · <%= selectedMonth %></p></div>
+              <dl class="detail-list">
+                <div><dt>Quantité</dt><dd><%= row.quantity_known ? row.quantity : '—' %> <%= row.unit || '' %></dd></div>
+                <div><dt>Prix unitaire</dt><dd><%= row.unit_price_known ? formatCurrency(row.unit_price) : 'Non renseigné' %></dd></div>
+                <div><dt>Montant total</dt><dd><%= formatCurrency(row.total_amount) %></dd></div>
+                <div><dt>Notes</dt><dd><%= row.notes || '—' %></dd></div>
+              </dl>
+            </template>
           <% }) %>
         </tbody>
       </table>
@@ -46,5 +58,5 @@
   <% } %>
 </section>
 
-<template id="grocery-create"><%- include('partials/grocery-form') %></template>
+<template id="grocery-create"><%- include('partials/grocery-form', { selectedMonth, defaultPurchaseDate }) %></template>
 <%- include('partials/page-end') %>

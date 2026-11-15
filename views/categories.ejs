@@ -17,11 +17,11 @@
         <div class="category-settings-row">
           <span class="category-settings-name"><i class="category-swatch" style="--category-color:<%= category.color || '#147967' %>"></i><strong><%= category.name %></strong></span>
           <div class="table-actions">
-            <% if (category.type !== 'boutique') { %><button class="table-action" type="button" data-modal-template="category-edit-<%= category.id %>">Modifier</button><% } %>
+            <% if (category.type !== 'boutique') { %><button class="table-action icon-action" type="button" aria-label="Modifier la catégorie <%= category.name %>" title="Modifier" data-modal-template="category-edit-<%= category.id %>"><%- include('partials/action-icon', { icon: 'edit' }) %></button><% } %>
             <% if (category.type === 'boutique' || category.name === 'Autres dépenses') { %>
               <span class="category-default-note"><%= category.type === 'boutique' ? 'Compte boutique' : 'Catégorie de remplacement' %></span>
             <% } else { %>
-              <button class="table-action danger" type="button" data-modal-confirm="/categories/<%= category.id %>/delete" data-modal-title="Supprimer cette catégorie ?" data-modal-message="Les dépenses associées seront reclassées dans « Autres dépenses »." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+              <button class="table-action icon-action danger" type="button" aria-label="Supprimer la catégorie <%= category.name %>" title="Supprimer" data-modal-confirm="/categories/<%= category.id %>/delete" data-modal-title="Supprimer cette catégorie ?" data-modal-message="Les dépenses associées seront reclassées dans « Autres dépenses »." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
             <% } %>
           </div>
           <% if (category.type !== 'boutique') { %>

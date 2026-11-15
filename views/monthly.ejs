@@ -10,7 +10,7 @@
 </section>
 
 <section class="panel-card page-filter-card">
-  <form method="GET" action="/monthly" class="page-filter-form">
+  <form method="GET" action="/monthly" class="page-filter-form" data-live-filter data-live-filter-root=".page-content">
     <label>Mois
       <select name="month">
         <% for (let monthNumber = 1; monthNumber <= 12; monthNumber += 1) { %>
@@ -28,6 +28,7 @@
 <section class="summary-grid report-summary">
   <article class="metric-card"><div class="metric-heading"><span>Compte boutique</span></div><div class="metric-value"><%= formatCurrency(totalGroceries) %></div><div class="metric-foot"><span>Ravitaillements du mois</span></div></article>
   <article class="metric-card"><div class="metric-heading"><span>Autres dépenses</span></div><div class="metric-value"><%= formatCurrency(totalOther) %></div><div class="metric-foot"><span>Dépenses ordinaires</span></div></article>
+  <article class="metric-card"><div class="metric-heading"><span>Dépenses depuis l’épargne protégée</span></div><div class="metric-value"><%= formatCurrency(finance.protectedSavingsExpenses) %></div><div class="metric-foot"><span>Hors solde du compte courant</span></div></article>
   <article class="metric-card metric-featured"><div class="metric-heading"><span>Total général</span></div><div class="metric-value"><%= formatCurrency(totalGeneral) %></div><div class="metric-foot"><span><%= monthLabel %></span></div></article>
 </section>
 
@@ -54,16 +55,25 @@
     <% if (monthlyOther.length) { %>
       <div class="table-wrap"><table class="transactions-table">
         <thead><tr><th>DATE</th><th>INTITULÉ</th><th>CATÉGORIE</th><th class="amount-cell">MONTANT</th></tr></thead>
-        <tbody><% monthlyOther.forEach((row) => { %><tr><td class="date-cell"><%= formatDate(row.expense_date) %></td><td><strong><%= row.title %></strong></td><td><%= row.category %></td><td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td></tr><% }) %></tbody>
+        <tbody><% monthlyOther.forEach((row) => { %><tr data-row-href="/expenses?month=<%= encodeURIComponent(finance.monthKey) %>&amp;search=<%= encodeURIComponent(row.title) %>" tabindex="0" aria-label="Voir la dépense <%= row.title %>"><td class="date-cell"><%= formatDate(row.expense_date) %></td><td><strong><%= row.title %></strong></td><td><%= row.category %></td><td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td></tr><% }) %></tbody>
       </table></div>
     <% } else { %><div class="empty-state"><strong>Aucune dépense ordinaire ce mois-ci</strong></div><% } %>
+  </article>
+  <article class="panel-card page-table-card">
+    <div class="panel-header"><div><h2>Dépenses financées par l’épargne protégée</h2><p><%= protectedSavingsExpenses.length %> opération<%= protectedSavingsExpenses.length > 1 ? 's' : '' %> · séparées du calcul du restant courant.</p></div></div>
+    <% if (protectedSavingsExpenses.length) { %>
+      <div class="table-wrap"><table class="transactions-table">
+        <thead><tr><th>DATE</th><th>INTITULÉ</th><th>CATÉGORIE</th><th class="amount-cell">MONTANT</th></tr></thead>
+        <tbody><% protectedSavingsExpenses.forEach((row) => { %><tr data-row-href="/history?type=expense&amp;month=<%= encodeURIComponent(finance.monthKey) %>&amp;search=<%= encodeURIComponent(row.title) %>" tabindex="0" aria-label="Voir la dépense protégée <%= row.title %>"><td class="date-cell"><%= formatDate(row.expense_date) %></td><td><strong><%= row.title %></strong></td><td><%= row.category %></td><td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td></tr><% }) %></tbody>
+      </table></div>
+    <% } else { %><div class="empty-state"><strong>Aucune dépense réglée par l’épargne protégée ce mois-ci</strong></div><% } %>
   </article>
   <article class="panel-card page-table-card">
     <div class="panel-header"><div><h2>Compte boutique</h2><p><%= monthlyGroceries.length %> ravitaillement<%= monthlyGroceries.length > 1 ? 's' : '' %>.</p></div></div>
     <% if (monthlyGroceries.length) { %>
       <div class="table-wrap"><table class="transactions-table">
         <thead><tr><th>DATE</th><th>MARCHANDISE</th><th>QUANTITÉ</th><th class="amount-cell">MONTANT</th></tr></thead>
-        <tbody><% monthlyGroceries.forEach((row) => { %><tr><td class="date-cell"><%= formatDate(row.purchase_date) %></td><td><strong><%= row.item_name %></strong></td><td><%= row.quantity_known ? row.quantity : '—' %> <%= row.unit || '' %></td><td class="amount-cell"><strong><%= formatCurrency(row.total_amount) %></strong></td></tr><% }) %></tbody>
+        <tbody><% monthlyGroceries.forEach((row) => { %><tr data-row-href="/history?type=grocery&amp;month=<%= encodeURIComponent(finance.monthKey) %>&amp;search=<%= encodeURIComponent(row.item_name) %>" tabindex="0" aria-label="Voir le ravitaillement <%= row.item_name %>"><td class="date-cell"><%= formatDate(row.purchase_date) %></td><td><strong><%= row.item_name %></strong></td><td><%= row.quantity_known ? row.quantity : '—' %> <%= row.unit || '' %></td><td class="amount-cell"><strong><%= formatCurrency(row.total_amount) %></strong></td></tr><% }) %></tbody>
       </table></div>
     <% } else { %><div class="empty-state"><strong>Aucun ravitaillement ce mois-ci</strong></div><% } %>
   </article>

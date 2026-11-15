@@ -9,6 +9,7 @@
   <div class="table-actions">
     <button class="button button-subtle" type="button" data-modal-template="savings-account-create">Créer un compte</button>
     <button class="button button-primary" type="button" data-modal-template="savings-transaction-create"><span aria-hidden="true">＋</span> Enregistrer un mouvement</button>
+    <% if (accounts.some((account) => account.is_protected)) { %><button class="button button-subtle" type="button" data-modal-template="protected-expense-create"><span aria-hidden="true">−</span> Ajouter une dépense protégée</button><% } %>
   </div>
 </section>
 
@@ -30,7 +31,7 @@
   <% if (balanceSnapshots.length) { %>
     <div class="table-wrap"><table class="transactions-table">
       <thead><tr><th>MOIS</th><th>COMPTE</th><th>FICHIER SOURCE</th><th class="amount-cell">SOLDE OBSERVÉ (FCFA)</th></tr></thead>
-      <tbody><% balanceSnapshots.forEach((row) => { %><tr>
+      <tbody><% balanceSnapshots.forEach((row) => { %><tr data-row-href="/monthly?year=<%= String(row.month_key).slice(0, 4) %>&amp;month=<%= Number(String(row.month_key).slice(5, 7)) %>" tabindex="0" aria-label="Voir le bilan de <%= row.month_key %>">
         <td><%= row.month_key %></td><td><strong><%= row.account_name %></strong></td>
         <td><%= row.source_file_name || 'Saisie manuelle' %><% if (row.source_sheet) { %><small><%= row.source_sheet %>, ligne <%= row.source_row %></small><% } %></td>
         <td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td>
@@ -44,13 +45,23 @@
   <% if (transactions.length) { %>
     <div class="table-wrap"><table class="transactions-table">
       <thead><tr><th>DATE</th><th>COMPTE</th><th>TYPE</th><th>COMMENTAIRE</th><th class="amount-cell">MONTANT</th></tr></thead>
-      <tbody><% transactions.forEach((row) => { %><tr>
+      <tbody><% transactions.forEach((row) => { %><tr data-modal-template="savings-details-<%= row.id %>" tabindex="0" aria-label="Afficher l’aperçu du mouvement d’épargne du <%= formatDate(row.transaction_date) %>">
         <td class="date-cell"><%= formatDate(row.transaction_date) %></td>
         <td><strong><%= row.account_name %></strong><% if (row.is_protected) { %><br /><small>Compte protégé</small><% } %></td>
-        <td><span class="category-pill"><%= row.transaction_type === 'deposit' ? 'Versement' : 'Retrait' %></span></td>
-        <td><%= row.comment || '—' %></td>
+        <td><span class="category-pill"><%= row.related_expense_id ? 'Dépense protégée' : (row.transaction_type === 'deposit' ? 'Versement' : 'Retrait') %></span></td>
+        <td><%= row.related_expense_title || row.comment || '—' %></td>
         <td class="amount-cell"><strong><%= formatCurrency(row.amount) %></strong></td>
-      </tr><% }) %></tbody>
+      </tr>
+      <template id="savings-details-<%= row.id %>">
+        <div class="modal-heading"><span class="eyebrow">APERÇU DU MOUVEMENT D’ÉPARGNE</span><h2><%= row.account_name %></h2><p><%= formatDate(row.transaction_date) %></p></div>
+        <dl class="detail-list">
+          <div><dt>Type</dt><dd><%= row.related_expense_id ? 'Dépense protégée' : (row.transaction_type === 'deposit' ? 'Versement' : 'Retrait') %></dd></div>
+          <div><dt>Montant</dt><dd><%= formatCurrency(row.amount) %></dd></div>
+          <div><dt>Commentaire</dt><dd><%= row.related_expense_title || row.comment || '—' %></dd></div>
+          <% if (row.is_protected) { %><div><dt>Compte</dt><dd>Compte protégé</dd></div><% } %>
+        </dl>
+      </template>
+      <% }) %></tbody>
     </table></div>
   <% } else { %><div class="empty-state table-empty"><strong>Aucun mouvement d’épargne</strong><span>Créez un compte puis enregistrez un versement.</span></div><% } %>
 </section>
@@ -78,4 +89,25 @@
     </form>
   <% } else { %><p>Créez un compte d’épargne avant d’enregistrer un mouvement.</p><div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Fermer</button></div><% } %>
 </template>
+<% if (protectedAccount) { %>
+<template id="protected-expense-create">
+  <div class="modal-heading"><span class="eyebrow">ÉPARGNE PROTÉGÉE</span><h2>Enregistrer une dépense</h2><p>Le montant sera débité de la réserve protégée et indiqué séparément des dépenses du compte courant.</p></div>
+  <form method="POST" action="/savings/protected-expenses">
+    <div class="form-grid">
+      <label>Désignation<input type="text" name="title" maxlength="250" required /></label>
+      <label>Catégorie<select name="category_id" required><% categories.forEach((category) => { %><option value="<%= category.id %>"><%= category.name %></option><% }) %></select></label>
+      <label>Montant (FCFA)<input type="number" name="amount" min="1" step="1" required /></label>
+      <label>Date de la dépense<input type="date" name="expense_date" value="<%= new Date().toISOString().slice(0, 10) %>" required /></label>
+      <label>Mois de rattachement<input type="month" name="month_key" value="<%= new Date().toISOString().slice(0, 7) %>" required /></label>
+      <label>Bénéficiaire<input type="text" name="beneficiary" /></label>
+      <label>Personne ayant payé<input type="text" name="paid_by" /></label>
+      <label>Mode de paiement<select name="payment_method"><option value="">Non précisé</option><% ['Espèces', 'Virement', 'Mobile money', 'Chèque', 'Autre'].forEach((method) => { %><option value="<%= method %>"><%= method %></option><% }) %></select></label>
+      <label>Référence<input type="text" name="reference" /></label>
+      <label class="form-grid-wide">Commentaire<textarea name="description" rows="3"></textarea></label>
+    </div>
+    <label class="form-field-wide"><input type="checkbox" name="protected_confirmation" value="1" required /> Je confirme que cette dépense doit être débitée de l’épargne protégée.</label>
+    <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer la dépense protégée</button></div>
+  </form>
+</template>
+<% } %>
 <%- include('partials/page-end') %>

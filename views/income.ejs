@@ -10,7 +10,7 @@
     <p>Choisissez le mois à consulter ou ajoutez une recette réellement reçue.</p>
   </div>
   <div class="income-toolbar-actions">
-    <form method="GET" action="/income" class="income-period-form">
+    <form method="GET" action="/income" class="income-period-form" data-live-filter data-live-filter-root=".page-content">
       <label for="income-month">Mois et année</label>
       <input id="income-month" type="month" name="month" value="<%= monthKey %>" required />
       <button class="button button-subtle" type="submit">Afficher</button>
@@ -128,10 +128,11 @@
           </div>
           <strong class="income-entry-amount"><%= formatCurrency(income.amount) %></strong>
           <div class="income-entry-actions">
-            <button class="table-action" type="button" data-modal-template="income-edit-<%= income.id %>">Modifier</button>
-            <button class="table-action danger" type="button" data-modal-confirm="/income/<%= income.id %>/delete"
+            <button class="table-action icon-action" type="button" aria-label="Afficher l’aperçu de <%= income.title %>" title="Aperçu" data-modal-template="income-details-<%= income.id %>"><%- include('partials/action-icon', { icon: 'view' }) %></button>
+            <button class="table-action icon-action" type="button" aria-label="Modifier <%= income.title %>" title="Modifier" data-modal-template="income-edit-<%= income.id %>"><%- include('partials/action-icon', { icon: 'edit' }) %></button>
+            <button class="table-action icon-action danger" type="button" aria-label="Supprimer <%= income.title %>" title="Supprimer" data-modal-confirm="/income/<%= income.id %>/delete"
               data-modal-title="Supprimer ce revenu ?" data-modal-message="La suppression sera inscrite dans l’historique des modifications."
-              data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+              data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
           </div>
         </article>
         <template id="income-edit-<%= income.id %>">
@@ -149,6 +150,16 @@
             </div>
             <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer</button></div>
           </form>
+        </template>
+        <template id="income-details-<%= income.id %>">
+          <div class="modal-heading"><span class="eyebrow">APERÇU DU REVENU</span><h2><%= income.title %></h2><p><%= income.source %> · <%= income.category_name %></p></div>
+          <dl class="detail-list">
+            <div><dt>Montant</dt><dd><%= formatCurrency(income.amount) %></dd></div>
+            <div><dt>Date</dt><dd><%= income.income_date ? formatDate(income.income_date) : 'Date non renseignée' %></dd></div>
+            <div><dt>Mois de rattachement</dt><dd><%= income.month_key %></dd></div>
+            <div><dt>Mode de paiement</dt><dd><%= income.payment_method || 'Non précisé' %></dd></div>
+            <div><dt>Commentaire</dt><dd><%= income.comment || '—' %></dd></div>
+          </dl>
         </template>
       <% }) %>
     </div>
