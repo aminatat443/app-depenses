@@ -146,16 +146,17 @@
   enhanceTables();
 
   const sidebar = document.querySelector('.sidebar');
-  const mobileMenu = document.getElementById('mobile-more-menu');
-  const mobileMenuTrigger = document.querySelector('.mobile-more-trigger');
+  const mobileMenu = sidebar;
+  const mobileMenuTrigger = document.querySelector('[data-mobile-sidebar-toggle]');
   const mobileMenuOverlay = document.querySelector('.mobile-nav-overlay');
+  const mobileSidebarQuery = window.matchMedia('(max-width: 680px)');
   let mobileMenuReturnFocus = null;
 
   const setMobileMenu = (open) => {
-    if (!sidebar || !mobileMenu || !mobileMenuTrigger || !mobileMenuOverlay) return;
+    if (!sidebar || !mobileMenuTrigger || !mobileMenuOverlay || !mobileSidebarQuery.matches) return;
     sidebar.classList.toggle('mobile-menu-open', open);
     mobileMenuTrigger.setAttribute('aria-expanded', String(open));
-    mobileMenuTrigger.setAttribute('aria-label', open ? 'Fermer les autres sections' : 'Ouvrir les autres sections');
+    mobileMenuTrigger.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
     mobileMenu.setAttribute('aria-hidden', String(!open));
     mobileMenu.inert = !open;
     mobileMenuOverlay.hidden = !open;
@@ -163,7 +164,7 @@
     syncPageScrollLock();
     if (open) {
       mobileMenuReturnFocus = mobileMenuTrigger;
-      mobileMenu.querySelector('.mobile-menu-close')?.focus();
+      mobileMenu.querySelector('[data-mobile-sidebar-close]')?.focus();
     } else {
       if (mobileMenuReturnFocus instanceof HTMLElement && mobileMenuReturnFocus.isConnected) {
         mobileMenuReturnFocus.focus();
@@ -177,10 +178,32 @@
   });
   mobileMenuOverlay?.addEventListener('click', () => setMobileMenu(false));
   mobileMenu?.addEventListener('click', (event) => {
-    if (event.target.closest('[data-mobile-nav-close], a, form button')) {
+    if (event.target.closest('[data-mobile-sidebar-close], a, form button')) {
       setMobileMenu(false);
     }
   });
+  const syncMobileSidebarMode = () => {
+    if (!sidebar || !mobileMenuTrigger || !mobileMenuOverlay) return;
+    if (mobileSidebarQuery.matches) {
+      const open = sidebar.classList.contains('mobile-menu-open');
+      sidebar.setAttribute('aria-hidden', String(!open));
+      sidebar.inert = !open;
+      mobileMenuTrigger.setAttribute('aria-expanded', String(open));
+      mobileMenuTrigger.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
+      mobileMenuOverlay.hidden = !open;
+    } else {
+      sidebar.classList.remove('mobile-menu-open');
+      sidebar.removeAttribute('aria-hidden');
+      sidebar.inert = false;
+      mobileMenuTrigger.setAttribute('aria-expanded', 'false');
+      mobileMenuTrigger.setAttribute('aria-label', 'Ouvrir le menu');
+      mobileMenuOverlay.hidden = true;
+      document.body.classList.remove('mobile-nav-open');
+    }
+    syncPageScrollLock();
+  };
+  mobileSidebarQuery.addEventListener('change', syncMobileSidebarMode);
+  syncMobileSidebarMode();
 
   const modal = document.getElementById('app-modal');
   const modalContent = document.getElementById('modal-content');

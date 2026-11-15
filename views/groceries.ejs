@@ -38,7 +38,10 @@
               <td><%= row.unit_price_known ? formatCurrency(row.unit_price) : '—' %></td>
               <td class="amount-cell"><strong><%= formatCurrency(row.total_amount) %></strong></td>
               <td><%= row.notes || '—' %></td>
-              <td><button class="table-action icon-action danger" type="button" aria-label="Supprimer <%= row.item_name %>" title="Supprimer" data-modal-confirm="/groceries/<%= row.id %>/delete" data-modal-return="/groceries?month=<%= selectedMonth %>" data-modal-title="Supprimer ce ravitaillement ?" data-modal-message="Cette ligne sera retirée du compte boutique et des bilans." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button></td>
+              <td><div class="table-actions grocery-row-actions">
+                <button class="table-action icon-action" type="button" aria-label="Modifier <%= row.item_name %>" title="Modifier" data-modal-template="grocery-edit-<%= row.id %>"><%- include('partials/action-icon', { icon: 'edit' }) %></button>
+                <button class="table-action icon-action danger" type="button" aria-label="Supprimer <%= row.item_name %>" title="Supprimer" data-modal-confirm="/groceries/<%= row.id %>/delete" data-modal-return="/groceries?month=<%= selectedMonth %>" data-modal-title="Supprimer ce ravitaillement ?" data-modal-message="Cette ligne sera retirée du compte boutique et des bilans." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
+              </div></td>
             </tr>
             <template id="grocery-details-<%= row.id %>">
               <div class="modal-heading"><span class="eyebrow">APERÇU DU RAVITAILLEMENT</span><h2><%= row.item_name %></h2><p><%= formatDate(row.purchase_date) %> · <%= selectedMonth %></p></div>
@@ -48,7 +51,17 @@
                 <div><dt>Montant total</dt><dd><%= formatCurrency(row.total_amount) %></dd></div>
                 <div><dt>Notes</dt><dd><%= row.notes || '—' %></dd></div>
               </dl>
+              <div class="modal-actions">
+                <button class="table-action" type="button" data-modal-template="grocery-edit-<%= row.id %>">Modifier</button>
+                <button class="table-action danger" type="button" data-modal-confirm="/groceries/<%= row.id %>/delete" data-modal-return="/groceries?month=<%= selectedMonth %>" data-modal-title="Supprimer ce ravitaillement ?" data-modal-message="Cette ligne sera retirée du compte boutique et des bilans." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+              </div>
             </template>
+            <template id="grocery-edit-<%= row.id %>"><%- include('partials/grocery-form', {
+              grocery: row,
+              selectedMonth: row.month_key || selectedMonth,
+              defaultPurchaseDate: row.purchase_date ? String(row.purchase_date).slice(0, 10) : `${selectedMonth}-01`,
+              returnTo: `/groceries?month=${selectedMonth}`,
+            }) %></template>
           <% }) %>
         </tbody>
       </table>
@@ -58,5 +71,5 @@
   <% } %>
 </section>
 
-<template id="grocery-create"><%- include('partials/grocery-form', { selectedMonth, defaultPurchaseDate }) %></template>
+<template id="grocery-create"><%- include('partials/grocery-form', { selectedMonth, defaultPurchaseDate, grocery: null, returnTo: '/groceries' }) %></template>
 <%- include('partials/page-end') %>

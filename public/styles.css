@@ -3646,3 +3646,319 @@ html[data-theme="dark"] .global-search-result:focus-visible { background: #252b3
 @media (max-width: 680px) {
   .page-header > .global-search-wrap { flex: 1 1 100%; width: 100%; margin-left: 0; }
 }
+
+.mobile-sidebar-toggle,
+.mobile-sidebar-close { display: none; }
+
+.table-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-bg);
+}
+.transactions-table {
+  width: 100%;
+  border: 0;
+  border-collapse: separate;
+  border-radius: inherit;
+  border-spacing: 0;
+  overflow: hidden;
+}
+.transactions-table thead th:first-child { border-top-left-radius: 13px; }
+.transactions-table thead th:last-child { border-top-right-radius: 13px; }
+.transactions-table tbody tr:last-child td:first-child { border-bottom-left-radius: 13px; }
+.transactions-table tbody tr:last-child td:last-child { border-bottom-right-radius: 13px; }
+.history-operation-cell,
+.history-operation-actions,
+.grocery-row-actions { white-space: nowrap; }
+.history-operation-actions,
+.grocery-row-actions { flex-wrap: nowrap; gap: 5px; }
+.history-operation-actions .table-action,
+.grocery-row-actions .table-action { flex: 0 0 30px; }
+html[data-theme="dark"] .category-settings-name,
+html[data-theme="dark"] .category-settings-name strong { color: #e7e9ed; }
+
+@media (max-width: 680px) {
+  .app-shell,
+  .app-frame {
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+  }
+  .app-frame { display: block; }
+  .main-area {
+    width: 100%;
+    min-width: 0;
+    padding: 62px 12px 24px;
+  }
+  .page-header {
+    min-width: 0;
+    padding-top: 0;
+  }
+  .page-content,
+  .page-content > *,
+  .page-header > *,
+  .header-tools,
+  .summary-grid > *,
+  .middle-grid > *,
+  .bottom-grid > *,
+  .panel-card,
+  .page-filter-card,
+  .page-table-card,
+  .metric-card,
+  .income-source-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .page-content { width: 100%; }
+  .mobile-sidebar-toggle {
+    position: fixed;
+    z-index: 98;
+    top: max(10px, env(safe-area-inset-top));
+    left: 10px;
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 11px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+  }
+  .mobile-sidebar-toggle svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.7;
+  }
+  .sidebar {
+    position: fixed;
+    z-index: 100;
+    inset: 0 auto 0 0;
+    display: flex;
+    width: min(292px, 86vw);
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    overflow: hidden;
+    padding: max(18px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom));
+    border: 1px solid var(--color-border);
+    border-left: 0;
+    border-radius: 0 15px 15px 0;
+    background: var(--color-bg);
+    box-shadow: 12px 0 36px rgba(15, 23, 42, .12);
+    transform: translateX(-102%);
+    visibility: hidden;
+    transition: transform .2s ease, visibility .2s ease;
+  }
+  .sidebar.mobile-menu-open {
+    transform: translateX(0);
+    visibility: visible;
+  }
+  .sidebar > .brand { display: flex; padding-right: 42px; }
+  .sidebar > .side-nav {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .sidebar > .sidebar-bottom {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+  }
+  .mobile-sidebar-close {
+    position: absolute;
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg);
+    color: var(--color-muted);
+    font: inherit;
+    font-size: 23px;
+    line-height: 1;
+  }
+  .mobile-primary-nav,
+  .mobile-more-nav,
+  .mobile-more-menu { display: none !important; }
+  .mobile-nav-overlay { display: none; }
+  .mobile-nav-overlay:not([hidden]) {
+    position: fixed;
+    z-index: 99;
+    inset: 0;
+    display: block;
+    background: rgba(15, 23, 42, .34);
+    backdrop-filter: blur(1px);
+  }
+  .summary-grid,
+  .dashboard-kpis,
+  .middle-grid,
+  .bottom-grid,
+  .form-grid,
+  .page-filter-form,
+  .income-period-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .form-grid > *,
+  .page-filter-form > *,
+  .income-period-form > *,
+  .page-filter-form label {
+    min-width: 0;
+    max-width: 100%;
+  }
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .panel-card,
+  .page-filter-card,
+  .page-table-card,
+  .metric-card,
+  .income-source-card {
+    border-radius: 13px;
+  }
+  .table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+  }
+  .transactions-table:not([data-responsive-cards]) {
+    min-width: max-content;
+    border: 0;
+    border-radius: inherit;
+  }
+  .transactions-table[data-responsive-cards] {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+  .transactions-table[data-responsive-cards] tbody tr {
+    min-width: 0;
+    margin-bottom: 9px;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg);
+  }
+  .transactions-table[data-responsive-cards] td {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+  .transactions-table[data-responsive-cards] td:last-child {
+    max-width: 100%;
+  }
+  .transactions-table .table-actions,
+  .transactions-table td .table-actions {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .metric-value,
+  .page-heading,
+  .panel-heading,
+  .card-title,
+  .global-search-result-details {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .global-search-results { max-width: calc(100vw - 24px); }
+  .mobile-nav-open { overscroll-behavior: none; }
+}
+
+html[data-theme="dark"] .mobile-sidebar-toggle,
+html[data-theme="dark"] .mobile-sidebar-close {
+  box-shadow: none;
+}
+@media (max-width: 680px) {
+  html[data-theme="dark"] .sidebar { box-shadow: 12px 0 36px rgba(0, 0, 0, .35); }
+}
+
+.app-page-area .panel-card,
+.app-page-area .page-filter-card,
+.app-page-area .page-table-card,
+.app-page-area .metric-card,
+.app-page-area .finance-metric,
+.app-page-area .account-settings-card,
+.app-page-area .income-source-card {
+  border-radius: 14px;
+}
+.app-page-area .panel-card.page-table-card,
+.app-page-area .page-filter-card {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  box-shadow: var(--shadow-card);
+}
+.app-page-area .table-wrap {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+html[data-theme="dark"] .export-carryover-option {
+  border-color: #3a404a;
+  background: #20242c;
+  color: #e7e9ed;
+}
+html[data-theme="dark"] .export-carryover-option:hover {
+  border-color: #505966;
+  background: #252b35;
+}
+html[data-theme="dark"] .export-carryover-option:has(input[type="checkbox"]:checked) {
+  border-color: #465a78;
+  background: #252e3d;
+}
+html[data-theme="dark"] .export-carryover-option input[type="checkbox"] {
+  border-color: #687486;
+  background: #181b22;
+}
+html[data-theme="dark"] .export-carryover-option input[type="checkbox"]:checked {
+  border-color: #718bb9;
+  background: #718bb9;
+}
+html[data-theme="dark"] .export-carryover-copy strong { color: #e7e9ed; }
+html[data-theme="dark"] .export-carryover-copy small { color: #b1b8c3; }
+html[data-theme="dark"] .export-carryover-indicator {
+  border-color: #3a404a;
+  background: #252b35;
+  color: #c4c8d0;
+}
+html[data-theme="dark"] .export-carryover-option:has(input[type="checkbox"]:checked) .export-carryover-indicator {
+  border-color: #465a78;
+  background: #2b3649;
+  color: #d3def0;
+}
+html[data-theme="dark"] .backup-status > div > strong { color: #8fd4aa; }
+html[data-theme="dark"] .backup-status p { color: #b1b8c3; }
+html[data-theme="dark"] .app-page-area .panel-card.page-table-card,
+html[data-theme="dark"] .app-page-area .page-filter-card {
+  border-color: #303640;
+  background: #181b22;
+  box-shadow: var(--shadow-card);
+}

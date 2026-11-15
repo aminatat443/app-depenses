@@ -1,8 +1,9 @@
-<aside class="sidebar" aria-label="Navigation principale">
+<aside class="sidebar" id="main-sidebar" aria-label="Navigation principale">
   <a class="brand" href="/" aria-label="Maison, vue d’ensemble">
     <span class="brand-mark" aria-hidden="true">M</span>
     <span class="brand-copy"><strong>Maison</strong><small>GESTION FAMILIALE</small></span>
   </a>
+  <button class="mobile-sidebar-close" type="button" aria-label="Fermer le menu" data-mobile-sidebar-close>×</button>
 
   <nav class="side-nav" aria-label="Sections de l’application">
     <span class="nav-caption">MAISON</span>
@@ -68,51 +69,5 @@
     </form>
   </div>
 
-  <nav class="mobile-primary-nav" aria-label="Navigation principale">
-    <a class="nav-item <%= activePage === 'overview' ? 'is-active' : '' %>" href="/" <%= activePage === 'overview' ? 'aria-current="page"' : '' %> aria-label="Vue d’ensemble">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Vue</span>
-    </a>
-    <a class="nav-item <%= activePage === 'expenses' ? 'is-active' : '' %>" href="/expenses" <%= activePage === 'expenses' ? 'aria-current="page"' : '' %> aria-label="Dépenses">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg><span>Dépenses</span>
-    </a>
-    <a class="nav-item <%= activePage === 'tenants' ? 'is-active' : '' %>" href="/tenants" <%= activePage === 'tenants' ? 'aria-current="page"' : '' %> aria-label="Locataires">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 19v-1a6 6 0 0 1 12 0v1m2-7a5 5 0 0 1 4 5v2"/></svg><span>Locataires</span>
-    </a>
-    <a class="nav-item <%= activePage === 'rents' ? 'is-active' : '' %>" href="/rents" <%= activePage === 'rents' ? 'aria-current="page"' : '' %> aria-label="Loyers">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 11h6"/></svg><span>Loyers</span>
-    </a>
-    <a class="nav-item <%= activePage === 'income' ? 'is-active' : '' %>" href="/income" <%= activePage === 'income' ? 'aria-current="page"' : '' %> aria-label="Revenus">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M17 7c0-2-2-3-5-3S7 5 7 7s2 3 5 4 5 2 5 4-2 4-5 4-5-2-5-4"/></svg><span>Revenus</span>
-    </a>
-  </nav>
-
-  <div class="mobile-more-nav">
-    <button class="mobile-more-trigger <%= ['savings', 'groceries', 'history', 'monthly', 'import', 'export', 'backup', 'settings', 'account'].includes(activePage) ? 'is-active' : '' %>" type="button" aria-expanded="false" aria-controls="mobile-more-menu" aria-label="Ouvrir les autres sections">
-      <span aria-hidden="true">•••</span><span>Plus</span>
-    </button>
-  </div>
-  <div class="mobile-nav-overlay" data-mobile-nav-close hidden></div>
-  <nav class="mobile-more-menu" id="mobile-more-menu" aria-label="Autres sections" aria-hidden="true" inert>
-    <div class="mobile-menu-heading">
-      <div><span class="eyebrow">NAVIGATION</span><h2>Autres sections</h2></div>
-      <button class="mobile-menu-close" type="button" aria-label="Fermer le menu" data-mobile-nav-close>×</button>
-    </div>
-    <a href="/savings" <%= activePage === 'savings' ? 'aria-current="page"' : '' %>><span>Épargne protégée</span><span aria-hidden="true">→</span></a>
-    <a href="/groceries" <%= activePage === 'groceries' ? 'aria-current="page"' : '' %>><span>Compte boutique</span><span aria-hidden="true">→</span></a>
-    <a href="/history" <%= activePage === 'history' ? 'aria-current="page"' : '' %>><span>Historique</span><span aria-hidden="true">→</span></a>
-    <a href="/monthly" <%= activePage === 'monthly' ? 'aria-current="page"' : '' %>><span>Bilans &amp; statistiques</span><span aria-hidden="true">→</span></a>
-    <a href="/import" <%= activePage === 'import' ? 'aria-current="page"' : '' %>><span>Importation Excel</span><span aria-hidden="true">→</span></a>
-    <a href="/export" <%= activePage === 'export' ? 'aria-current="page"' : '' %>><span>Exportation Excel</span><span aria-hidden="true">→</span></a>
-    <a href="/backup" <%= activePage === 'backup' ? 'aria-current="page"' : '' %>><span>Sauvegardes</span><span aria-hidden="true">→</span></a>
-    <a href="/categories" <%= activePage === 'settings' ? 'aria-current="page"' : '' %>><span>Catégories &amp; paramètres</span><span aria-hidden="true">→</span></a>
-    <a href="/account" <%= activePage === 'account' ? 'aria-current="page"' : '' %>><span>Compte administrateur</span><span aria-hidden="true">→</span></a>
-    <button class="theme-toggle" type="button" data-theme-toggle aria-pressed="false">
-      <svg class="theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 15.3A8.5 8.5 0 0 1 8.7 3.5 8.6 8.6 0 1 0 20.5 15.3Z"/></svg>
-      <svg class="theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
-      <span data-theme-label>Mode sombre</span>
-    </button>
-    <form method="POST" action="/logout">
-      <button type="submit"><span>Déconnexion</span><span aria-hidden="true">↗</span></button>
-    </form>
-  </nav>
 </aside>
+<div class="mobile-nav-overlay" data-mobile-nav-close hidden></div>

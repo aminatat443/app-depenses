@@ -1,34 +1,34 @@
 <div class="modal-heading">
-  <span class="eyebrow">COMPTE BOUTIQUE</span>
-  <h2>Ajouter un ravitaillement</h2>
-  <p>Enregistrez un achat dans le compte boutique.</p>
+  <span class="eyebrow"><%= grocery ? 'MODIFICATION' : 'COMPTE BOUTIQUE' %></span>
+  <h2><%= grocery ? 'Modifier le ravitaillement' : 'Ajouter un ravitaillement' %></h2>
+  <p><%= grocery ? 'Mettez à jour les informations de cet achat.' : 'Enregistrez un achat dans le compte boutique.' %></p>
 </div>
-<form method="POST" action="/groceries">
-  <input type="hidden" name="return_to" value="/groceries" />
+<form method="POST" action="<%= grocery ? `/groceries/${grocery.id}/update` : '/groceries' %>">
+  <input type="hidden" name="return_to" value="<%= returnTo || '/groceries' %>" />
   <input type="hidden" name="selected_month" value="<%= selectedMonth %>" />
   <div class="form-grid">
     <label>Date
-      <input type="date" name="purchase_date" value="<%= defaultPurchaseDate %>" required />
+      <input type="date" name="purchase_date" value="<%= grocery?.purchase_date ? String(grocery.purchase_date).slice(0, 10) : (grocery ? '' : defaultPurchaseDate) %>" <%= !grocery || grocery.purchase_date ? 'required' : '' %> />
     </label>
     <label>Marchandise
-      <input type="text" name="item_name" placeholder="Sac de riz" required />
+      <input type="text" name="item_name" value="<%= grocery?.item_name || '' %>" placeholder="Sac de riz" required />
     </label>
     <label>Quantité
-      <input type="number" name="quantity" step="0.01" min="0" value="1" required />
+      <input type="number" name="quantity" step="0.01" min="0" value="<%= grocery?.quantity_known ? grocery.quantity : (grocery ? '' : '1') %>" <%= !grocery || grocery.quantity_known ? 'required' : '' %> />
     </label>
     <label>Unité
-      <input type="text" name="unit" placeholder="kg, L, paquet" />
+      <input type="text" name="unit" value="<%= grocery?.unit || '' %>" placeholder="kg, L, paquet" />
     </label>
     <label>Prix unitaire (FCFA, si connu)
-      <input type="number" name="unit_price" step="0.01" min="0" />
+      <input type="number" name="unit_price" step="0.01" min="0" value="<%= grocery?.unit_price_known ? grocery.unit_price : '' %>" />
     </label>
     <label>Prix total payé (FCFA)
-      <input type="number" name="total_amount" step="0.01" min="0" required />
+      <input type="number" name="total_amount" step="0.01" min="0" value="<%= grocery?.total_amount ?? '' %>" required />
     </label>
     <label>Notes
-      <input type="text" name="notes" placeholder="Optionnel" />
+      <input type="text" name="notes" value="<%= grocery?.notes || '' %>" placeholder="Optionnel" />
     </label>
   </div>
   <p class="page-note">Indiquez le prix total payé ou le prix unitaire ; le montant total sera enregistré ou calculé en conséquence.</p>
-  <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer le ravitaillement</button></div>
+  <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn"><%= grocery ? 'Enregistrer les modifications' : 'Enregistrer le ravitaillement' %></button></div>
 </form>

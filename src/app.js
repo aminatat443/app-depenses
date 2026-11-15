@@ -620,47 +620,113 @@ app.get('/groceries', async (req, res) => {
   res.render('groceries', { groceryList, search, selectedMonth, defaultPurchaseDate });
 });
 
-app.post('/groceries', async (req, res) => {
-  const itemName = String(req.body.item_name || '').trim();
-  const purchaseDate = String(req.body.purchase_date || '').trim();
-  const q = Number(req.body.quantity || 0);
-  const unitPriceInput = String(req.body.unit_price || '').trim();
-  const totalAmountInput = String(req.body.total_amount || '').trim();
-  const price = unitPriceInput ? Number(unitPriceInput) : 0;
+function validateGroceryInput(body, {
+  allowUnknownQuantity = false,
+  allowUnknownDate = false,
+  fallbackMonth = '',
+} = {}) {
+  const itemName = String(body.item_name || '').trim();
+  const purchaseDateInput = String(body.purchase_date || '').trim();
+  const purchaseDate = purchaseDateInput || null;
+  const quantityInput = String(body.quantity ?? '').trim();
+  const quantityKnown = quantityInput !== '';
+  const quantity = quantityKnown ? Number(quantityInput) : 0;
+  const unitPriceInput = String(body.unit_price || '').trim();
+  const totalAmountInput = String(body.total_amount || '').trim();
+  const unitPrice = unitPriceInput ? Number(unitPriceInput) : 0;
   const enteredTotal = totalAmountInput ? Number(totalAmountInput) : null;
+  const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(body.selected_month || ''))
+    ? String(body.selected_month)
+    : purchaseDate?.slice(0, 7) || fallbackMonth;
+
   if (
     !itemName
-    || !isValidIsoDate(purchaseDate)
-    || !Number.isFinite(q)
-    || q <= 0
-    || (!unitPriceInput && !totalAmountInput)
-    || (unitPriceInput && (!Number.isFinite(price) || price < 0))
+    || (purchaseDate ? !isValidIsoDate(purchaseDate) : !allowUnknownDate)
+    || (!quantityKnown && (!allowUnknownQuantity || enteredTotal === null))
+    || (quantityKnown && (!Number.isFinite(quantity) || quantity <= 0))
+    || (!unitPriceInput && enteredTotal === null)
+    || (unitPriceInput && (!Number.isFinite(unitPrice) || unitPrice < 0))
     || (totalAmountInput && (!Number.isFinite(enteredTotal) || enteredTotal < 0))
   ) {
+    return null;
+  }
+
+  return {
+    itemName,
+    purchaseDate,
+    monthKey: purchaseDate?.slice(0, 7) || selectedMonth,
+    quantity,
+    quantityKnown: quantityKnown ? 1 : 0,
+    unit: String(body.unit || ''),
+    unitPrice,
+    unitPriceKnown: unitPriceInput ? 1 : 0,
+    totalAmount: enteredTotal ?? quantity * unitPrice,
+    notes: String(body.notes || ''),
+    selectedMonth,
+  };
+}
+
+app.post('/groceries', async (req, res) => {
+  const grocery = validateGroceryInput(req.body);
+  if (!grocery) {
     return res.status(400).send('Saisissez une marchandise, une date valide, une quantité positive et un prix unitaire ou total valide.');
   }
-  const total = enteredTotal ?? q * price;
-  const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(req.body.selected_month || ''))
-    ? String(req.body.selected_month)
-    : purchaseDate.slice(0, 7);
 
   await db.prepare(`
     INSERT INTO grocery_items (
-      item_name, purchase_date, month_key, quantity, unit, unit_price, total_amount, notes, unit_price_known
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      item_name, purchase_date, month_key, quantity, unit, unit_price, total_amount, notes,
+      quantity_known, unit_price_known
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    itemName,
-    purchaseDate,
-    purchaseDate.slice(0, 7),
-    q,
-    req.body.unit || '',
-    price,
-    total,
-    req.body.notes || '',
-    unitPriceInput ? 1 : 0,
+    grocery.itemName,
+    grocery.purchaseDate,
+    grocery.monthKey,
+    grocery.quantity,
+    grocery.unit,
+    grocery.unitPrice,
+    grocery.totalAmount,
+    grocery.notes,
+    grocery.quantityKnown,
+    grocery.unitPriceKnown,
   );
 
-  res.redirect(req.body.return_to === '/history' ? '/history' : `/groceries?month=${selectedMonth}`);
+  res.redirect(req.body.return_to === '/history' ? '/history' : `/groceries?month=${grocery.selectedMonth}`);
+});
+
+app.post('/groceries/:id/update', async (req, res) => {
+  const existing = await db.prepare('SELECT * FROM grocery_items WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).send('Ravitaillement introuvable.');
+  const existingMonth = existing.month_key || (existing.purchase_date ? String(existing.purchase_date).slice(0, 7) : '');
+  const grocery = validateGroceryInput(req.body, {
+    allowUnknownQuantity: !Number(existing.quantity_known),
+    allowUnknownDate: !existing.purchase_date,
+    fallbackMonth: existingMonth,
+  });
+  if (!grocery) {
+    return res.status(400).send('Saisissez une marchandise, une date valide, une quantité positive et un prix unitaire ou total valide.');
+  }
+
+  await db.prepare(`
+    UPDATE grocery_items SET
+      item_name = ?, purchase_date = ?, month_key = ?, quantity = ?, unit = ?,
+      unit_price = ?, total_amount = ?, notes = ?, quantity_known = ?, unit_price_known = ?
+    WHERE id = ?
+  `).run(
+    grocery.itemName,
+    grocery.purchaseDate,
+    grocery.monthKey,
+    grocery.quantity,
+    grocery.unit,
+    grocery.unitPrice,
+    grocery.totalAmount,
+    grocery.notes,
+    grocery.quantityKnown,
+    grocery.unitPriceKnown,
+    req.params.id,
+  );
+  res.redirect(req.body.return_to === '/history'
+    ? '/history'
+    : `/groceries?month=${encodeURIComponent(grocery.monthKey)}`);
 });
 
 app.post('/groceries/:id/delete', async (req, res) => {
@@ -1022,6 +1088,15 @@ app.get('/history', async (req, res) => {
     `).all(...editableExpenseIds)
     : [];
   const editableExpensesById = Object.fromEntries(editableExpenses.map((expense) => [expense.id, expense]));
+  const editableGroceryIds = operationList
+    .filter((item) => item.type === 'grocery')
+    .map((item) => item.source_id);
+  const editableGroceries = editableGroceryIds.length
+    ? await db.prepare(`
+      SELECT * FROM grocery_items WHERE id IN (${editableGroceryIds.map(() => '?').join(', ')})
+    `).all(...editableGroceryIds)
+    : [];
+  const editableGroceriesById = Object.fromEntries(editableGroceries.map((grocery) => [grocery.id, grocery]));
   const categories = (await readCategories()).filter((category) => category.type !== 'boutique');
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
   const pageUrl = (pageNumber) => {
@@ -1035,7 +1110,7 @@ app.get('/history', async (req, res) => {
     return `/history?${queryParams.toString()}`;
   };
   res.render('history', {
-    operationList, editableExpensesById, categories, search, month, type, startDate, endDate,
+    operationList, editableExpensesById, editableGroceriesById, categories, search, month, type, startDate, endDate,
     page: Math.min(page, pageCount), pageCount, totalCount, pageUrl,
   });
 });

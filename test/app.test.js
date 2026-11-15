@@ -229,13 +229,41 @@ test('grocery page filters the selected month and accepts total-only pricing', a
     assert.doesNotMatch(totalPriceHtml, new RegExp(unitPricedItem));
 
     const totalPriceRow = await db.prepare(`
-      SELECT quantity, unit_price, total_amount, unit_price_known
+      SELECT id, quantity, unit_price, total_amount, unit_price_known
       FROM grocery_items WHERE item_name = ?
     `).get(totalPricedItem);
+    const groceryId = Number(totalPriceRow.id);
+    assert.match(totalPriceHtml, new RegExp(`data-modal-template="grocery-edit-${groceryId}"`));
     assert.equal(Number(totalPriceRow.quantity), 3);
     assert.equal(Number(totalPriceRow.unit_price), 0);
     assert.equal(Number(totalPriceRow.total_amount), 8500);
     assert.equal(Number(totalPriceRow.unit_price_known), 0);
+
+    const editGroceryResponse = await authedFetch(`${baseUrl}/groceries/${groceryId}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        item_name: totalPricedItem,
+        purchase_date: '2040-04-04',
+        selected_month: '2040-04',
+        quantity: '3',
+        unit: 'sacs',
+        unit_price: '',
+        total_amount: '9000',
+        notes: 'Montant corrigé',
+        return_to: '/history',
+      }),
+    });
+    assert.equal(editGroceryResponse.status, 200);
+    const historyHtml = await editGroceryResponse.text();
+    assert.match(historyHtml, new RegExp(`data-modal-template="grocery-edit-${groceryId}"`));
+    assert.match(historyHtml, /class="table-actions history-operation-actions"/);
+    assert.match(historyHtml, new RegExp(`data-modal-confirm="/groceries/${groceryId}/delete"`));
+    const updatedGrocery = await db.prepare(`
+      SELECT total_amount, notes FROM grocery_items WHERE id = ?
+    `).get(groceryId);
+    assert.equal(Number(updatedGrocery.total_amount), 9000);
+    assert.equal(updatedGrocery.notes, 'Montant corrigé');
 
     const unitPriceResponse = await authedFetch(`${baseUrl}/groceries`, {
       method: 'POST',
@@ -298,10 +326,11 @@ test('sidebar links open pages and page actions expose modal triggers', async ()
       assert.match(text, /href="\/history"/);
       assert.match(text, /class="side-nav" aria-label="Sections de l’application"/);
       assert.match(text, /class="sidebar-user"/);
-      assert.match(text, /class="mobile-primary-nav" aria-label="Navigation principale"/);
+      assert.match(text, /id="main-sidebar"/);
+      assert.match(text, /data-mobile-sidebar-toggle/);
       assert.match(text, /id="global-search"/);
-      assert.match(text, /class="mobile-more-trigger[^"]*"[^>]*aria-expanded="false" aria-controls="mobile-more-menu"/);
-      assert.match(text, /id="mobile-more-menu"[^>]*aria-hidden="true" inert/);
+      assert.match(text, /class="mobile-nav-overlay" data-mobile-nav-close hidden/);
+      assert.doesNotMatch(text, /mobile-primary-nav|mobile-more-trigger/);
       assert.match(text, /src="\/app.js"/);
     }
 
@@ -312,7 +341,9 @@ test('sidebar links open pages and page actions expose modal triggers', async ()
     assert.match(expensesHtml, /class="sidebar-logout"/);
     assert.doesNotMatch(expensesHtml, /href="\/groceries" data-modal-link/);
     const dashboard = await authedFetch(`http://127.0.0.1:${port}/`);
-    assert.match(await dashboard.text(), /class="close-modal"[^>]*data-close-modal/);
+    const dashboardHtml = await dashboard.text();
+    assert.match(dashboardHtml, /class="close-modal"[^>]*data-close-modal/);
+    assert.match(dashboardHtml, /data-mobile-sidebar-toggle/);
     const incomePage = await authedFetch(`http://127.0.0.1:${port}/income?month=2026-11`);
     const incomeHtml = await incomePage.text();
     assert.match(incomeHtml, /Revenus mensuels/);

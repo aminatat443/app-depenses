@@ -59,18 +59,28 @@
               <td><%= item.funding_source === 'protected_savings' ? 'Dépense protégée' : ({ expense: 'Dépense', grocery: 'Ravitaillement', income: 'Recette', rent: 'Loyer encaissé', savings: 'Épargne' })[item.type] %></td>
               <td><span class="category-pill"><%= item.category %></span></td>
               <td class="amount-cell"><strong><%= formatCurrency(item.amount) %></strong></td>
-              <td>
+              <td class="history-operation-cell"><div class="table-actions history-operation-actions">
                 <% if (item.type === 'expense' && item.funding_source !== 'protected_savings') { %>
                   <button class="table-action icon-action" type="button" aria-label="Modifier <%= item.title %>" title="Modifier" data-modal-template="expense-edit-<%= item.id %>"><%- include('partials/action-icon', { icon: 'edit' }) %></button>
+                <% } else if (item.type === 'grocery' && editableGroceriesById[item.source_id]) { %>
+                  <button class="table-action icon-action" type="button" aria-label="Modifier <%= item.title %>" title="Modifier" data-modal-template="grocery-edit-<%= item.source_id %>"><%- include('partials/action-icon', { icon: 'edit' }) %></button>
                 <% } %>
                 <% if (['expense', 'grocery', 'income'].includes(item.type)) { %>
                   <% const deleteUrl = item.type === 'grocery' ? '/groceries/' + item.id + '/delete' : (item.type === 'income' ? '/income/' + item.id + '/delete' : '/expenses/' + item.id + '/delete'); %>
                   <button class="table-action icon-action danger" type="button" aria-label="Supprimer <%= item.title %>" title="Supprimer" data-modal-confirm="<%= deleteUrl %>" data-modal-return="/history" data-modal-title="Supprimer cette opération ?" data-modal-message="Cette ligne sera retirée de l’historique et du bilan correspondant." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
                 <% } else { %><span class="page-note">Conservé</span><% } %>
-              </td>
+              </div></td>
             </tr>
             <% if (item.type === 'expense' && editableExpensesById[item.id]) { %>
               <template id="expense-edit-<%= item.id %>"><%- include('partials/expense-form', { categories, expense: editableExpensesById[item.id], returnTo: '/history' }) %></template>
+            <% } else if (item.type === 'grocery' && editableGroceriesById[item.source_id]) { %>
+              <% const grocery = editableGroceriesById[item.source_id]; %>
+              <template id="grocery-edit-<%= item.source_id %>"><%- include('partials/grocery-form', {
+                grocery,
+                selectedMonth: grocery.month_key || item.source_month,
+                defaultPurchaseDate: grocery.purchase_date ? String(grocery.purchase_date).slice(0, 10) : '',
+                returnTo: '/history',
+              }) %></template>
             <% } %>
           <% }) %>
         </tbody>
