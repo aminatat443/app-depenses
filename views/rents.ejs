@@ -56,7 +56,7 @@
             <div class="modal-heading"><span class="eyebrow">PAIEMENT DE LOYER</span><h2><%= row.first_name %> <%= row.last_name %></h2><p>Reste à payer : <strong><%= formatCurrency(remaining) %></strong></p></div>
             <form method="POST" action="/rents/<%= row.id %>/payments">
               <div class="form-grid">
-                <label>Montant reçu (FCFA)<input type="number" name="amount" min="1" max="<%= remaining %>" step="1" required /></label>
+                <label>Montant reçu (FCFA)<input type="number" name="amount" min="1" max="<%= remaining %>" step="1" value="<%= remaining %>" required /></label>
                 <label>Date du paiement (facultative)<input type="date" name="payment_date" /></label>
                 <label>Mode de paiement<select name="payment_method"><option value="">Non précisé</option><% paymentMethods.forEach((method) => { %><option value="<%= method %>"><%= method %></option><% }) %></select></label>
                 <label>Commentaire<input name="comment" /></label>

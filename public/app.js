@@ -1043,6 +1043,27 @@
     if (form) form.requestSubmit();
   });
 
+  const openMonthPicker = (input) => {
+    if (!(input instanceof HTMLInputElement) || input.disabled || input.readOnly) return;
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    } else {
+      input.focus();
+      input.click();
+    }
+  };
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+    const label = event.target.closest('label');
+    const monthPicker = event.target.closest('.month-picker');
+    const input = monthPicker?.querySelector('input[type="month"]')
+      || label?.querySelector('input[type="month"]')
+      || (label?.htmlFor ? document.getElementById(label.htmlFor) : null);
+    if (!(input instanceof HTMLInputElement) || input.type !== 'month' || input.contains(event.target)) return;
+    openMonthPicker(input);
+    if (label) event.preventDefault();
+  });
+
   document.addEventListener('keydown', (event) => {
     if (!(event.target instanceof HTMLInputElement) || !event.target.matches('#global-search input[name="search"]')) return;
     if (event.key === 'Escape') {

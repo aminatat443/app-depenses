@@ -495,6 +495,38 @@ router.post('/rents/:id/payments', async (req, res) => {
   res.redirect(`/rents?month=${obligation.month_key}`);
 });
 
+router.post('/rents/payments/:id/delete', async (req, res) => {
+  const paymentId = Number(req.params.id);
+  if (!Number.isSafeInteger(paymentId) || paymentId <= 0) {
+    return res.status(400).send('Identifiant de paiement invalide.');
+  }
+
+  const deletedPayment = await db.transaction(async () => {
+    const before = await db.prepare(`
+      SELECT p.*, o.month_key AS obligation_month
+      FROM rent_payments p
+      JOIN rent_obligations o ON o.id = p.obligation_id
+      WHERE p.id = ?
+      FOR UPDATE OF p, o
+    `).get(paymentId);
+    if (!before) return null;
+    await db.prepare('DELETE FROM rent_payments WHERE id = ?').run(paymentId);
+    await writeAudit(req.user.id, 'rent_payment', paymentId, 'delete', before, null);
+    return before;
+  });
+  if (!deletedPayment) return res.status(404).send('Paiement de loyer introuvable.');
+
+  const receivedMonth = deletedPayment.received_month_key
+    || deletedPayment.payment_date?.slice(0, 7)
+    || deletedPayment.obligation_month;
+  const requestedReturn = String(req.body.return_to || '');
+  const returnTo = requestedReturn === '/history'
+    || /^\/income\?month=\d{4}-(0[1-9]|1[0-2])$/.test(requestedReturn)
+    ? requestedReturn
+    : `/income?month=${encodeURIComponent(receivedMonth)}`;
+  res.redirect(returnTo);
+});
+
 router.get('/income', async (req, res) => {
   const monthKey = validMonth(req.query.month) ? req.query.month : currentMonth();
   const [categories, incomeRows, monthlyRevenue, finance, rentPayments] = await Promise.all([
@@ -507,7 +539,7 @@ router.get('/income', async (req, res) => {
     db.prepare('SELECT * FROM monthly_revenues WHERE month_key = ?').get(monthKey),
     getMonthlyFinance(monthKey),
     db.prepare(`
-      SELECT p.payment_date, p.amount, p.payment_method, t.first_name, t.last_name,
+      SELECT p.id, p.payment_date, p.amount, p.payment_method, t.first_name, t.last_name,
         u.floor, u.label AS unit_label
       FROM rent_payments p
       JOIN rent_obligations o ON o.id = p.obligation_id

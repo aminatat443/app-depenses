@@ -774,6 +774,7 @@ test('rent payments can omit dates and mark all remaining obligations paid', asy
     assert.match(rentsPage, /Marquer tous les loyers comme payés/);
     assert.match(rentsPage, /Date du paiement \(facultative\)/);
     assert.match(rentsPage, /name="payment_date"[^>]*\/>/);
+    assert.match(rentsPage, /name="amount"[^>]*max="75000"[^>]*value="75000"/);
 
     const remainingObligations = await db.prepare(`
       SELECT COUNT(*) AS count FROM (
@@ -785,12 +786,16 @@ test('rent payments can omit dates and mark all remaining obligations paid', asy
       ) AS month_obligations
       WHERE expected_amount > amount_paid
     `).get('2027-01');
-    const markAllResponse = await postForm('/rents/mark-all-paid', { month_key: '2027-01' });
-    assert.equal(markAllResponse.status, 200);
-    const markAllHtml = await markAllResponse.text();
+    const markAllResponses = await Promise.all([
+      postForm('/rents/mark-all-paid', { month_key: '2027-01' }),
+      postForm('/rents/mark-all-paid', { month_key: '2027-01' }),
+    ]);
+    assert.ok(markAllResponses.every((response) => response.status === 200));
+    const markAllHtml = await Promise.all(markAllResponses.map((response) => response.text()));
     const markedCount = Number(remainingObligations.count);
     const markedNotice = `${markedCount} loyer${markedCount === 1 ? '' : 's'} marqué${markedCount === 1 ? '' : 's'} comme payé${markedCount === 1 ? '' : 's'}.`;
-    assert.ok(markAllHtml.includes(markedNotice));
+    assert.ok(markAllHtml.some((html) => html.includes(markedNotice)));
+    assert.ok(markAllHtml.some((html) => html.includes('Aucun loyer restant à payer.')));
 
     const payments = await db.prepare(`
       SELECT amount, payment_date, received_month_key FROM rent_payments
@@ -859,6 +864,32 @@ test('rent payments can omit dates and mark all remaining obligations paid', asy
       GROUP BY o.id HAVING COALESCE(SUM(p.amount), 0) = 0
     `).get();
     assert.ok(unselectedObligation);
+
+    const incomePage = await (await authedFetch(`${baseUrl}/income?month=2027-03`)).text();
+    assert.match(incomePage, /2 paiements reçus ce mois/);
+    assert.match(incomePage, /data-modal-confirm="\/rents\/payments\/\d+\/delete"/);
+    const historyPage = await (await authedFetch(`${baseUrl}/history?type=rent&month=2027-03`)).text();
+    assert.match(historyPage, /data-modal-confirm="\/rents\/payments\/\d+\/delete"/);
+
+    const paymentToDelete = await db.prepare(`
+      SELECT id FROM rent_payments WHERE obligation_id = ? ORDER BY id LIMIT 1
+    `).get(selectedObligations[0].id);
+    assert.ok(paymentToDelete);
+    const deleteResponse = await postForm(`/rents/payments/${paymentToDelete.id}/delete`, {
+      return_to: '/income?month=2027-03',
+    });
+    assert.equal(deleteResponse.status, 200);
+    assert.match(await deleteResponse.text(), /1 paiement reçu ce mois/);
+    assert.equal(Number((await db.prepare(`
+      SELECT COUNT(*) AS count FROM rent_payments WHERE id = ?
+    `).get(paymentToDelete.id)).count), 0);
+    const deletionAudit = await db.prepare(`
+      SELECT before_data, after_data FROM audit_log
+      WHERE entity_type = 'rent_payment' AND entity_id = ? AND action = 'delete'
+    `).get(String(paymentToDelete.id));
+    assert.ok(deletionAudit);
+    assert.equal(deletionAudit.before_data.id, paymentToDelete.id);
+    assert.equal(deletionAudit.after_data, null);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

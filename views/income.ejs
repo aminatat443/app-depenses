@@ -225,7 +225,18 @@
       <% rentPayments.forEach((payment) => { %>
         <article class="rent-payment-item">
           <div><strong><%= payment.first_name %> <%= payment.last_name %></strong><span><%= payment.floor %> · <%= payment.unit_label %></span></div>
-          <div><strong><%= formatCurrency(payment.amount) %></strong><span><%= payment.payment_date ? formatDate(payment.payment_date) : 'Date non renseignée' %><%= payment.payment_method ? ` · ${payment.payment_method}` : '' %></span></div>
+          <div>
+            <strong><%= formatCurrency(payment.amount) %></strong>
+            <span><%= payment.payment_date ? formatDate(payment.payment_date) : 'Date non renseignée' %><%= payment.payment_method ? ` · ${payment.payment_method}` : '' %></span>
+            <button class="table-action icon-action danger rent-payment-delete" type="button"
+              aria-label="Supprimer le paiement de <%= payment.first_name %> <%= payment.last_name %> de <%= formatCurrency(payment.amount) %>"
+              title="Supprimer ce paiement"
+              data-modal-confirm="/rents/payments/<%= payment.id %>/delete"
+              data-modal-return="/income?month=<%= encodeURIComponent(monthKey) %>"
+              data-modal-title="Supprimer ce paiement de loyer ?"
+              data-modal-message="Ce versement sera retiré du total encaissé de <%= monthKey %>. La suppression sera inscrite dans le journal d’audit."
+              data-modal-submit="Supprimer le paiement" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
+          </div>
         </article>
       <% }) %>
     </div>

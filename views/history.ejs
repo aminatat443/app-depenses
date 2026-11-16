@@ -65,9 +65,9 @@
                 <% } else if (item.type === 'grocery' && editableGroceriesById[item.source_id]) { %>
                   <button class="table-action icon-action" type="button" aria-label="Modifier <%= item.title %>" title="Modifier" data-modal-template="grocery-edit-<%= item.source_id %>"><%- include('partials/action-icon', { icon: 'edit' }) %></button>
                 <% } %>
-                <% if (['expense', 'grocery', 'income'].includes(item.type)) { %>
-                  <% const deleteUrl = item.type === 'grocery' ? '/groceries/' + item.id + '/delete' : (item.type === 'income' ? '/income/' + item.id + '/delete' : '/expenses/' + item.id + '/delete'); %>
-                  <button class="table-action icon-action danger" type="button" aria-label="Supprimer <%= item.title %>" title="Supprimer" data-modal-confirm="<%= deleteUrl %>" data-modal-return="/history" data-modal-title="Supprimer cette opération ?" data-modal-message="Cette ligne sera retirée de l’historique et du bilan correspondant." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
+                <% if (['expense', 'grocery', 'income', 'rent'].includes(item.type)) { %>
+                  <% const deleteUrl = item.type === 'rent' ? '/rents/payments/' + item.id + '/delete' : (item.type === 'grocery' ? '/groceries/' + item.id + '/delete' : (item.type === 'income' ? '/income/' + item.id + '/delete' : '/expenses/' + item.id + '/delete')); %>
+                  <button class="table-action icon-action danger" type="button" aria-label="Supprimer <%= item.title %>" title="Supprimer" data-modal-confirm="<%= deleteUrl %>" data-modal-return="/history" data-modal-title="Supprimer cette opération ?" data-modal-message="Cette ligne sera retirée de l’historique et du bilan correspondant. La suppression sera inscrite dans le journal d’audit." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
                 <% } else { %><span class="page-note">Conservé</span><% } %>
               </div></td>
             </tr>

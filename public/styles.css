@@ -1066,6 +1066,7 @@ svg { display: block; }
 .rent-payment-item > div:last-child { text-align: right; }
 .rent-payment-item strong { color: #34445a; font-size: 12px; }
 .rent-payment-item span { color: var(--color-muted); font-size: 10px; }
+.rent-payment-delete { width: 40px !important; min-width: 40px !important; min-height: 40px; }
 .rent-payment-total { display: flex; justify-content: space-between; padding-top: 14px; color: #34445a; font-size: 12px; }
 .rent-payment-total strong { color: var(--color-primary); }
 .rent-select-cell { width: 48px; min-width: 48px; padding-right: 4px; padding-left: 4px; text-align: center; }
@@ -4149,3 +4150,9 @@ html[data-theme="dark"] .app-page-area .page-filter-card {
   min-width: 0;
   max-width: 100%;
 }
+.page-filter-form label:has(input[type="month"]),
+.income-period-form label[for="income-month"],
+.month-picker,
+.page-filter-form input[type="month"],
+.income-period-form input[type="month"],
+.month-picker input[type="month"] { cursor: pointer; }
