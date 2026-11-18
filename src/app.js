@@ -35,6 +35,11 @@ const {
   summarizeRecords,
 } = require('./excel');
 const { buildReferenceWorkbook, MONTH_NAMES } = require('./template-export');
+const {
+  buildCategoryPresentation,
+  resolvePriorityCategory,
+  sortCategoriesForPresentation,
+} = require('./category-presentation');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -736,7 +741,8 @@ app.post('/groceries/:id/delete', async (req, res) => {
 
 app.get('/expenses', async (req, res) => {
   const search = (req.query.search || '').toString().trim();
-  const categories = (await readCategories()).filter((category) => category.type !== 'boutique');
+  const allCategories = await readCategories();
+  const categories = allCategories.filter((category) => category.type !== 'boutique');
   const today = new Date();
   const requestedMonth = (req.query.month || '').toString();
   const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)
@@ -753,6 +759,20 @@ app.get('/expenses', async (req, res) => {
   if (req.query.category && /^\d+$/.test(String(req.query.category))) {
     where += ' AND e.category_id = ?';
     params.push(Number(req.query.category));
+  }
+  if (req.query.category_alias) {
+    const alias = String(req.query.category_alias);
+    const matchingIds = allCategories
+      .filter((category) => resolvePriorityCategory(category.name) === alias
+        || (alias === 'Compte boutique' && category.type === 'boutique')
+        || (resolvePriorityCategory(category.name) === null && category.name === alias))
+      .map((category) => Number(category.id));
+    if (matchingIds.length) {
+      where += ` AND e.category_id IN (${matchingIds.map(() => '?').join(', ')})`;
+      params.push(...matchingIds);
+    } else {
+      where += ' AND 1 = 0';
+    }
   }
   if (search) {
     where += `
@@ -776,10 +796,27 @@ app.get('/expenses', async (req, res) => {
     ORDER BY e.expense_date DESC, e.id DESC
     LIMIT ? OFFSET ?
   `).all(...params, pageSize, (page - 1) * pageSize);
+  const summaryExpenses = await db.prepare(`
+    SELECT e.id, e.title, e.amount, e.expense_date,
+      e.category_id, e.funding_source, c.name AS category_name
+    FROM expenses e
+    JOIN categories c ON c.id = e.category_id
+    WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
+    ORDER BY e.expense_date DESC, e.id DESC
+  `).all(monthKey);
+  const groceryItems = await db.prepare(`
+    SELECT id, item_name, total_amount, purchase_date, month_key
+    FROM grocery_items
+    WHERE COALESCE(NULLIF(month_key, ''), to_char(purchase_date, 'YYYY-MM')) = ?
+  `).all(monthKey);
   const finance = await getMonthlyFinance(monthKey);
+  const categoryPresentation = monthKey >= '2026-09'
+    ? buildCategoryPresentation({ monthKey, categories: allCategories, expenses: summaryExpenses, groceryItems })
+    : null;
   res.render('expenses', {
     categories, expenseList, search, monthKey, page, pageSize, totalCount, finance,
     selectedCategory: String(req.query.category || ''),
+    categoryPresentation,
   });
 });
 
@@ -1116,7 +1153,7 @@ app.get('/history', async (req, res) => {
 });
 
 app.get('/categories', async (req, res) => {
-  const categories = await readCategories();
+  const categories = sortCategoriesForPresentation(await readCategories());
   res.render('categories', { categories });
 });
 
@@ -1171,6 +1208,19 @@ app.get('/monthly', async (req, res) => {
   const totalGroceries = monthlyGroceries.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
   const totalOther = monthlyOther.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const finance = await getMonthlyFinance(reportDate);
+  const allCategories = await readCategories();
+  const summaryExpenses = [
+    ...monthlyOther.map((row) => ({ ...row, category_name: row.category })),
+    ...protectedSavingsExpenses.map((row) => ({ ...row, category_name: row.category, funding_source: 'protected_savings' })),
+  ];
+  const categoryPresentation = reportDate >= '2026-09'
+    ? buildCategoryPresentation({
+      monthKey: reportDate,
+      categories: allCategories,
+      expenses: summaryExpenses,
+      groceryItems: monthlyGroceries,
+    })
+    : null;
 
   res.render('monthly', {
     year,
@@ -1183,6 +1233,8 @@ app.get('/monthly', async (req, res) => {
     totalOther,
     totalGeneral: totalGroceries + totalOther,
     finance,
+    categoryPresentation,
+    categories: allCategories.filter((category) => category.type !== 'boutique'),
   });
 });
 
@@ -2116,8 +2168,9 @@ async function getReferenceMonthData(year, month) {
       ORDER BY p.id
     `).all(monthKey),
     db.prepare(`
-      SELECT e.title, e.amount, e.funding_source
+      SELECT e.title, e.amount, e.funding_source, c.name AS category
       FROM expenses e
+      LEFT JOIN categories c ON c.id = e.category_id
       WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
       ORDER BY e.expense_date NULLS LAST, e.id
     `).all(monthKey),
@@ -2145,11 +2198,15 @@ async function getReferenceMonthData(year, month) {
   const rentReceived = rentPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
   const protectedExpenseRows = expenses
     .filter((row) => row.funding_source === 'protected_savings')
-    .map((row) => ({ title: row.title, amount: Number(row.amount) }));
+    .map((row) => ({ title: row.title, amount: Number(row.amount), category: row.category }));
   const expenseRows = [
     ...expenses.filter((row) => row.funding_source !== 'protected_savings')
-      .map((row) => ({ title: row.title, amount: Number(row.amount) })),
-    ...groceries.map((row) => ({ title: row.title, amount: Number(row.amount) })),
+      .map((row) => ({ title: row.title, amount: Number(row.amount), category: row.category })),
+    ...groceries.map((row) => ({
+      title: row.title,
+      amount: Number(row.amount),
+      category: 'Compte boutique',
+    })),
   ];
   const tenantsForTemplate = tenants.map((tenant) => {
     const expectedAmount = Number(tenant.expected_amount);

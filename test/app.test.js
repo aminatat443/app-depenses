@@ -899,7 +899,7 @@ test('protected-savings expenses stay separate from current balances and appear 
   const protectedAccount = await db.prepare(`
     SELECT id FROM savings_accounts WHERE is_protected = TRUE
   `).get();
-  const category = await db.prepare("SELECT id FROM categories WHERE type <> 'boutique' ORDER BY id LIMIT 1").get();
+  const category = await db.prepare("SELECT id, name FROM categories WHERE type <> 'boutique' ORDER BY id LIMIT 1").get();
   assert.ok(protectedAccount);
   assert.ok(category);
   const monthKey = '2027-02';
@@ -965,7 +965,10 @@ test('protected-savings expenses stay separate from current balances and appear 
       }
     }
     assert.ok(protectedSectionRow);
-    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).value, 'Dépense test épargne protégée');
+    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).value, `Catégorie : ${category.name}`);
+    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).fill.fgColor.argb, 'FFE2F0E9');
+    assert.equal(sheet.getCell(protectedSectionRow + 1, 5).value.result, 2500);
+    assert.equal(sheet.getCell(protectedSectionRow + 2, 4).value, 'Dépense test épargne protégée');
 
     const csvResponse = await authedFetch(`${baseUrl}/export/csv/2027/expenses`);
     const csv = await csvResponse.text();

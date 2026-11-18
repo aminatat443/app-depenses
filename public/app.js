@@ -552,6 +552,25 @@
       const form = content.querySelector('[data-income-entry-form]');
       if (form) configureIncomeEntry(form);
     }
+    if (template.id === 'expense-create') {
+      const form = content.querySelector('form');
+      if (form) {
+        const categoryId = trigger.dataset.expenseCategoryId;
+        const monthKey = trigger.dataset.expenseMonth;
+        if (categoryId) {
+          const categorySelect = form.elements.namedItem('category_id');
+          if (categorySelect) categorySelect.value = categoryId;
+        }
+        if (/^\d{4}-(0[1-9]|1[0-2])$/.test(monthKey || '') && monthKey) {
+          const monthInput = form.elements.namedItem('month_key');
+          const dateInput = form.elements.namedItem('expense_date');
+          if (monthInput) monthInput.value = monthKey;
+          if (dateInput && !dateInput.value.startsWith(`${monthKey}-`)) {
+            dateInput.value = `${monthKey}-01`;
+          }
+        }
+      }
+    }
     if (template.id === 'export-confirmation') {
       const year = document.getElementById('export-year')?.value || new Date().getFullYear();
       const heading = content.querySelector('h2');

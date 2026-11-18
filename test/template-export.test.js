@@ -129,6 +129,55 @@ test('monthly revenues use the original cells and exclude protected savings from
   assert.equal(sheet.getCell('B22').value.result, 90_000);
 });
 
+test('exports from September 2026 group expenses by category with separate totals', async () => {
+  const expenses = [
+    { title: 'Facture internet', amount: 12_000, category: 'Facture Wi-Fi' },
+    { title: 'Abonnement', amount: 8_000, category: 'Facture Wi-Fi' },
+    { title: 'Achat urgent', amount: 3_000, category: 'Autres dépenses' },
+  ];
+  const septemberWorkbook = await buildReferenceWorkbook([monthData({
+    monthKey: '2026-09',
+    expenses,
+    totalExpenses: 23_000,
+    protectedExpenses: [
+      { title: 'Consultation', amount: 5_000, category: 'Santé' },
+      { title: 'Médicament', amount: 2_000, category: 'Santé' },
+    ],
+  })]);
+  const september = await workbookFromBuffer(await septemberWorkbook.xlsx.writeBuffer());
+  const septemberSheet = september.getWorksheet('Septembre');
+
+  assert.equal(septemberSheet.getCell('D22').value, 'Catégorie : Autres dépenses');
+  assert.equal(septemberSheet.getCell('D22').fill.fgColor.argb, 'FFE2F0E9');
+  assert.equal(septemberSheet.getCell('D22').font.bold, true);
+  assert.equal(septemberSheet.getCell('E22').value.formula, 'SUM(E23:E23)');
+  assert.equal(septemberSheet.getCell('E22').value.result, 3_000);
+  assert.equal(septemberSheet.getCell('D23').value, 'Achat urgent');
+  assert.equal(septemberSheet.getCell('D24').value, 'Catégorie : Facture Wi-Fi');
+  assert.equal(septemberSheet.getCell('E24').value.formula, 'SUM(E25:E26)');
+  assert.equal(septemberSheet.getCell('E24').value.result, 20_000);
+  assert.equal(septemberSheet.getCell('D25').value, 'Facture internet');
+  assert.equal(septemberSheet.getCell('D26').value, 'Abonnement');
+  assert.equal(septemberSheet.getCell('E42').value.formula, 'SUM(E22,E24)');
+  assert.equal(septemberSheet.getCell('E42').value.result, 23_000);
+  assert.equal(septemberSheet.getCell('D45').value, 'Catégorie : Santé');
+  assert.equal(septemberSheet.getCell('D45').fill.fgColor.argb, 'FFE2F0E9');
+  assert.equal(septemberSheet.getCell('E45').value.formula, 'SUM(E46:E47)');
+  assert.equal(septemberSheet.getCell('E45').value.result, 7_000);
+  assert.equal(septemberSheet.getCell('E48').value.formula, 'SUM(E45)');
+  assert.equal(septemberSheet.getCell('E48').value.result, 7_000);
+
+  const augustWorkbook = await buildReferenceWorkbook([monthData({
+    monthKey: '2026-08',
+    expenses,
+    totalExpenses: 23_000,
+  })]);
+  const august = await workbookFromBuffer(await augustWorkbook.xlsx.writeBuffer());
+  const augustSheet = august.getWorksheet('Août');
+  assert.equal(augustSheet.getCell('D22').value, 'Facture internet');
+  assert.equal(augustSheet.getCell('E22').value, 12_000);
+});
+
 test('carryover is always visible but only included in the exported balance when selected', async () => {
   const month = monthData({
     monthKey: '2026-04',
