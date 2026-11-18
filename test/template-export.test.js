@@ -83,6 +83,45 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.ok(sheet.model.merges.includes('D20:E20'));
 });
 
+test('rent payment statuses are clear and the protected-savings cells span two blank rows', async () => {
+  const output = await buildReferenceWorkbook([monthData({
+    tenants: [
+      {
+        floor: 'Rez-de-chaussée',
+        name: 'Locataire payée',
+        housingType: 'Une chambre',
+        peopleCount: 1,
+        expectedAmount: 50_000,
+        status: 'Payé',
+      },
+      {
+        floor: '1er étage',
+        name: 'Locataire impayée',
+        housingType: 'Une chambre',
+        peopleCount: 1,
+        expectedAmount: 50_000,
+        status: 'Non payé',
+      },
+    ],
+    totalPeople: 2,
+    rentExpected: 100_000,
+    savingsBalance: 25_000,
+  })]);
+  const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
+  const sheet = workbook.getWorksheet('Janvier');
+
+  assert.equal(sheet.getCell('G3').value, 'Payé');
+  assert.equal(sheet.getCell('G3').fill.fgColor.argb, 'FFE2F0E9');
+  assert.equal(sheet.getCell('G3').font.color.argb, 'FF264B47');
+  assert.equal(sheet.getCell('G4').value, 'Non payé');
+  assert.equal(sheet.getCell('G4').fill.fgColor.argb, 'FFF4CCCC');
+  assert.equal(sheet.getCell('G4').font.color.argb, 'FF9C0006');
+  assert.ok(sheet.model.merges.includes('A30:A32'));
+  assert.ok(sheet.model.merges.includes('B30:B32'));
+  assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
+  assert.equal(sheet.getCell('B30').value, 25_000);
+});
+
 test('monthly revenues use the original cells and exclude protected savings from the total', async () => {
   const template = new ExcelJS.Workbook();
   await template.xlsx.readFile(REFERENCE_TEMPLATE);

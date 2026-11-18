@@ -2217,7 +2217,7 @@ async function getReferenceMonthData(year, month) {
         ? 'Payé'
         : paidAmount > 0
           ? 'Partiellement payé'
-          : 'Impayé';
+          : 'Non payé';
     return {
       floor: tenant.floor,
       name: `${tenant.first_name} ${tenant.last_name}`,

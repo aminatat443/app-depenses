@@ -139,14 +139,21 @@ function styleCategoryTotalRow(sheet, rowNumber) {
 }
 
 function applyStatusStyle(cell, status) {
-  if (status === 'Payé') return;
-  const fill = status === 'Partiellement payé'
-    ? 'FFFFE699'
-    : status === 'Impayé'
-      ? 'FFF4CCCC'
-      : 'FFE7E6E6';
-  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill }, bgColor: { argb: fill } };
-  cell.font = { ...cell.font, color: { argb: 'FF000000' } };
+  const styles = {
+    'Payé': { fill: 'FFE2F0E9', color: 'FF264B47' },
+    'Partiellement payé': { fill: 'FFFFE699', color: 'FF7F6000' },
+    'Non payé': { fill: 'FFF4CCCC', color: 'FF9C0006' },
+    'Non dû': { fill: 'FFE7E6E6', color: 'FF666666' },
+  };
+  const style = styles[status];
+  if (!style) return;
+  cell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: style.fill },
+    bgColor: { argb: style.fill },
+  };
+  cell.font = { ...cell.font, bold: true, color: { argb: style.color } };
 }
 
 function growColumnToFit(sheet, columnNumber, values, maximumWidth) {
@@ -389,6 +396,8 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   sheet.getCell(resourcesRow, 1).value = 'Total des ressources disponibles';
   sheet.getRow(resourcesRow).hidden = !includeCarryover;
   setMonthlyFinancialCell(sheet, styleSource, savingsRow, 30, data.savingsBalance);
+  sheet.mergeCells(savingsRow, 1, savingsRow + 2, 1);
+  sheet.mergeCells(savingsRow, 2, savingsRow + 2, 2);
 
   const categoryTotalRows = [];
   if (categorizedExpenses) {
