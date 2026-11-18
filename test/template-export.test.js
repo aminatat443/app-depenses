@@ -83,7 +83,7 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.ok(sheet.model.merges.includes('D20:E20'));
 });
 
-test('rent payment statuses are clear and the protected-savings cells span two blank rows', async () => {
+test('rent payment statuses are clear and the protected-savings cells stay on one row', async () => {
   const output = await buildReferenceWorkbook([monthData({
     tenants: [
       {
@@ -116,10 +116,41 @@ test('rent payment statuses are clear and the protected-savings cells span two b
   assert.equal(sheet.getCell('G4').value, 'Non payé');
   assert.equal(sheet.getCell('G4').fill.fgColor.argb, 'FFF4CCCC');
   assert.equal(sheet.getCell('G4').font.color.argb, 'FF9C0006');
-  assert.ok(sheet.model.merges.includes('A30:A32'));
-  assert.ok(sheet.model.merges.includes('B30:B32'));
+  assert.ok(!sheet.model.merges.includes('A30:A32'));
+  assert.ok(!sheet.model.merges.includes('B30:B32'));
   assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
   assert.equal(sheet.getCell('B30').value, 25_000);
+  assert.equal(sheet.getCell('A31').value, null);
+  assert.equal(sheet.getCell('B31').value, null);
+});
+
+test('expanded category expenses do not leave yellow blank cells beside the expense table', async () => {
+  const expenses = Array.from({ length: 25 }, (_, index) => ({
+    title: `Dépense ${index + 1}`,
+    amount: 1_000,
+    category: 'Dépenses alimentaires',
+  }));
+  const output = await buildReferenceWorkbook([monthData({
+    monthKey: '2026-09',
+    expenses,
+    totalExpenses: 25_000,
+  })]);
+  const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
+  const sheet = workbook.getWorksheet('Septembre');
+
+  assert.equal(sheet.getCell('D42').value, 'Dépense 20');
+  assert.equal(sheet.getCell('A22').value, 'Restant');
+  assert.equal(sheet.getCell('B22').value.formula, 'B24-E58');
+  assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
+  assert.equal(sheet.getCell('B30').value, 0);
+  for (let rowNumber = 22; rowNumber <= 58; rowNumber += 1) {
+    for (const columnNumber of [1, 2]) {
+      const cell = sheet.getCell(rowNumber, columnNumber);
+      if (cell.value !== null) continue;
+      assert.equal(cell.fill.pattern, 'none');
+      assert.deepEqual(cell.border, {});
+    }
+  }
 });
 
 test('monthly revenues use the original cells and exclude protected savings from the total', async () => {
@@ -186,18 +217,36 @@ test('exports from September 2026 group expenses by category with separate total
   const september = await workbookFromBuffer(await septemberWorkbook.xlsx.writeBuffer());
   const septemberSheet = september.getWorksheet('Septembre');
 
-  assert.equal(septemberSheet.getCell('D22').value, 'Catégorie : Autres dépenses');
-  assert.equal(septemberSheet.getCell('D22').fill.fgColor.argb, 'FFE2F0E9');
-  assert.equal(septemberSheet.getCell('D22').font.bold, true);
-  assert.equal(septemberSheet.getCell('E22').value.formula, 'SUM(E23:E23)');
-  assert.equal(septemberSheet.getCell('E22').value.result, 3_000);
-  assert.equal(septemberSheet.getCell('D23').value, 'Achat urgent');
-  assert.equal(septemberSheet.getCell('D24').value, 'Catégorie : Facture Wi-Fi');
-  assert.equal(septemberSheet.getCell('E24').value.formula, 'SUM(E25:E26)');
-  assert.equal(septemberSheet.getCell('E24').value.result, 20_000);
-  assert.equal(septemberSheet.getCell('D25').value, 'Facture internet');
-  assert.equal(septemberSheet.getCell('D26').value, 'Abonnement');
-  assert.equal(septemberSheet.getCell('E42').value.formula, 'SUM(E22,E24)');
+  assert.deepEqual(
+    Array.from({ length: 20 }, (_, index) => septemberSheet.getCell(`D${22 + index}`).value)
+      .filter((value) => String(value).startsWith('Catégorie :'))
+      .slice(0, 11),
+    [
+      'Catégorie : Alimentaire',
+      'Catégorie : Eau',
+      'Catégorie : Électricité',
+      'Catégorie : Wifi',
+      'Catégorie : Compte boutique',
+      'Catégorie : Scolarité et frais éducatifs',
+      'Catégorie : Hygiène et beauté',
+      'Catégorie : Aumône et dons',
+      'Catégorie : Entretien de la maison',
+      'Catégorie : Santé',
+      'Catégorie : Transport',
+    ],
+  );
+  assert.equal(septemberSheet.getCell('E22').value.formula, '0');
+  assert.equal(Number(septemberSheet.getCell('E22').value.result || 0), 0);
+  assert.equal(septemberSheet.getCell('D25').value, 'Catégorie : Wifi');
+  assert.equal(septemberSheet.getCell('E25').value.formula, 'SUM(E26:E27)');
+  assert.equal(septemberSheet.getCell('E25').value.result, 20_000);
+  assert.equal(septemberSheet.getCell('D26').value, 'Facture internet');
+  assert.equal(septemberSheet.getCell('D27').value, 'Abonnement');
+  assert.equal(septemberSheet.getCell('D35').value, 'Catégorie : Autres dépenses');
+  assert.equal(septemberSheet.getCell('E35').value.formula, 'SUM(E36:E36)');
+  assert.equal(septemberSheet.getCell('E35').value.result, 3_000);
+  assert.equal(septemberSheet.getCell('D36').value, 'Achat urgent');
+  assert.equal(septemberSheet.getCell('E42').value.formula, 'SUM(E22,E23,E24,E25,E28,E29,E30,E31,E32,E33,E34,E35)');
   assert.equal(septemberSheet.getCell('E42').value.result, 23_000);
   assert.equal(septemberSheet.getCell('D45').value, 'Catégorie : Santé');
   assert.equal(septemberSheet.getCell('D45').fill.fgColor.argb, 'FFE2F0E9');

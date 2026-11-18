@@ -965,7 +965,7 @@ test('protected-savings expenses stay separate from current balances and appear 
       }
     }
     assert.ok(protectedSectionRow);
-    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).value, `Catégorie : ${category.name}`);
+    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).value, 'Catégorie : Alimentaire');
     assert.equal(sheet.getCell(protectedSectionRow + 1, 4).fill.fgColor.argb, 'FFE2F0E9');
     assert.equal(sheet.getCell(protectedSectionRow + 1, 5).value.result, 2500);
     assert.equal(sheet.getCell(protectedSectionRow + 2, 4).value, 'Dépense test épargne protégée');
@@ -1261,7 +1261,7 @@ test('monthly exports provide XLSX, CSV and PDF formats', async () => {
     const workbook = XLSX.read(Buffer.from(await workbookResponse.arrayBuffer()), { type: 'buffer' });
     assert.deepEqual(workbook.SheetNames, ['Novembre']);
     assert.match(workbook.Sheets.Novembre.A1.v, /Loyers du mois d'Octobre/);
-    assert.equal(workbook.Sheets.Novembre.E42.f, 'SUM(E22:E41)');
+    assert.equal(workbook.Sheets.Novembre.E42.f, 'SUM(E22,E23,E24,E25,E26,E27,E28,E29,E30,E31,E32)');
     assert.equal(workbook.Sheets.Novembre.B24.f, 'B21');
 
     const multiMonthResponse = await authedFetch(`${baseUrl}/export/months?year=2026&months=1&months=2`);
