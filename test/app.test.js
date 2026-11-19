@@ -1490,8 +1490,11 @@ test('expenses page shows the selected month shop-account total', async () => {
     assert.match(html, /Compte boutique du mois/);
     assert.match(html, /Liste des dépenses/);
     assert.match(html, /class="expense-table-header-actions"[\s\S]*?data-expense-month="2027-12"/);
-    assert.match(html, /data-live-search data-expense-list-search/);
-    assert.match(html, /Rechercher dans la liste des dépenses/);
+    const tableSection = html.match(/<section class="panel-card page-table-card monthly-expense-history">([\s\S]*?)<form id="expense-bulk-form"/);
+    assert.ok(tableSection);
+    assert.match(tableSection[1], /data-live-search data-expense-list-search/);
+    assert.match(tableSection[1], /name="month" value="2027-12"/);
+    assert.match(tableSection[1], /Rechercher dans les dépenses du mois/);
     assert.ok(html.includes(formattedTotal));
   } finally {
     await db.prepare('DELETE FROM grocery_items WHERE id = ?').run(result.lastInsertRowid);
