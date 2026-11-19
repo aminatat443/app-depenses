@@ -6,7 +6,7 @@
 
 <section class="page-toolbar">
   <div><h2>Opérations · <%= monthKey %></h2><p><%= totalCount %> dépense<%= totalCount === 1 ? '' : 's' %> sur la période</p></div>
-  <button class="button button-primary" type="button" data-modal-template="expense-create"><span aria-hidden="true">＋</span> Ajouter une dépense</button>
+  <button class="button button-primary" type="button" data-modal-template="expense-create" data-expense-month="<%= monthKey %>"><span aria-hidden="true">＋</span> Ajouter une dépense</button>
 </section>
 
 <%- include('partials/monthly-balance-summary', { finance }) %>
@@ -78,6 +78,16 @@
     <div><h2>Historique du mois</h2><p>Dépenses ordinaires classées par date.</p></div>
     <a class="text-link" href="/history">Tout l’historique <span aria-hidden="true">→</span></a>
   </div>
+  <form id="expense-bulk-form" class="expense-bulk-toolbar" method="POST" action="/expenses/bulk">
+    <input type="hidden" name="month_key" value="<%= monthKey %>" />
+    <input type="hidden" name="return_to" value="/expenses?month=<%= monthKey %>" />
+    <label class="expense-bulk-target">Dupliquer vers le mois
+      <input type="month" name="target_month" />
+    </label>
+    <button class="button button-subtle" type="button" data-modal-confirm="/expenses/bulk" data-modal-form-id="expense-bulk-form" data-modal-field-name="action" data-modal-field-value="duplicate" data-modal-include-selected="expense_ids" data-modal-title="Dupliquer les dépenses sélectionnées ?" data-modal-message="Les dépenses originales seront conservées. Les justificatifs ne sont pas copiés." data-modal-submit="Dupliquer">Dupliquer</button>
+    <button class="button button-danger" type="button" data-modal-confirm="/expenses/bulk" data-modal-form-id="expense-bulk-form" data-modal-field-name="action" data-modal-field-value="delete" data-modal-include-selected="expense_ids" data-modal-title="Supprimer les dépenses sélectionnées ?" data-modal-message="Les dépenses choisies et leurs justificatifs seront supprimés définitivement." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+    <span class="expense-selection-count" data-expense-selection-count aria-live="polite">0 sélectionnée</span>
+  </form>
   <div class="monthly-shop-total" aria-label="Compte boutique du mois <%= monthKey %>">
     <span>Compte boutique · <%= monthKey %></span>
     <strong><%= formatCurrency(finance.boutiqueExpenses) %></strong>
@@ -85,11 +95,12 @@
   <% if (expenseList.length) { %>
     <div class="table-wrap">
       <table class="transactions-table">
-        <thead><tr><th>DATE</th><th>DÉSIGNATION</th><th>CATÉGORIE</th><th>BÉNÉFICIAIRE</th><th>RÉFÉRENCE</th><th class="amount-cell">MONTANT</th><th>ACTIONS</th></tr></thead>
+        <thead><tr><th class="expense-select-cell"><input type="checkbox" aria-label="Tout sélectionner sur cette page" data-expense-select-all /></th><th>DATE</th><th>DÉSIGNATION</th><th>CATÉGORIE</th><th>BÉNÉFICIAIRE</th><th>RÉFÉRENCE</th><th class="amount-cell">MONTANT</th><th>ACTIONS</th></tr></thead>
         <tbody>
           <% expenseList.forEach((row) => { %>
             <tr data-modal-template="expense-details-<%= row.id %>" tabindex="0" aria-label="Afficher le détail de <%= row.title %>">
-              <td class="date-cell"><%= formatDate(row.expense_date) %></td>
+              <td class="expense-select-cell"><input type="checkbox" name="expense_ids" value="<%= row.id %>" form="expense-bulk-form" aria-label="Sélectionner <%= row.title %>" data-expense-select /></td>
+              <td class="date-cell"><%= row.expense_date ? formatDate(row.expense_date) : 'Sans date' %></td>
               <td><strong><%= row.title %></strong><% if (row.funding_source === 'protected_savings') { %><small class="page-note">Payée depuis l’épargne protégée</small><% } %></td>
               <td><span class="category-pill"><%= row.category_name %></span></td>
               <td><%= row.beneficiary || '—' %></td>
@@ -103,10 +114,10 @@
             </tr>
             <template id="expense-edit-<%= row.id %>"><%- include('partials/expense-form', { categories, expense: row, returnTo: '/expenses' }) %></template>
             <template id="expense-details-<%= row.id %>">
-              <div class="modal-heading"><span class="eyebrow">DÉTAIL DE L’OPÉRATION</span><h2><%= row.title %></h2><p><%= row.category_name %> · <%= formatDate(row.expense_date) %></p></div>
+              <div class="modal-heading"><span class="eyebrow">DÉTAIL DE L’OPÉRATION</span><h2><%= row.title %></h2><p><%= row.category_name %> · <%= row.expense_date ? formatDate(row.expense_date) : 'Sans date' %></p></div>
               <dl class="detail-list">
                 <div><dt>Montant</dt><dd><%= formatCurrency(row.amount) %></dd></div>
-                <div><dt>Mois rattaché</dt><dd><%= row.month_key || String(row.expense_date).slice(0, 7) %></dd></div>
+                <div><dt>Mois rattaché</dt><dd><%= row.month_key || (row.expense_date ? String(row.expense_date).slice(0, 7) : '—') %></dd></div>
                 <div><dt>Bénéficiaire</dt><dd><%= row.beneficiary || '—' %></dd></div>
                 <div><dt>Payé par</dt><dd><%= row.paid_by || '—' %></dd></div>
                 <div><dt>Mode de paiement</dt><dd><%= row.payment_method || '—' %></dd></div>

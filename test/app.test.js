@@ -1139,6 +1139,150 @@ test('expense can be edited, filtered and deleted with an audit trail', async ()
   }
 });
 
+test('expenses support optional dates and bulk duplicate/delete actions from their history', async () => {
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const category = await db.prepare("SELECT id FROM categories WHERE type <> 'boutique' ORDER BY id LIMIT 1").get();
+  const first = await db.prepare(`
+    INSERT INTO expenses (title, category_id, amount, expense_date, month_key)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('Bulk source dated', category.id, 1200, '2027-01-31', '2027-01');
+  const second = await db.prepare(`
+    INSERT INTO expenses (title, category_id, amount, expense_date, month_key)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('Bulk source undated', category.id, 800, null, '2027-01');
+  const protectedExpense = await db.prepare(`
+    INSERT INTO expenses (title, category_id, amount, expense_date, month_key, funding_source)
+    VALUES (?, ?, ?, ?, ?, 'protected_savings')
+  `).run('Protected bulk source', category.id, 500, null, '2027-01');
+
+  try {
+    const expensesPage = await authedFetch(`${baseUrl}/expenses?month=2027-01`);
+    const expensesHtml = await expensesPage.text();
+    assert.match(expensesHtml, /Date de la dépense \(facultative\)/);
+    assert.match(expensesHtml, new RegExp(`name="expense_ids" value="${first.lastInsertRowid}"`));
+    assert.match(expensesHtml, new RegExp(`name="expense_ids" value="${second.lastInsertRowid}"`));
+    assert.match(expensesHtml, /data-expense-select-all/);
+    assert.match(expensesHtml, /Dupliquer vers le mois/);
+
+    const historyPage = await authedFetch(`${baseUrl}/history?type=expense&month=2027-01`);
+    const historyHtml = await historyPage.text();
+    assert.match(historyHtml, /Ajouter une dépense/);
+    assert.match(historyHtml, new RegExp(`name="expense_ids" value="${first.lastInsertRowid}"`));
+    assert.match(historyHtml, /Sans date/);
+    assert.doesNotMatch(historyHtml, new RegExp(`name="expense_ids" value="${protectedExpense.lastInsertRowid}"`));
+
+    const createWithoutDate = await authedFetch(`${baseUrl}/expenses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        title: 'Expense without date',
+        category_id: String(category.id),
+        amount: '300',
+        expense_date: '',
+        month_key: '2027-01',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(createWithoutDate.status, 302);
+    const undatedExpense = await db.prepare("SELECT * FROM expenses WHERE title = 'Expense without date'").get();
+    assert.equal(undatedExpense.expense_date, null);
+    assert.equal(undatedExpense.month_key, '2027-01');
+
+    const invalidDate = await authedFetch(`${baseUrl}/expenses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        title: 'Expense with invalid date',
+        category_id: String(category.id),
+        amount: '300',
+        expense_date: '2027-02-31',
+        month_key: '2027-02',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(invalidDate.status, 400);
+    const missingMonth = await authedFetch(`${baseUrl}/expenses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        title: 'Undated expense without month',
+        category_id: String(category.id),
+        amount: '300',
+        expense_date: '',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(missingMonth.status, 400);
+
+    const duplicateFields = new URLSearchParams({
+      action: 'duplicate',
+      target_month: '2027-02',
+      return_to: '/history',
+    });
+    [first.lastInsertRowid, second.lastInsertRowid].forEach((id) => duplicateFields.append('expense_ids', String(id)));
+    const duplicateResponse = await authedFetch(`${baseUrl}/expenses/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: duplicateFields,
+      redirect: 'manual',
+    });
+    assert.equal(duplicateResponse.status, 302);
+    assert.equal(duplicateResponse.headers.get('location'), '/history?month=2027-02&type=expense');
+    const duplicates = await db.prepare(`
+      SELECT expense_date, month_key, amount FROM expenses
+      WHERE title IN ('Bulk source dated', 'Bulk source undated')
+        AND month_key = '2027-02'
+      ORDER BY title
+    `).all();
+    assert.equal(duplicates.length, 2);
+    assert.equal(duplicates[0].expense_date, '2027-02-28');
+    assert.equal(duplicates[1].expense_date, null);
+    assert.ok(duplicates.every((expense) => expense.month_key === '2027-02'));
+    assert.equal(Number((await db.prepare(`
+      SELECT COUNT(*) AS count FROM expenses WHERE id IN (?, ?)
+    `).get(first.lastInsertRowid, second.lastInsertRowid)).count), 2);
+    const protectedDeleteResponse = await authedFetch(`${baseUrl}/expenses/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        action: 'delete',
+        expense_ids: String(protectedExpense.lastInsertRowid),
+        return_to: '/history',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(protectedDeleteResponse.status, 409);
+    assert.ok(await db.prepare('SELECT id FROM expenses WHERE id = ?').get(protectedExpense.lastInsertRowid));
+
+    const deleteFields = new URLSearchParams({
+      action: 'delete',
+      month_key: '2027-01',
+      return_to: '/history',
+    });
+    [first.lastInsertRowid, second.lastInsertRowid].forEach((id) => deleteFields.append('expense_ids', String(id)));
+    const deleteResponse = await authedFetch(`${baseUrl}/expenses/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: deleteFields,
+      redirect: 'manual',
+    });
+    assert.equal(deleteResponse.status, 302);
+    assert.equal(deleteResponse.headers.get('location'), '/history?month=2027-01&type=expense');
+    assert.equal(Number((await db.prepare(`
+      SELECT COUNT(*) AS count FROM expenses WHERE id IN (?, ?)
+    `).get(first.lastInsertRowid, second.lastInsertRowid)).count), 0);
+    assert.equal(Number((await db.prepare(`
+      SELECT COUNT(*) AS count FROM expenses
+      WHERE title IN ('Bulk source dated', 'Bulk source undated') AND month_key = '2027-02'
+    `).get()).count), 2);
+  } finally {
+    await db.prepare("DELETE FROM expenses WHERE title IN ('Bulk source dated', 'Bulk source undated', 'Expense without date', 'Protected bulk source')").run();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('GET /export/2026 returns the twelve reference sheets and annual summary', async () => {
   const server = await startServer();
   const { port } = server.address();

@@ -17,11 +17,11 @@
     <label>Montant (FCFA)
       <input type="number" name="amount" step="1" min="1" value="<%= expense?.amount ?? '' %>" required />
     </label>
-    <label>Date de la dépense
-      <input type="date" name="expense_date" value="<%= expense ? String(expense.expense_date).slice(0, 10) : new Date().toISOString().slice(0, 10) %>" required />
+    <label>Date de la dépense (facultative)
+      <input type="date" name="expense_date" value="<%= expense?.expense_date ? String(expense.expense_date).slice(0, 10) : (expense ? '' : new Date().toISOString().slice(0, 10)) %>" />
     </label>
     <label>Mois de rattachement
-      <input type="month" name="month_key" value="<%= expense?.month_key || (expense ? String(expense.expense_date).slice(0, 7) : new Date().toISOString().slice(0, 7)) %>" required />
+      <input type="month" name="month_key" value="<%= expense?.month_key || (expense?.expense_date ? String(expense.expense_date).slice(0, 7) : new Date().toISOString().slice(0, 7)) %>" required />
     </label>
     <label>Bénéficiaire
       <input type="text" name="beneficiary" value="<%= expense?.beneficiary || '' %>" />

@@ -4,6 +4,11 @@
   activePage: 'history'
 }) %>
 
+<section class="page-toolbar">
+  <div><h2>Historique des opérations</h2><p>Ajoutez une dépense directement depuis cet historique.</p></div>
+  <button class="button button-primary" type="button" data-modal-template="expense-create" data-expense-month="<%= month %>"><span aria-hidden="true">＋</span> Ajouter une dépense</button>
+</section>
+
 <section class="panel-card page-filter-card">
   <form method="GET" action="/history" class="page-filter-form" data-live-search data-live-filter data-live-filter-root=".page-content">
     <label>Recherche
@@ -34,10 +39,20 @@
 
 <section class="panel-card page-table-card">
   <div class="panel-header"><div><h2>Toutes les opérations</h2><p><%= totalCount %> opération<%= totalCount > 1 ? 's' : '' %> retrouvée<%= totalCount > 1 ? 's' : '' %> · page <%= page %> sur <%= pageCount %>.</p></div></div>
+  <form id="expense-bulk-form" class="expense-bulk-toolbar" method="POST" action="/expenses/bulk">
+    <input type="hidden" name="month_key" value="<%= month %>" />
+    <input type="hidden" name="return_to" value="/history" />
+    <label class="expense-bulk-target">Dupliquer vers le mois
+      <input type="month" name="target_month" />
+    </label>
+    <button class="button button-subtle" type="button" data-modal-confirm="/expenses/bulk" data-modal-form-id="expense-bulk-form" data-modal-field-name="action" data-modal-field-value="duplicate" data-modal-include-selected="expense_ids" data-modal-title="Dupliquer les dépenses sélectionnées ?" data-modal-message="Les dépenses originales seront conservées. Les justificatifs ne sont pas copiés." data-modal-submit="Dupliquer">Dupliquer</button>
+    <button class="button button-danger" type="button" data-modal-confirm="/expenses/bulk" data-modal-form-id="expense-bulk-form" data-modal-field-name="action" data-modal-field-value="delete" data-modal-include-selected="expense_ids" data-modal-title="Supprimer les dépenses sélectionnées ?" data-modal-message="Les dépenses choisies et leurs justificatifs seront supprimés définitivement." data-modal-submit="Supprimer" data-modal-danger="true">Supprimer</button>
+    <span class="expense-selection-count" data-expense-selection-count aria-live="polite">0 sélectionnée</span>
+  </form>
   <% if (operationList.length) { %>
     <div class="table-wrap">
       <table class="transactions-table">
-        <thead><tr><th>DATE</th><th>OPÉRATION</th><th>TYPE</th><th>CATÉGORIE</th><th class="amount-cell">MONTANT</th><th></th></tr></thead>
+        <thead><tr><th class="expense-select-cell"><input type="checkbox" aria-label="Tout sélectionner sur cette page" data-expense-select-all /></th><th>DATE</th><th>OPÉRATION</th><th>TYPE</th><th>CATÉGORIE</th><th class="amount-cell">MONTANT</th><th></th></tr></thead>
         <tbody>
           <% operationList.forEach((item) => { %>
             <% const rowHref = item.type === 'expense' && item.funding_source === 'protected_savings'
@@ -54,7 +69,8 @@
                     ? `/rents?month=${encodeURIComponent(item.source_month)}&open=rent-payment-details-${item.id}`
                     : `/savings?open=savings-details-${item.source_id}`; %>
             <tr data-row-href="<%= rowHref %>" tabindex="0" aria-label="Ouvrir <%= item.title %>">
-              <td class="date-cell"><%= formatDate(item.date) %></td>
+              <td class="expense-select-cell"><% if (item.type === 'expense' && item.funding_source !== 'protected_savings') { %><input type="checkbox" name="expense_ids" value="<%= item.id %>" form="expense-bulk-form" aria-label="Sélectionner <%= item.title %>" data-expense-select /><% } %></td>
+              <td class="date-cell"><%= item.date ? formatDate(item.date) : 'Sans date' %></td>
               <td><strong><%= item.title %></strong><% if (item.funding_source === 'protected_savings') { %><small class="page-note">Payée depuis l’épargne protégée</small><% } %></td>
               <td><%= item.funding_source === 'protected_savings' ? 'Dépense protégée' : ({ expense: 'Dépense', grocery: 'Ravitaillement', income: 'Recette', rent: 'Loyer encaissé', savings: 'Épargne' })[item.type] %></td>
               <td><span class="category-pill"><%= item.category %></span></td>
@@ -98,4 +114,5 @@
   <% } %>
 </section>
 
+<template id="expense-create"><%- include('partials/expense-form', { categories, expense: null, returnTo: '/history' }) %></template>
 <%- include('partials/page-end') %>

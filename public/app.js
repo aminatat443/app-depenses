@@ -404,6 +404,25 @@
   };
 
   const confirmModal = (trigger) => {
+    const sourceForm = trigger.dataset.modalFormId
+      ? document.getElementById(trigger.dataset.modalFormId)
+      : null;
+    const sourceData = sourceForm ? new FormData(sourceForm) : null;
+    const selectionName = trigger.dataset.modalIncludeSelected;
+    if (selectionName && (!sourceData || !sourceData.getAll(selectionName).length)) {
+      showError('Sélectionnez au moins une dépense.');
+      return;
+    }
+    if (trigger.dataset.modalFieldValue === 'duplicate') {
+      const targetMonth = sourceForm?.elements.namedItem('target_month');
+      if (!(targetMonth instanceof HTMLInputElement)
+        || !/^\d{4}-(0[1-9]|1[0-2])$/.test(targetMonth.value)) {
+        showError('Choisissez un mois de destination valide.');
+        if (targetMonth instanceof HTMLInputElement) targetMonth.focus();
+        return;
+      }
+    }
+
     const wrapper = document.createElement('div');
     wrapper.className = 'modal-confirmation';
     const heading = document.createElement('div');
@@ -421,6 +440,13 @@
     form.method = 'POST';
     form.action = trigger.dataset.modalConfirm;
     form.className = 'modal-confirm-form';
+    sourceData?.forEach((value, name) => {
+      const field = document.createElement('input');
+      field.type = 'hidden';
+      field.name = name;
+      field.value = String(value);
+      form.append(field);
+    });
     if (trigger.dataset.modalReturn) {
       const returnTo = document.createElement('input');
       returnTo.type = 'hidden';
@@ -591,6 +617,7 @@
         input.value = value;
         inputs?.append(input);
       });
+
       const selectedCount = content.querySelector('[data-rent-selected-count]');
       if (selectedCount) selectedCount.textContent = String(selectedIds.length);
       const selectedLabel = content.querySelector('[data-rent-selected-label]');
@@ -600,6 +627,32 @@
     }
     openModal(content, trigger);
   });
+
+  const updateExpenseSelection = () => {
+    const checkboxes = Array.from(document.querySelectorAll('[data-expense-select]'));
+    const selectedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
+    const selectAll = document.querySelector('[data-expense-select-all]');
+    if (selectAll instanceof HTMLInputElement) {
+      selectAll.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
+      selectAll.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+    }
+    document.querySelectorAll('[data-expense-selection-count]').forEach((counter) => {
+      counter.textContent = `${selectedCount} sélectionnée${selectedCount === 1 ? '' : 's'}`;
+    });
+  };
+
+  document.addEventListener('change', (event) => {
+    if (!(event.target instanceof HTMLInputElement)) return;
+    if (event.target.matches('[data-expense-select-all]')) {
+      document.querySelectorAll('[data-expense-select]').forEach((checkbox) => {
+        checkbox.checked = event.target.checked;
+      });
+    }
+    if (event.target.matches('[data-expense-select], [data-expense-select-all]')) {
+      updateExpenseSelection();
+    }
+  });
+  updateExpenseSelection();
 
   document.addEventListener('keydown', (event) => {
     if ((event.key !== 'Enter' && event.key !== ' ') || !(event.target instanceof HTMLTableRowElement)) return;

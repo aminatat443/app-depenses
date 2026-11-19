@@ -1857,6 +1857,32 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 .table-action:hover { transform: none; border-color: #cad7e8; background: #f7f9fc; color: #334762; }
 .empty-state strong, .income-empty-state strong { color: #394b64; }
 .page-alert { border-color: #f0d9af; border-radius: 11px; background: #fff9eb; color: #80622b; line-height: 1.5; }
+.expense-bulk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid #e8edf4;
+  border-radius: 10px;
+  background: #f8fafd;
+}
+.expense-bulk-target { display: grid; min-width: 165px; gap: 4px; color: #64748b; font-size: 10px; font-weight: 650; }
+.expense-bulk-target input { min-height: 36px; padding: 6px 8px; border: 1px solid #dce4ef; border-radius: 7px; background: #fff; color: #394b64; font: inherit; }
+.expense-selection-count { margin: 0 0 10px auto; color: #78869a; font-size: 10px; }
+.expense-select-cell { width: 36px; text-align: center !important; }
+.expense-select-cell input { width: 16px; height: 16px; accent-color: var(--color-primary); cursor: pointer; }
+.monthly-expense-history .transactions-table { min-width: 800px; }
+.monthly-expense-history .expense-select-cell { position: sticky; left: 0; z-index: 1; background: #fff; }
+.monthly-expense-history thead .expense-select-cell { z-index: 2; background: #f5f7fb; }
+.monthly-expense-history tbody tr:hover .expense-select-cell { background: #f9fbfe; }
+@media (max-width: 680px) {
+  .expense-bulk-toolbar { align-items: stretch; }
+  .expense-bulk-target { width: 100%; }
+  .expense-bulk-toolbar .button { flex: 1 1 calc(50% - 8px); }
+  .expense-selection-count { width: 100%; margin: 0; }
+}
 .income-total-card { border: 0; border-radius: 18px; background: #1e426e; box-shadow: 0 12px 28px rgba(29, 65, 108, .12); }
 .income-source-card { border-color: var(--color-border); border-radius: 15px; }
 .income-source-card:hover { box-shadow: 0 12px 30px rgba(24, 42, 69, .08); }

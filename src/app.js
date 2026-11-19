@@ -793,7 +793,7 @@ app.get('/expenses', async (req, res) => {
     FROM expenses e
     JOIN categories c ON c.id = e.category_id
     ${where}
-    ORDER BY e.expense_date DESC, e.id DESC
+    ORDER BY e.expense_date DESC NULLS LAST, e.id DESC
     LIMIT ? OFFSET ?
   `).all(...params, pageSize, (page - 1) * pageSize);
   const summaryExpenses = await db.prepare(`
@@ -824,27 +824,50 @@ function validateExpenseInput(body) {
   const title = String(body.title || '').trim();
   const categoryId = Number(body.category_id);
   const amount = Number(body.amount);
-  const date = String(body.expense_date || '');
-  const parsedDate = new Date(`${date}T00:00:00.000Z`);
+  const date = String(body.expense_date || '').trim();
+  const parsedDate = date ? new Date(`${date}T00:00:00.000Z`) : null;
+  const monthInput = String(body.month_key || '');
+  const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(monthInput)
+    ? monthInput
+    : date
+      ? date.slice(0, 7)
+      : '';
   if (!title || title.length > 250 || !Number.isSafeInteger(categoryId)
-    || !Number.isFinite(amount) || amount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)
-    || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
+    || !Number.isFinite(amount) || amount <= 0 || !monthKey
+    || (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date)
+      || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date))) {
     return null;
   }
   return {
     title,
     categoryId,
     amount,
-    date,
-    monthKey: /^\d{4}-(0[1-9]|1[0-2])$/.test(String(body.month_key || ''))
-      ? String(body.month_key)
-      : date.slice(0, 7),
+    date: date || null,
+    monthKey,
     description: String(body.description || '').trim(),
     beneficiary: String(body.beneficiary || '').trim(),
     paidBy: String(body.paid_by || '').trim(),
     paymentMethod: String(body.payment_method || '').trim(),
     reference: String(body.reference || '').trim(),
   };
+}
+
+function parseExpenseIds(value) {
+  const submittedIds = Array.isArray(value) ? value : [value];
+  if (!submittedIds.length || submittedIds.length > 50) return null;
+  const ids = submittedIds.map((id) => /^\d+$/.test(String(id || '')) ? Number(id) : NaN);
+  if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0) || new Set(ids).size !== ids.length) {
+    return null;
+  }
+  return ids;
+}
+
+function dateForMonth(date, monthKey) {
+  if (!date) return null;
+  const day = Number(String(date).slice(8, 10));
+  const [year, month] = monthKey.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${monthKey}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
 }
 
 function includeCarryoverInExport(value) {
@@ -906,7 +929,7 @@ app.post('/expenses', receiptUpload.single('receipt'), async (req, res) => {
     if (receipt) await fs.promises.unlink(path.join(receiptDir, receipt.filename)).catch(() => {});
     throw error;
   }
-  res.redirect(req.body.return_to === '/history' ? '/history' : '/expenses');
+  res.redirect(req.body.return_to === '/history' ? '/history' : `/expenses?month=${encodeURIComponent(expense.monthKey)}`);
 });
 
 app.post('/expenses/:id/update', receiptUpload.single('receipt'), async (req, res) => {
@@ -947,7 +970,7 @@ app.post('/expenses/:id/update', receiptUpload.single('receipt'), async (req, re
     if (receipt) await fs.promises.unlink(path.join(receiptDir, receipt.filename)).catch(() => {});
     throw error;
   }
-  res.redirect(req.body.return_to === '/history' ? '/history' : '/expenses');
+  res.redirect(req.body.return_to === '/history' ? '/history' : `/expenses?month=${encodeURIComponent(expense.monthKey)}`);
 });
 
 app.post('/expenses/:id/delete', async (req, res) => {
@@ -966,6 +989,81 @@ app.post('/expenses/:id/delete', async (req, res) => {
   await Promise.all(removedFiles.map(({ storage_path }) => fs.promises
     .unlink(path.join(receiptDir, path.basename(storage_path))).catch(() => {})));
   res.redirect(req.body.return_to === '/history' ? '/history' : '/expenses');
+});
+
+app.post('/expenses/bulk', async (req, res) => {
+  const ids = parseExpenseIds(req.body.expense_ids);
+  const action = String(req.body.action || '');
+  const monthKey = String(req.body.month_key || '');
+  const returnTo = String(req.body.return_to || '');
+  if (!ids || !['delete', 'duplicate'].includes(action)) {
+    return res.status(400).send('Sélectionnez entre 1 et 50 dépenses valides.');
+  }
+  const targetMonth = String(req.body.target_month || '');
+  if (action === 'duplicate' && !/^\d{4}-(0[1-9]|1[0-2])$/.test(targetMonth)) {
+    return res.status(400).send('Choisissez un mois de destination valide.');
+  }
+
+  let removedFiles = [];
+  try {
+    await db.transaction(async () => {
+      const expenses = await db.prepare(`
+        SELECT * FROM expenses WHERE id IN (${ids.map(() => '?').join(', ')}) FOR UPDATE
+      `).all(...ids);
+      if (expenses.length !== ids.length) {
+        throw Object.assign(new Error('Une ou plusieurs dépenses sélectionnées sont introuvables.'), { status: 404 });
+      }
+      if (expenses.some((expense) => expense.funding_source === 'protected_savings')) {
+        throw Object.assign(
+          new Error('Les dépenses financées par l’épargne protégée ne peuvent pas être modifiées par ces actions.'),
+          { status: 409 },
+        );
+      }
+
+      if (action === 'delete') {
+        removedFiles = await db.prepare(`
+          SELECT storage_path FROM expense_attachments WHERE expense_id IN (${ids.map(() => '?').join(', ')})
+        `).all(...ids);
+        for (const expense of expenses) {
+          await db.prepare('DELETE FROM expenses WHERE id = ?').run(expense.id);
+          await writeAudit(req.user.id, 'expense', expense.id, 'delete', expense, null);
+        }
+        return;
+      }
+
+      for (const expense of expenses) {
+        const newDate = dateForMonth(expense.expense_date, targetMonth);
+        const result = await db.prepare(`
+          INSERT INTO expenses (
+            title, category_id, amount, expense_date, description, reference, beneficiary,
+            paid_by, payment_method, month_key, created_by
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          expense.title, expense.category_id, expense.amount, newDate, expense.description,
+          expense.reference, expense.beneficiary, expense.paid_by, expense.payment_method,
+          targetMonth, req.user.id,
+        );
+        const after = await db.prepare('SELECT * FROM expenses WHERE id = ?').get(result.lastInsertRowid);
+        await writeAudit(req.user.id, 'expense', result.lastInsertRowid, 'duplicate', expense, after);
+      }
+    });
+  } catch (error) {
+    if (error.status) return res.status(error.status).send(error.message);
+    throw error;
+  }
+
+  await Promise.all(removedFiles.map(({ storage_path }) => fs.promises
+    .unlink(path.join(receiptDir, path.basename(storage_path))).catch(() => {})));
+  if (returnTo === '/history') {
+    const historyMonth = action === 'duplicate' ? targetMonth : monthKey;
+    return res.redirect(`/history${/^\d{4}-(0[1-9]|1[0-2])$/.test(historyMonth) ? `?month=${encodeURIComponent(historyMonth)}&type=expense` : ''}`);
+  }
+  const returnMonth = returnTo.match(/^\/expenses\?month=(\d{4}-(?:0[1-9]|1[0-2]))$/)?.[1];
+  const destinationMonth = action === 'duplicate' ? targetMonth : (returnMonth || monthKey);
+  const redirectMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(destinationMonth)
+    ? destinationMonth
+    : getMonthKey(new Date().getFullYear(), new Date().getMonth() + 1);
+  res.redirect(`/expenses?month=${encodeURIComponent(redirectMonth)}`);
 });
 
 app.get('/expenses/:id/receipt', async (req, res) => {
@@ -1075,11 +1173,11 @@ app.get('/history', async (req, res) => {
   const operationList = isSearchApi
     ? await db.prepare(`
       SELECT * FROM (${operationQuery}) operations ${where}
-      ORDER BY date DESC, type, id DESC
+      ORDER BY date DESC NULLS LAST, type, id DESC
     `).all(...params)
     : await db.prepare(`
       SELECT * FROM (${operationQuery}) operations ${where}
-      ORDER BY date DESC, type, id DESC
+      ORDER BY date DESC NULLS LAST, type, id DESC
       LIMIT ? OFFSET ?
     `).all(...params, pageSize, (page - 1) * pageSize);
   if (isSearchApi) {
