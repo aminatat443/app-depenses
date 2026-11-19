@@ -1011,7 +1011,10 @@ app.post('/expenses/bulk', async (req, res) => {
         SELECT * FROM expenses WHERE id IN (${ids.map(() => '?').join(', ')}) FOR UPDATE
       `).all(...ids);
       if (expenses.length !== ids.length) {
-        throw Object.assign(new Error('Une ou plusieurs dépenses sélectionnées sont introuvables.'), { status: 404 });
+        throw Object.assign(
+          new Error('Certaines dépenses sélectionnées ne sont plus disponibles. Actualisez l’historique puis réessayez.'),
+          { status: 404 },
+        );
       }
       if (expenses.some((expense) => expense.funding_source === 'protected_savings')) {
         throw Object.assign(

@@ -1255,6 +1255,19 @@ test('expenses support optional dates and bulk duplicate/delete actions from the
     });
     assert.equal(protectedDeleteResponse.status, 409);
     assert.ok(await db.prepare('SELECT id FROM expenses WHERE id = ?').get(protectedExpense.lastInsertRowid));
+    const staleSelectionResponse = await authedFetch(`${baseUrl}/expenses/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        action: 'duplicate',
+        expense_ids: '9007199254740991',
+        target_month: '2027-02',
+        return_to: '/history',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(staleSelectionResponse.status, 404);
+    assert.match(await staleSelectionResponse.text(), /Actualisez l’historique puis réessayez/);
 
     const deleteFields = new URLSearchParams({
       action: 'delete',

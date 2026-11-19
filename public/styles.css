@@ -4207,3 +4207,38 @@ html[data-theme="dark"] .app-page-area .page-filter-card {
 .category-summary-actions .table-action { min-height: 32px; }
 @media (max-width: 980px) { .category-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .category-card-grid { display: flex; flex-direction: column; } .category-summary-card { padding: 10px 12px; } .category-summary-main { min-height: 52px; } }
+
+html[data-theme="dark"] .expense-bulk-toolbar {
+  border-color: #343a44;
+  background: #181b22;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .02);
+}
+html[data-theme="dark"] .expense-bulk-target { color: #c4c8d0; }
+html[data-theme="dark"] .expense-bulk-target input {
+  border-color: #3a404a;
+  background: #20242c;
+  color: #e7e9ed;
+}
+html[data-theme="dark"] .expense-selection-count {
+  padding: 7px 10px;
+  border: 1px solid #343a44;
+  border-radius: 8px;
+  background: #20242c;
+  color: #c4c8d0;
+}
+html[data-theme="dark"] .expense-bulk-toolbar .button-subtle {
+  border-color: #3a404a;
+  background: #252b35;
+  color: #d9dce2;
+}
+html[data-theme="dark"] .expense-bulk-toolbar .button-danger {
+  border-color: #59393d;
+  background: #332528;
+  color: #f0a0a0;
+}
+html[data-theme="dark"] .expense-bulk-toolbar .button-subtle:hover { background: #303641; }
+html[data-theme="dark"] .expense-bulk-toolbar .button-danger:hover { background: #402a2e; }
+html[data-theme="dark"] .expense-select-cell input { accent-color: #91a9ce; }
+html[data-theme="dark"] .monthly-expense-history .expense-select-cell,
+html[data-theme="dark"] .monthly-expense-history thead .expense-select-cell { background: #181b22; }
+html[data-theme="dark"] .monthly-expense-history tbody tr:hover .expense-select-cell { background: #20242c; }

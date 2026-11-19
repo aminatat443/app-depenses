@@ -508,7 +508,9 @@
       if (!response.ok) {
         const responseText = await response.text();
         const errorDocument = new DOMParser().parseFromString(responseText, 'text/html');
-        const message = errorDocument.querySelector('.page-alert,[role="alert"]')?.textContent.trim();
+        const alertMessage = errorDocument.querySelector('.page-alert,[role="alert"]')?.textContent.trim();
+        const bodyMessage = errorDocument.body.textContent.trim();
+        const message = alertMessage || (bodyMessage.length <= 240 ? bodyMessage : '');
         throw new Error(message || `L’action a échoué (${response.status}).`);
       }
 
