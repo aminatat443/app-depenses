@@ -1488,6 +1488,9 @@ test('expenses page shows the selected month shop-account total', async () => {
 
     assert.equal(response.status, 200);
     assert.match(html, /Compte boutique du mois/);
+    assert.match(html, /Liste des dépenses/);
+    assert.match(html, /data-live-search data-expense-list-search/);
+    assert.match(html, /Rechercher dans la liste des dépenses/);
     assert.ok(html.includes(formattedTotal));
   } finally {
     await db.prepare('DELETE FROM grocery_items WHERE id = ?').run(result.lastInsertRowid);

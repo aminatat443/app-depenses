@@ -48,11 +48,15 @@
         <div class="category-summary-main"><span class="category-summary-icon" aria-hidden="true"><%= group.icon %></span><div><h3><%= group.heading %></h3><strong><%= formatCurrency(group.total) %></strong><small><%= group.count %> opération<%= group.count > 1 ? 's' : '' %></small></div></div>
         <details class="category-details"><summary>Voir le détail</summary><% if (group.details.length) { %><ul><% group.details.forEach((row) => { %><li><span><%= row.title || row.item_name %><% if (row.funding_source === 'protected_savings') { %><small>Épargne protégée</small><% } %></span><strong><%= formatCurrency(row.amount || row.total_amount) %></strong></li><% }) %></ul><% } else { %><p>Aucune dépense ce mois-ci.</p><% } %></details>
         <div class="category-summary-actions">
-          <% if (group.heading === 'Compte boutique') { %><a class="text-link" href="/groceries?month=<%= encodeURIComponent(finance.monthKey) %>">Voir les ravitaillements</a><% } else { %><a class="text-link" href="/expenses?month=<%= encodeURIComponent(finance.monthKey) %>&amp;category_alias=<%= encodeURIComponent(group.heading) %>">Voir les dépenses</a><% } %>
-          <% if (group.categoryIds && group.categoryIds.length) { %>
-            <button class="table-action" type="button" data-modal-template="expense-create" data-expense-category-id="<%= group.categoryIds[0] %>" data-expense-month="<%= finance.monthKey %>">Ajouter</button>
+          <% if (group.heading === 'Compte boutique') { %>
+            <a class="text-link" href="/groceries?month=<%= encodeURIComponent(finance.monthKey) %>">Voir les ravitaillements</a>
           <% } else { %>
-            <a class="table-action" href="/categories">Créer la catégorie</a>
+            <a class="text-link" href="/expenses?month=<%= encodeURIComponent(finance.monthKey) %>&amp;category_alias=<%= encodeURIComponent(group.heading) %>">Voir les dépenses</a>
+            <% if (group.categoryIds && group.categoryIds.length) { %>
+              <button class="table-action" type="button" data-modal-template="expense-create" data-expense-category-id="<%= group.categoryIds[0] %>" data-expense-month="<%= finance.monthKey %>">Ajouter</button>
+            <% } else { %>
+              <a class="table-action" href="/categories">Créer la catégorie</a>
+            <% } %>
           <% } %>
         </div>
       </article>

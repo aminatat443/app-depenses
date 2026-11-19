@@ -26,6 +26,23 @@ const ICONS = {
   'Transport': '🚌',
 };
 
+const DISPLAYED_CATEGORY_NAMES = new Set([
+  'achats alimentaires complémentaires',
+  'Dépenses alimentaires',
+  'Compte boutique',
+  'Scolarité et frais éducatifs',
+  'Hygiène et beauté',
+  'Aumônes et dons',
+  'Réparations et entretien de la maison',
+  'Santé',
+  'Transport',
+  'Alimentation des animaux',
+  'Autres dépenses',
+  'Dépenses exceptionnelles',
+  'Depenses imprevues',
+  'Factures',
+].map(normalizeCategoryName));
+
 function normalizeCategoryName(value) {
   return String(value || '')
     .normalize('NFD')
@@ -154,6 +171,53 @@ function buildCategoryPresentation({ monthKey = '', categories = [], expenses = 
   };
 }
 
+function filterCategoryPresentation(presentation, categories) {
+  const displayedCategories = (categories || [])
+    .filter((category) => DISPLAYED_CATEGORY_NAMES.has(normalizeCategoryName(category.name)));
+  const categoryIsDisplayed = (name) => DISPLAYED_CATEGORY_NAMES.has(normalizeCategoryName(name));
+  const displayedDetails = (details) => details.filter((item) => categoryIsDisplayed(
+    item.grocery ? 'Compte boutique' : (item.category_name || item.category),
+  ));
+  const totalFor = (details) => details.reduce((sum, item) =>
+    sum + Number(item.amount ?? item.total_amount ?? 0), 0);
+
+  const priority = presentation.priority
+    .map((group) => {
+      const visibleCategories = displayedCategories.filter((category) => (
+        group.heading === 'Compte boutique'
+          ? normalizeCategoryName(category.name) === normalizeCategoryName(group.heading)
+          : resolvePriorityCategory(category.name) === group.heading
+      ));
+      const details = displayedDetails(group.details);
+      return {
+        ...group,
+        categoryIds: group.categoryIds.filter((id) =>
+          visibleCategories.some((category) => Number(category.id) === Number(id))),
+        details,
+        total: totalFor(details),
+        count: details.length,
+        isDisplayed: visibleCategories.length > 0,
+      };
+    })
+    .filter((group) => group.isDisplayed)
+    .map(({ isDisplayed, ...group }) => group);
+
+  const extras = presentation.extras
+    .map((group) => {
+      const details = displayedDetails(group.details);
+      return {
+        ...group,
+        details,
+        total: totalFor(details),
+        count: details.length,
+      };
+    })
+    .filter((group) => displayedCategories.some((category) =>
+      normalizeCategoryName(category.name) === normalizeCategoryName(group.heading)));
+
+  return { ...presentation, priority, extras };
+}
+
 module.exports = {
   PRIORITY_CATEGORIES,
   ICONS,
@@ -161,4 +225,5 @@ module.exports = {
   resolvePriorityCategory,
   sortCategoriesForPresentation,
   buildCategoryPresentation,
+  filterCategoryPresentation,
 };

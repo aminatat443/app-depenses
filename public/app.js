@@ -1103,6 +1103,10 @@
     }
     const form = input.closest('form[data-live-search]');
     if (!form || input.name !== 'search') return;
+    if (form.matches('[data-expense-list-search]')) {
+      const filterSearch = document.querySelector('.expense-month-filter input[name="search"]');
+      if (filterSearch instanceof HTMLInputElement) filterSearch.value = input.value;
+    }
     liveSearchControllers.get(form)?.abort();
     window.clearTimeout(liveSearchTimers.get(form));
     form.dataset.liveSearchSubmit = 'true';
@@ -1114,6 +1118,10 @@
   document.addEventListener('change', (event) => {
     if (!(event.target instanceof Element) || !event.target.matches('select, input[type="month"], input[type="date"], input[type="number"]')) return;
     const form = event.target.closest('form[data-live-filter]');
+    if (event.target.matches('select[name="category"]')) {
+      const alias = form?.querySelector('input[name="category_alias"]');
+      if (alias instanceof HTMLInputElement) alias.value = '';
+    }
     if (form) form.requestSubmit();
   });
 

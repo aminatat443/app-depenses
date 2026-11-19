@@ -37,6 +37,7 @@ const {
 const { buildReferenceWorkbook, MONTH_NAMES } = require('./template-export');
 const {
   buildCategoryPresentation,
+  filterCategoryPresentation,
   resolvePriorityCategory,
   sortCategoriesForPresentation,
 } = require('./category-presentation');
@@ -811,11 +812,15 @@ app.get('/expenses', async (req, res) => {
   `).all(monthKey);
   const finance = await getMonthlyFinance(monthKey);
   const categoryPresentation = monthKey >= '2026-09'
-    ? buildCategoryPresentation({ monthKey, categories: allCategories, expenses: summaryExpenses, groceryItems })
+    ? filterCategoryPresentation(
+      buildCategoryPresentation({ monthKey, categories: allCategories, expenses: summaryExpenses, groceryItems }),
+      allCategories,
+    )
     : null;
   res.render('expenses', {
     categories, expenseList, search, monthKey, page, pageSize, totalCount, finance,
     selectedCategory: String(req.query.category || ''),
+    selectedCategoryAlias: String(req.query.category_alias || ''),
     categoryPresentation,
   });
 });
@@ -1315,12 +1320,12 @@ app.get('/monthly', async (req, res) => {
     ...protectedSavingsExpenses.map((row) => ({ ...row, category_name: row.category, funding_source: 'protected_savings' })),
   ];
   const categoryPresentation = reportDate >= '2026-09'
-    ? buildCategoryPresentation({
+    ? filterCategoryPresentation(buildCategoryPresentation({
       monthKey: reportDate,
       categories: allCategories,
       expenses: summaryExpenses,
       groceryItems: monthlyGroceries,
-    })
+    }), allCategories)
     : null;
 
   res.render('monthly', {

@@ -5,6 +5,7 @@ const {
   resolvePriorityCategory,
   sortCategoriesForPresentation,
   buildCategoryPresentation,
+  filterCategoryPresentation,
 } = require('../src/category-presentation');
 
 test('priority categories keep the mandated order and recognize existing aliases', () => {
@@ -89,5 +90,34 @@ test('categories created later are sorted into priority or extra positions', () 
     'Transport',
     'Alimentation des animaux',
     'Zèbres',
+  ]);
+});
+
+test('expense category display matches the configured Render category list and omits missing defaults', () => {
+  const categories = [
+    { id: 1, name: 'Dépenses alimentaires' },
+    { id: 2, name: 'Eau' },
+    { id: 3, name: 'Compte boutique', type: 'boutique' },
+    { id: 4, name: 'Autres dépenses' },
+    { id: 5, name: 'Alimentation des animaux' },
+    { id: 6, name: 'Loisirs' },
+  ];
+  const presentation = filterCategoryPresentation(buildCategoryPresentation({
+    monthKey: '2026-11',
+    categories,
+    expenses: [
+      { category_id: 1, category_name: 'Dépenses alimentaires', title: 'Courses', amount: 1000 },
+      { category_id: 2, category_name: 'Eau', title: 'Facture', amount: 500 },
+      { category_id: 6, category_name: 'Loisirs', title: 'Sortie', amount: 200 },
+    ],
+    groceryItems: [{ id: 7, item_name: 'Riz', total_amount: 1200 }],
+  }), categories);
+
+  assert.deepEqual(presentation.priority.map((group) => group.heading), ['Alimentaire', 'Compte boutique']);
+  assert.equal(presentation.priority[0].total, 1000);
+  assert.equal(presentation.priority[1].total, 1200);
+  assert.deepEqual(presentation.extras.map((group) => group.heading), [
+    'Alimentation des animaux',
+    'Autres dépenses',
   ]);
 });
