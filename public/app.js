@@ -1073,7 +1073,7 @@
     if (!(event.target instanceof HTMLInputElement)) return;
     const input = event.target;
     if (input.matches('[data-category-option-search]')) {
-      const select = input.closest('form')?.querySelector('select[name="category"]');
+      const select = input.closest('form')?.querySelector('select[name="category"], select[name="category_id"]');
       if (!(select instanceof HTMLSelectElement)) return;
       const normalizedQuery = input.value
         .normalize('NFD')
@@ -1152,10 +1152,11 @@
   document.addEventListener('change', (event) => {
     if (!(event.target instanceof Element) || !event.target.matches('select, input[type="month"], input[type="date"], input[type="number"]')) return;
     const form = event.target.closest('form[data-live-filter]');
-    if (event.target.matches('select[name="category"]')) {
-      const alias = form?.querySelector('input[name="category_alias"]');
+    if (event.target.matches('select[name="category"], select[name="category_id"]')) {
+      const categoryForm = event.target.closest('form');
+      const alias = categoryForm?.querySelector('input[name="category_alias"]');
       if (alias instanceof HTMLInputElement) alias.value = '';
-      const categorySearch = form?.querySelector('[data-category-option-search]');
+      const categorySearch = categoryForm?.querySelector('[data-category-option-search]');
       if (categorySearch instanceof HTMLInputElement && categorySearch.value) {
         categorySearch.value = '';
         categorySearch.dispatchEvent(new Event('input', { bubbles: true }));

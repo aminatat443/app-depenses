@@ -314,6 +314,7 @@ svg { display: block; }
   gap: 9px;
   margin: 0 0 14px;
 }
+.monthly-balance-summary { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .finance-metric {
   display: grid;
   align-content: start;
@@ -561,9 +562,8 @@ svg { display: block; }
 .page-filter-card { display: grid; gap: 11px; padding: 14px 16px; }
 .page-filter-form { display: flex; align-items: end; gap: 11px; }
 .page-filter-form label, .export-year-field { display: grid; min-width: 190px; gap: 5px; color: #536861; font-size: 10px; font-weight: 650; }
-.expense-month-shortcuts { display: flex; align-items: center; gap: 4px; padding-bottom: 1px; }
+.expense-month-shortcuts { display: flex; align-items: center; gap: 4px; padding-bottom: 0; }
 .expense-month-shortcuts .table-action { min-height: 36px; }
-.expense-category-filter-search small { min-height: 12px; color: var(--color-muted); font-size: 9px; font-weight: 400; }
 .expense-month-filter select option[hidden] { display: none; }
 .page-filter-form input, .page-filter-form select, .export-year-field input {
   min-width: 0;
@@ -3195,6 +3195,11 @@ body[data-page="account"] {
   --page-icon-bg: rgba(180, 83, 83, .09);
 }
 .monthly-balance-summary .finance-metric:nth-child(5) {
+  --page-icon-symbol: "−";
+  --page-icon-color: #9a6a2b;
+  --page-icon-bg: rgba(154, 106, 43, .09);
+}
+.monthly-balance-summary .finance-metric:nth-child(6) {
   --page-icon-symbol: "✓";
   --page-icon-color: #26734f;
   --page-icon-bg: rgba(38, 115, 79, .09);

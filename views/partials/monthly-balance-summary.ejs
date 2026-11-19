@@ -3,5 +3,6 @@
   <article class="finance-metric"><span>Report du mois précédent</span><strong><%= formatCurrency(finance.openingBalance) %></strong></article>
   <article class="finance-metric"><span>Total des ressources disponibles</span><strong><%= formatCurrency(finance.resourcesAvailable) %></strong></article>
   <article class="finance-metric"><span>Dépenses du mois</span><strong><%= formatCurrency(finance.totalExpenses) %></strong></article>
-  <article class="finance-metric finance-closing"><span>Montant restant à reporter</span><strong class="<%= finance.closingBalance < 0 ? 'is-negative' : '' %>"><%= formatCurrency(finance.closingBalance) %></strong><small>Ce solde final est repris comme report du mois suivant.</small></article>
+  <article class="finance-metric"><span>Reste du mois (hors report)</span><strong class="<%= finance.incomeTotal - finance.totalExpenses < 0 ? 'is-negative' : '' %>"><%= formatCurrency(finance.incomeTotal - finance.totalExpenses) %></strong><small>Revenus du mois moins dépenses du mois.</small></article>
+  <article class="finance-metric finance-closing"><span>Solde final du mois (report inclus)</span><strong class="<%= finance.closingBalance < 0 ? 'is-negative' : '' %>"><%= formatCurrency(finance.closingBalance) %></strong><small>Le report précédent est inclus.</small></article>
 </section>

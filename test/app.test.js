@@ -1494,10 +1494,14 @@ test('expenses page shows the selected month shop-account total', async () => {
     assert.match(html, /data-expense-month-offset="-1"/);
     assert.match(html, /data-expense-current-month/);
     assert.match(html, /data-category-option-search/);
+    const createExpenseTemplate = html.match(/<template id="expense-create">([\s\S]*?)<\/template>/);
+    assert.ok(createExpenseTemplate);
+    assert.match(createExpenseTemplate[1], /aria-label="Rechercher une catégorie"/);
     const fallbackCategory = await db.prepare("SELECT id FROM categories WHERE name = 'Autres dépenses'").get();
     assert.ok(fallbackCategory);
     assert.match(html, new RegExp(`<option value="${fallbackCategory.id}"\\s*>Autres dépenses</option>`));
-    assert.match(html, /Montant restant à reporter/);
+    assert.match(html, /Reste du mois \(hors report\)/);
+    assert.match(html, /Solde final du mois \(report inclus\)/);
     const tableSection = html.match(/<section class="panel-card page-table-card monthly-expense-history">([\s\S]*?)<form id="expense-bulk-form"/);
     assert.ok(tableSection);
     assert.match(tableSection[1], /data-live-search data-expense-list-search/);

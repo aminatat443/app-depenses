@@ -10,7 +10,9 @@
       <input type="text" name="title" value="<%= expense?.title || '' %>" maxlength="250" required />
     </label>
     <label>Catégorie
-      <select name="category_id" required>
+      <input type="search" data-category-option-search aria-label="Rechercher une catégorie" placeholder="Rechercher une catégorie…" autocomplete="off" />
+      <small class="sr-only" data-category-search-status role="status" aria-live="polite"></small>
+      <select name="category_id" aria-label="Catégorie" required>
         <% categories.forEach((category) => { %><option value="<%= category.id %>" <%= expense && Number(expense.category_id) === Number(category.id) ? 'selected' : '' %>><%= category.name %></option><% }) %>
       </select>
     </label>
