@@ -438,7 +438,7 @@
 
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = trigger.dataset.modalConfirm;
+    form.setAttribute('action', trigger.dataset.modalConfirm);
     form.className = 'modal-confirm-form';
     sourceData?.forEach((value, name) => {
       const field = document.createElement('input');
@@ -500,7 +500,7 @@
     const body = isMultipart ? formData : new URLSearchParams(formData);
     setFormBusy(form, true);
     try {
-      const response = await fetch(form.action || window.location.href, {
+      const response = await fetch(form.getAttribute('action') || window.location.href, {
         method,
         body,
         credentials: 'same-origin',
@@ -812,7 +812,7 @@
     for (const [name, value] of new FormData(form).entries()) {
       if (typeof value === 'string' && value.trim()) params.set(name, value.trim());
     }
-    const url = new URL(form.action, window.location.href);
+    const url = new URL(form.getAttribute('action') || window.location.href, window.location.href);
     url.search = params.toString();
     return url;
   };
