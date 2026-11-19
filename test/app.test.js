@@ -64,6 +64,32 @@ function findExcelRow(sheet, label) {
   return null;
 }
 
+function findExcelColumnRow(sheet, columnNumber, label) {
+  for (let rowNumber = 22; rowNumber <= sheet.rowCount; rowNumber += 1) {
+    if (sheet.getCell(rowNumber, columnNumber).value === label) return rowNumber;
+  }
+  return null;
+}
+
+function findXlsxColumnRow(sheet, column, label) {
+  const range = XLSX.utils.decode_range(sheet['!ref']);
+  const columnNumber = XLSX.utils.decode_col(column);
+  for (let rowNumber = Math.max(range.s.r, 21); rowNumber <= range.e.r; rowNumber += 1) {
+    const cell = sheet[XLSX.utils.encode_cell({ r: rowNumber, c: columnNumber })];
+    if (cell?.v === label) return rowNumber + 1;
+  }
+  return null;
+}
+
+function worksheetContentAndStyles(sheet) {
+  return Array.from({ length: sheet.rowCount }, (_, rowIndex) => (
+    Array.from({ length: sheet.columnCount }, (_, columnIndex) => {
+      const cell = sheet.getCell(rowIndex + 1, columnIndex + 1);
+      return { value: cell.value, style: cell.style, numFmt: cell.numFmt };
+    })
+  ));
+}
+
 test('GET / returns dashboard HTML', async () => {
   const server = await startServer();
   const { port } = server.address();
@@ -643,7 +669,9 @@ test('monthly revenues, exceptional income, rent and protected savings stay sepa
     assert.equal(exportedMonth.Sheets.Novembre.B23.v, finance.openingBalance);
     assert.equal(exportedMonth.Sheets.Novembre.A24.v, 'Total des ressources disponibles');
     assert.equal(exportedMonth.Sheets.Novembre.B24.v, finance.incomeTotal);
-    assert.equal(exportedMonth.Sheets.Novembre.B22.f, 'B24-E42');
+    const novemberExpenseTotalRow = findXlsxColumnRow(exportedMonth.Sheets.Novembre, 'D', 'Total');
+    assert.ok(novemberExpenseTotalRow);
+    assert.equal(exportedMonth.Sheets.Novembre.B22.f, `B24-F${novemberExpenseTotalRow}`);
     const decemberFinanceResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-12`);
     const decemberFinance = await decemberFinanceResponse.json();
     assert.equal(decemberFinance.openingBalance, finance.closingBalance);
@@ -965,10 +993,18 @@ test('protected-savings expenses stay separate from current balances and appear 
       }
     }
     assert.ok(protectedSectionRow);
-    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).value, 'Catégorie : Alimentaire');
-    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).fill.fgColor.argb, 'FFE2F0E9');
-    assert.equal(sheet.getCell(protectedSectionRow + 1, 5).value.result, 2500);
-    assert.equal(sheet.getCell(protectedSectionRow + 2, 4).value, 'Dépense test épargne protégée');
+    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).value, category.name);
+    let protectedCategoryTotalRow = null;
+    for (let rowNumber = protectedSectionRow + 1; rowNumber <= sheet.rowCount; rowNumber += 1) {
+      if (sheet.getCell(rowNumber, 5).value === `Total ${category.name}`) {
+        protectedCategoryTotalRow = rowNumber;
+        break;
+      }
+    }
+    assert.ok(protectedCategoryTotalRow);
+    assert.equal(sheet.getCell(protectedCategoryTotalRow, 4).fill.fgColor.argb, 'FFE2F0E9');
+    assert.equal(sheet.getCell(protectedCategoryTotalRow, 6).value.result, 2500);
+    assert.equal(sheet.getCell(protectedCategoryTotalRow - 1, 5).value, 'Dépense test épargne protégée');
 
     const csvResponse = await authedFetch(`${baseUrl}/export/csv/2027/expenses`);
     const csv = await csvResponse.text();
@@ -1358,10 +1394,12 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     assert.equal(workbook.Sheets.Décembre.B23.v, workbook.Sheets.Novembre.B22.v);
     assert.match(workbook.Sheets.Janvier.A1.v, /Loyers du mois de Décembre 2025/);
     assert.match(workbook.Sheets.Janvier.D20.v, /Dépenses du mois de Janvier/);
-    assert.equal(workbook.Sheets.Janvier.E42.f, 'SUM(E22:E41)');
+    const januaryExpenseTotalRow = findXlsxColumnRow(workbook.Sheets.Janvier, 'D', 'Total');
+    assert.ok(januaryExpenseTotalRow);
+    assert.equal(workbook.Sheets.Janvier[`F${januaryExpenseTotalRow}`].v, 0);
     assert.equal(workbook.Sheets['Récapitulatif annuel'].A1.v, 'Récapitulatif annuel 2026');
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 0 && range.s.c === 0 && range.e.c === 6));
-    assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 4));
+    assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 13));
     const uncheckedAnnualResponse = await authedFetch(
       `http://127.0.0.1:${port}/export/2026?includeCarryover=0`,
     );
@@ -1418,7 +1456,9 @@ test('monthly exports provide XLSX, CSV and PDF formats', async () => {
     const workbook = XLSX.read(Buffer.from(await workbookResponse.arrayBuffer()), { type: 'buffer' });
     assert.deepEqual(workbook.SheetNames, ['Novembre']);
     assert.match(workbook.Sheets.Novembre.A1.v, /Loyers du mois d'Octobre/);
-    assert.equal(workbook.Sheets.Novembre.E42.f, 'SUM(E22,E23,E24,E25,E26,E27,E28,E29,E30,E31,E32)');
+    const novemberExpenseTotalRow = findXlsxColumnRow(workbook.Sheets.Novembre, 'D', 'Total');
+    assert.ok(novemberExpenseTotalRow);
+    assert.equal(workbook.Sheets.Novembre[`F${novemberExpenseTotalRow}`].v, 0);
     assert.equal(workbook.Sheets.Novembre.B24.f, 'B21');
 
     const multiMonthResponse = await authedFetch(`${baseUrl}/export/months?year=2026&months=1&months=2`);
@@ -1490,7 +1530,7 @@ test('expenses page shows the selected month shop-account total', async () => {
     assert.match(html, /Compte boutique du mois/);
     assert.match(html, /Liste des dépenses/);
     assert.match(html, /class="expense-table-header-actions"[\s\S]*?data-expense-month="2027-12"/);
-    assert.match(html, /href="\/export\/xlsx\/month\/2027\/12\/expenses\?/);
+    assert.match(html, /href="\/export\/month\/2027\/12"/);
     assert.match(html, /data-expense-month-offset="-1"/);
     assert.match(html, /data-expense-current-month/);
     assert.match(html, /data-category-option-search/);
@@ -1518,21 +1558,39 @@ test('expenses page shows the selected month shop-account total', async () => {
   }
 });
 
-test('monthly expense CSV and Excel exports respect the selected month and current search filters', async () => {
+test('monthly CSV filters remain available and expenses Excel uses the reference export workbook', async () => {
   const category = await db.prepare("SELECT id FROM categories WHERE name = 'Factures'").get();
   const titles = [
     'Export mois dépense ciblée',
     'Export mois autre dépense',
     'Export mois précédent',
   ];
+  const septemberTitles = [
+    'Export septembre dépense ciblée',
+    'Export septembre autre dépense',
+    'Export août hors période',
+  ];
+  const groceryTitle = 'Marché export de septembre';
   await db.prepare(`
     INSERT INTO expenses (title, category_id, amount, expense_date, month_key)
     VALUES (?, ?, 1250, '2027-12-03', '2027-12'),
       (?, ?, 2500, '2027-12-04', '2027-12'),
       (?, ?, 5000, '2027-11-03', '2027-11')
   `).run(titles[0], category.id, titles[1], category.id, titles[2], category.id);
+  await db.prepare(`
+    INSERT INTO expenses (title, category_id, amount, expense_date, month_key)
+    VALUES (?, ?, 1250, '2026-09-03', '2026-09'),
+      (?, ?, 2500, '2026-09-04', '2026-09'),
+      (?, ?, 5000, '2026-08-03', '2026-08')
+  `).run(septemberTitles[0], category.id, septemberTitles[1], category.id, septemberTitles[2], category.id);
+  const grocery = await db.prepare(`
+    INSERT INTO grocery_items
+      (item_name, purchase_date, month_key, quantity, unit, unit_price, total_amount, notes)
+    VALUES (?, '2026-09-06', '2026-09', 2, 'kg', 750, 1500, 'Produit de test')
+  `).run(groceryTitle);
   const server = await startServer();
   const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
 
   try {
     const response = await authedFetch(
@@ -1546,19 +1604,57 @@ test('monthly expense CSV and Excel exports respect the selected month and curre
     assert.doesNotMatch(csv, /Export mois autre dépense/);
     assert.doesNotMatch(csv, /Export mois précédent/);
 
-    const excelResponse = await authedFetch(
-      `http://127.0.0.1:${port}/export/xlsx/month/2027/12/expenses?category=${category.id}&search=${encodeURIComponent('dépense ciblée')}`,
+    const expensesPage = await authedFetch(`http://127.0.0.1:${port}/expenses?month=2026-09`);
+    assert.match(await expensesPage.text(), /href="\/export\/month\/2026\/9"/);
+    const expensesExport = await authedFetch(`http://127.0.0.1:${port}/export/month/2026/9`);
+    const exportPage = await authedFetch(`http://127.0.0.1:${port}/export/month?year=2026&month=9`);
+    assert.equal(expensesExport.status, 200);
+    assert.equal(exportPage.status, 200);
+    assert.match(expensesExport.headers.get('content-type'), /spreadsheetml\.sheet/);
+    assert.match(expensesExport.headers.get('content-disposition'), /DEPENSES_MAISON_2026-09\.xlsx/);
+    const expensesWorkbook = await loadExcelJsWorkbook(Buffer.from(await expensesExport.arrayBuffer()));
+    const exportPageWorkbook = await loadExcelJsWorkbook(Buffer.from(await exportPage.arrayBuffer()));
+    assert.deepEqual(expensesWorkbook.worksheets.map((sheet) => sheet.name), ['Septembre']);
+    const expensesSheet = expensesWorkbook.getWorksheet('Septembre');
+    const exportPageSheet = exportPageWorkbook.getWorksheet('Septembre');
+    assert.deepEqual(
+      worksheetContentAndStyles(expensesSheet),
+      worksheetContentAndStyles(exportPageSheet),
     );
-    assert.equal(excelResponse.status, 200);
-    assert.match(excelResponse.headers.get('content-type'), /spreadsheetml\.sheet/);
-    assert.match(excelResponse.headers.get('content-disposition'), /MAISON_DEPENSES_2027-12\.xlsx/);
-    const workbook = XLSX.read(Buffer.from(await excelResponse.arrayBuffer()), { type: 'buffer' });
-    assert.deepEqual(workbook.SheetNames, ['Dépenses']);
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Dépenses, { header: 1 });
-    assert.ok(rows.some((row) => row.includes(titles[0])));
-    assert.ok(rows.every((row) => !row.includes(titles[1]) && !row.includes(titles[2])));
+    const renderedValues = Array.from({ length: expensesSheet.rowCount }, (_, rowIndex) => (
+      Array.from({ length: expensesSheet.columnCount }, (_, columnIndex) => (
+        expensesSheet.getCell(rowIndex + 1, columnIndex + 1).value
+      ))
+    )).flat();
+    assert.equal(renderedValues.filter((value) => value === septemberTitles[0]).length, 1);
+    assert.equal(renderedValues.filter((value) => value === septemberTitles[1]).length, 1);
+    assert.ok(!renderedValues.includes(septemberTitles[2]));
+    assert.equal(renderedValues.filter((value) => value === groceryTitle).length, 1);
+    const datedExpenseRow = findExcelColumnRow(expensesSheet, 5, septemberTitles[0]);
+    assert.ok(datedExpenseRow);
+    assert.equal(
+      expensesSheet.getCell(datedExpenseRow, 4).value.toISOString().slice(0, 10),
+      '2026-09-03',
+    );
+    const groceryRow = findExcelColumnRow(expensesSheet, 5, groceryTitle);
+    assert.ok(groceryRow);
+    assert.equal(expensesSheet.getCell(groceryRow, 7).value, 2);
+    assert.equal(expensesSheet.getCell(groceryRow, 8).value, 'kg');
+    assert.equal(expensesSheet.getCell(groceryRow, 9).value, 750);
+    const totalRow = findExcelColumnRow(expensesSheet, 4, 'Total');
+    const summaryTotalRow = findExcelColumnRow(expensesSheet, 4, 'Total général des dépenses');
+    assert.ok(totalRow);
+    assert.ok(summaryTotalRow);
+    const financeResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-09`);
+    const finance = await financeResponse.json();
+    assert.equal(expensesSheet.getCell(totalRow, 6).value.result, finance.totalExpenses);
+    assert.equal(
+      expensesSheet.getCell(summaryTotalRow, 6).value.result,
+      finance.totalExpenses + finance.protectedSavingsExpenses,
+    );
   } finally {
-    await db.prepare('DELETE FROM expenses WHERE title IN (?, ?, ?)').run(...titles);
+    await db.prepare('DELETE FROM expenses WHERE title IN (?, ?, ?, ?, ?, ?)').run(...titles, ...septemberTitles);
+    await db.prepare('DELETE FROM grocery_items WHERE id = ?').run(grocery.lastInsertRowid);
     await new Promise((resolve) => server.close(resolve));
   }
 });
@@ -1568,6 +1664,11 @@ test('new expense categories appear in the filters and category summary on the n
   const { port } = server.address();
   const baseUrl = `http://127.0.0.1:${port}`;
   const categoryName = 'Catégorie dynamique dépenses';
+  const updatedName = 'Catégorie dynamique modifiée';
+  const exportTitles = [
+    'Dépense catégorie dynamique export 1',
+    'Dépense catégorie dynamique export 2',
+  ];
 
   try {
     const createResponse = await authedFetch(`${baseUrl}/categories`, {
@@ -1593,13 +1694,31 @@ test('new expense categories appear in the filters and category summary on the n
     assert.match(expensesHtml, new RegExp(`<option value="${category.id}"\\s*>${categoryName}</option>`));
     assert.match(expensesHtml, new RegExp(`<h3>${categoryName}</h3>`));
     assert.match(expensesHtml, /0\sFCFA/u);
+    const emptyWorkbookResponse = await authedFetch(`${baseUrl}/export/month/2026/11`);
+    const emptyWorkbook = await loadExcelJsWorkbook(Buffer.from(await emptyWorkbookResponse.arrayBuffer()));
+    const emptySheet = emptyWorkbook.getWorksheet('Novembre');
+    const emptyCategoryRow = findExcelColumnRow(emptySheet, 4, categoryName);
+    assert.ok(emptyCategoryRow);
+    assert.equal(emptySheet.getCell(emptyCategoryRow + 2, 6).value, 0);
+
+    await db.prepare(`
+      INSERT INTO expenses (title, category_id, amount, expense_date, month_key)
+      VALUES (?, ?, 2500, '2026-11-05', '2026-11'),
+        (?, ?, 5000, '2026-11-12', '2026-11')
+    `).run(exportTitles[0], category.id, exportTitles[1], category.id);
+    const createdWorkbookResponse = await authedFetch(`${baseUrl}/export/month/2026/11`);
+    const createdWorkbook = await loadExcelJsWorkbook(Buffer.from(await createdWorkbookResponse.arrayBuffer()));
+    const createdSheet = createdWorkbook.getWorksheet('Novembre');
+    const createdCategoryTotalRow = findExcelColumnRow(createdSheet, 5, `Total ${categoryName}`);
+    assert.ok(createdCategoryTotalRow);
+    assert.equal(createdSheet.getCell(createdCategoryTotalRow, 6).value.result, 7500);
+
     const managementHtml = await (await authedFetch(
       `${baseUrl}/categories?return_to=${encodeURIComponent('/expenses?month=2026-11')}`,
     )).text();
     assert.match(managementHtml, /data-modal-return="\/expenses\?month=2026-11"/);
     assert.match(managementHtml, /name="return_to" value="\/expenses\?month=2026-11"/);
 
-    const updatedName = 'Catégorie dynamique modifiée';
     const updateResponse = await authedFetch(`${baseUrl}/categories/${category.id}/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1615,6 +1734,14 @@ test('new expense categories appear in the filters and category summary on the n
     const updatedHtml = await (await authedFetch(`${baseUrl}/expenses?month=2026-11`)).text();
     assert.match(updatedHtml, new RegExp(`<h3>${updatedName}</h3>`));
     assert.doesNotMatch(updatedHtml, new RegExp(`<h3>${categoryName}</h3>`));
+    const renamedWorkbookResponse = await authedFetch(`${baseUrl}/export/month/2026/11`);
+    const renamedWorkbook = await loadExcelJsWorkbook(Buffer.from(await renamedWorkbookResponse.arrayBuffer()));
+    const renamedSheet = renamedWorkbook.getWorksheet('Novembre');
+    assert.ok(findExcelColumnRow(renamedSheet, 4, updatedName));
+    assert.equal(findExcelColumnRow(renamedSheet, 4, categoryName), null);
+    const renamedTotalRow = findExcelColumnRow(renamedSheet, 5, `Total ${updatedName}`);
+    assert.ok(renamedTotalRow);
+    assert.equal(renamedSheet.getCell(renamedTotalRow, 6).value.result, 7500);
 
     const deleteResponse = await authedFetch(`${baseUrl}/categories/${category.id}/delete`, {
       method: 'POST',
@@ -1627,8 +1754,26 @@ test('new expense categories appear in the filters and category summary on the n
     const deletedHtml = await (await authedFetch(`${baseUrl}/expenses?month=2026-11`)).text();
     assert.doesNotMatch(deletedHtml, new RegExp(`<h3>${updatedName}</h3>`));
     assert.match(deletedHtml, /Autres dépenses/);
+    const deletedWorkbookResponse = await authedFetch(`${baseUrl}/export/month/2026/11`);
+    const deletedWorkbook = await loadExcelJsWorkbook(Buffer.from(await deletedWorkbookResponse.arrayBuffer()));
+    const deletedSheet = deletedWorkbook.getWorksheet('Novembre');
+    assert.equal(findExcelColumnRow(deletedSheet, 4, updatedName), null);
+    assert.equal(findExcelColumnRow(deletedSheet, 4, categoryName), null);
+    const fallbackTotalRow = findExcelColumnRow(deletedSheet, 5, 'Total Autres dépenses');
+    assert.ok(fallbackTotalRow);
+    assert.equal(deletedSheet.getCell(fallbackTotalRow, 6).value.result, 7500);
+    const deletedValues = Array.from({ length: deletedSheet.rowCount }, (_, rowIndex) => (
+      Array.from({ length: deletedSheet.columnCount }, (_, columnIndex) => (
+        deletedSheet.getCell(rowIndex + 1, columnIndex + 1).value
+      ))
+    )).flat();
+    assert.equal(exportTitles.reduce(
+      (count, title) => count + deletedValues.filter((value) => value === title).length,
+      0,
+    ), 2);
   } finally {
-    await db.prepare('DELETE FROM categories WHERE name IN (?, ?)').run(categoryName, 'Catégorie dynamique modifiée');
+    await db.prepare('DELETE FROM expenses WHERE title IN (?, ?)').run(...exportTitles);
+    await db.prepare('DELETE FROM categories WHERE name IN (?, ?)').run(categoryName, updatedName);
     await new Promise((resolve) => server.close(resolve));
   }
 });
@@ -1921,7 +2066,7 @@ test('historical import backs up before one-time cleanup, filters dates and flag
     assert.equal(exportResponse.status, 200);
     const exported = XLSX.read(Buffer.from(await exportResponse.arrayBuffer()), { type: 'buffer' });
     const november = XLSX.utils.sheet_to_json(exported.Sheets.Novembre, { header: 1, raw: true });
-    assert.ok(november.some((row) => row[3] === 'Ajout manuel après import'));
+    assert.ok(november.some((row) => row.includes('Ajout manuel après import')));
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

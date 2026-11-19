@@ -16,6 +16,11 @@ const MONTH_NAMES = [
 ];
 const FLOOR_ORDER = ['Rez-de-chaussée', '1er étage', '2e étage', '3e étage'];
 const CURRENCY_FORMAT = '#,##0 [$CFA-280C]';
+const MONTHLY_COLUMN_COUNT = 14;
+const EXPENSE_HEADERS = [
+  'Date', 'Désignation', 'Montant', 'Quantité', 'Unité', 'Prix unitaire',
+  'Bénéficiaire', 'Personne ayant payé', 'Mode de paiement', 'Référence', 'Commentaire',
+];
 const normalize = (value) => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -39,7 +44,7 @@ function getMonthKey(year, month) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
-function cloneWorksheet(workbook, source, name) {
+function cloneWorksheet(workbook, source, name, columnCount = 7) {
   const sheet = workbook.addWorksheet(name, {
     properties: clone(source.properties),
     pageSetup: clone(source.pageSetup),
@@ -50,7 +55,8 @@ function cloneWorksheet(workbook, source, name) {
   sheet.state = source.state;
   sheet.autoFilter = clone(source.autoFilter);
 
-  for (let column = 1; column <= 7; column += 1) {
+  for (let column = 1; column <= columnCount; column += 1) {
+    if (column > 7) continue;
     const sourceColumn = source.getColumn(column);
     const targetColumn = sheet.getColumn(column);
     if (sourceColumn.width !== undefined) targetColumn.width = sourceColumn.width;
@@ -66,9 +72,10 @@ function cloneWorksheet(workbook, source, name) {
     targetRow.hidden = sourceRow.hidden;
     targetRow.outlineLevel = sourceRow.outlineLevel;
     targetRow.style = clone(sourceRow.style);
-    for (let column = 1; column <= 7; column += 1) {
+    for (let column = 1; column <= columnCount; column += 1) {
       const sourceCell = sourceRow.getCell(column);
       const targetCell = targetRow.getCell(column);
+      if (column > 7) continue;
       targetCell.value = clone(sourceCell.value);
       targetCell.style = clone(sourceCell.style);
       targetCell.dataValidation = clone(sourceCell.dataValidation);
@@ -80,13 +87,13 @@ function cloneWorksheet(workbook, source, name) {
   return sheet;
 }
 
-function copyRowAppearance(sheet, sourceNumber, targetNumber) {
+function copyRowAppearance(sheet, sourceNumber, targetNumber, columnCount = 7) {
   const source = sheet.getRow(sourceNumber);
   const target = sheet.getRow(targetNumber);
   target.height = source.height;
   target.hidden = source.hidden;
   target.outlineLevel = source.outlineLevel;
-  for (let column = 1; column <= 7; column += 1) {
+  for (let column = 1; column <= columnCount; column += 1) {
     target.getCell(column).style = clone(source.getCell(column).style);
     target.getCell(column).dataValidation = clone(source.getCell(column).dataValidation);
     target.getCell(column).protection = clone(source.getCell(column).protection);
@@ -115,33 +122,73 @@ function setFormula(cell, formula, result) {
   cell.value = { formula, result: Number(result || 0) };
 }
 
-function groupExpensesByCategory(expenses, { includeEmptyPriority = false } = {}) {
+function categoryPriorityIndex(category) {
+  const priorityCategory = resolvePriorityCategory(category);
+  const index = PRIORITY_CATEGORIES.indexOf(priorityCategory);
+  return index < 0 ? PRIORITY_CATEGORIES.length : index;
+}
+
+function groupExpensesByCategory(expenses, { categories, includeEmptyPriority = false } = {}) {
   const groups = new Map();
-  if (includeEmptyPriority) {
+  const groupKey = (categoryId, category) => (
+    categoryId === null || categoryId === undefined
+      ? `name:${normalize(category)}`
+      : `id:${categoryId}`
+  );
+  if (Array.isArray(categories)) {
+    categories.forEach((category) => {
+      const name = String(category.name || '').trim();
+      if (!name) return;
+      groups.set(groupKey(category.id, name), {
+        category: name,
+        categoryId: category.id,
+        priorityIndex: categoryPriorityIndex(name),
+        expenses: [],
+        total: 0,
+      });
+    });
+  } else if (includeEmptyPriority) {
     PRIORITY_CATEGORIES.forEach((category) => {
-      groups.set(category, { category, expenses: [], total: 0 });
+      groups.set(groupKey(null, category), {
+        category,
+        categoryId: null,
+        priorityIndex: categoryPriorityIndex(category),
+        expenses: [],
+        total: 0,
+      });
     });
   }
   for (const expense of expenses) {
     const rawCategory = String(expense.category || '').trim() || 'Autres dépenses';
-    const category = resolvePriorityCategory(rawCategory) || rawCategory;
-    const group = groups.get(category) || { category, expenses: [], total: 0 };
+    const category = Array.isArray(categories)
+      ? rawCategory
+      : resolvePriorityCategory(rawCategory) || rawCategory;
+    let key = groupKey(expense.categoryId, category);
+    if (!groups.has(key) && Array.isArray(categories)) {
+      const currentCategory = categories.find(
+        (candidate) => normalize(candidate.name) === normalize(category),
+      );
+      if (currentCategory) key = groupKey(currentCategory.id, currentCategory.name);
+    }
+    const group = groups.get(key) || {
+      category,
+      categoryId: expense.categoryId ?? null,
+      priorityIndex: categoryPriorityIndex(category),
+      expenses: [],
+      total: 0,
+    };
     group.expenses.push(expense);
     group.total += Number(expense.amount);
-    groups.set(category, group);
+    groups.set(key, group);
   }
   return [...groups.values()].sort((left, right) => {
-    const leftPriority = PRIORITY_CATEGORIES.indexOf(left.category);
-    const rightPriority = PRIORITY_CATEGORIES.indexOf(right.category);
-    const leftIndex = leftPriority < 0 ? PRIORITY_CATEGORIES.length : leftPriority;
-    const rightIndex = rightPriority < 0 ? PRIORITY_CATEGORIES.length : rightPriority;
-    if (leftIndex !== rightIndex) return leftIndex - rightIndex;
+    if (left.priorityIndex !== right.priorityIndex) return left.priorityIndex - right.priorityIndex;
     return left.category.localeCompare(right.category, 'fr', { sensitivity: 'base' });
   });
 }
 
 function styleCategoryTotalRow(sheet, rowNumber) {
-  for (const columnNumber of [4, 5]) {
+  for (let columnNumber = 4; columnNumber <= MONTHLY_COLUMN_COUNT; columnNumber += 1) {
     const cell = sheet.getCell(rowNumber, columnNumber);
     cell.fill = {
       type: 'pattern',
@@ -151,6 +198,41 @@ function styleCategoryTotalRow(sheet, rowNumber) {
     };
     cell.font = { ...cell.font, bold: true, color: { argb: 'FF264B47' } };
   }
+}
+
+function styleCategoryHeadingRow(sheet, rowNumber, category) {
+  const heading = sheet.getCell(rowNumber, 4);
+  heading.value = category;
+  for (let columnNumber = 4; columnNumber <= MONTHLY_COLUMN_COUNT; columnNumber += 1) {
+    const cell = sheet.getCell(rowNumber, columnNumber);
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D3553' } };
+    cell.font = { ...cell.font, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = { vertical: 'middle', wrapText: true };
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
+  }
+  sheet.getRow(rowNumber).height = 23;
+  sheet.mergeCells(rowNumber, 4, rowNumber, MONTHLY_COLUMN_COUNT);
+}
+
+function styleExpenseHeaderRow(sheet, rowNumber) {
+  EXPENSE_HEADERS.forEach((header, index) => {
+    const cell = sheet.getCell(rowNumber, index + 4);
+    cell.value = header;
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6EDF5' } };
+    cell.font = { ...cell.font, bold: true, color: { argb: 'FF1D3553' } };
+    cell.alignment = { vertical: 'middle', wrapText: true };
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
+  });
+  sheet.getRow(rowNumber).height = 28;
+}
+
+function styleExpenseDataRow(sheet, rowNumber) {
+  for (let columnNumber = 4; columnNumber <= MONTHLY_COLUMN_COUNT; columnNumber += 1) {
+    const cell = sheet.getCell(rowNumber, columnNumber);
+    cell.border = { bottom: { style: 'hair', color: { argb: 'FFDDE4EA' } } };
+    cell.alignment = { vertical: 'top', wrapText: true };
+  }
+  for (const columnNumber of [6, 9]) sheet.getCell(rowNumber, columnNumber).numFmt = CURRENCY_FORMAT;
 }
 
 function clearBlankExpenseSideCells(sheet, firstRow, lastRow) {
@@ -229,14 +311,18 @@ function fitMonthlyColumns(sheet, data, expenseStartRow, expenseTotalRow) {
   ].map((amount) => `${Number(amount ?? 0).toLocaleString('fr-FR')} CFA`);
   growColumnToFit(sheet, 2, financialValues, 24);
   sheet.getColumn(2).width = Math.max(sheet.getColumn(2).width, 18);
-  growColumnToFit(sheet, 4, [
-    'TYPE DE LOGEMENT',
-    ...data.tenants.map((tenant) => tenant.housingType),
-    ...data.expenses.map((expense) => expense.title),
-  ], 50);
-  growColumnToFit(sheet, 5, ['NOMBRE DE PERSONNES'], 32);
-  growColumnToFit(sheet, 6, ['MONTANT À PAYER'], 32);
-  growColumnToFit(sheet, 7, ['STATUT DU PAIEMENT', ...data.tenants.map((tenant) => tenant.status)], 30);
+  const allExpenses = [...data.expenses, ...(data.protectedExpenses || [])];
+  growColumnToFit(sheet, 4, ['TYPE DE LOGEMENT', 'DATE', ...data.tenants.map((tenant) => tenant.housingType)], 50);
+  growColumnToFit(sheet, 5, ['NOMBRE DE PERSONNES', 'DÉSIGNATION', ...allExpenses.map((expense) => expense.title)], 44);
+  growColumnToFit(sheet, 6, ['MONTANT À PAYER', 'MONTANT', ...allExpenses.map((expense) => expense.amount)], 22);
+  growColumnToFit(sheet, 7, ['STATUT DU PAIEMENT', 'QUANTITÉ', ...data.tenants.map((tenant) => tenant.status)], 22);
+  growColumnToFit(sheet, 8, ['UNITÉ', ...allExpenses.map((expense) => expense.unit)], 18);
+  growColumnToFit(sheet, 9, ['PRIX UNITAIRE', ...allExpenses.map((expense) => expense.unitPrice)], 22);
+  growColumnToFit(sheet, 10, ['BÉNÉFICIAIRE', ...allExpenses.map((expense) => expense.beneficiary)], 24);
+  growColumnToFit(sheet, 11, ['PERSONNE AYANT PAYÉ', ...allExpenses.map((expense) => expense.paidBy)], 24);
+  growColumnToFit(sheet, 12, ['MODE DE PAIEMENT', ...allExpenses.map((expense) => expense.paymentMethod)], 22);
+  growColumnToFit(sheet, 13, ['RÉFÉRENCE', ...allExpenses.map((expense) => expense.reference)], 24);
+  growColumnToFit(sheet, 14, ['COMMENTAIRE', ...allExpenses.map((expense) => expense.comment)], 44);
 
   const mergedNameWidth = (Number(sheet.getColumn(2).width) || 9.14)
     + (Number(sheet.getColumn(3).width) || 9.14);
@@ -260,7 +346,9 @@ function fitMonthlyColumns(sheet, data, expenseStartRow, expenseTotalRow) {
     setWrappedContent(sheet, rowNumber, 2, 3);
   }
   for (let rowNumber = expenseStartRow; rowNumber < expenseTotalRow; rowNumber += 1) {
-    setWrappedContent(sheet, rowNumber, 4);
+    for (let column = 4; column <= MONTHLY_COLUMN_COUNT; column += 1) {
+      setWrappedContent(sheet, rowNumber, column);
+    }
   }
 }
 
@@ -281,18 +369,27 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   const tenantInsertions = Math.max(0, data.tenants.length - 8);
   const extraIncomeSources = data.otherIncomes || [];
   const incomeInsertions = Math.max(0, extraIncomeSources.length - 3);
-  const categorizedExpenses = data.monthKey >= '2026-09';
+  const categorizedExpenses = Array.isArray(data.categories) || data.monthKey >= '2026-09';
   const expenseGroups = categorizedExpenses
-    ? groupExpensesByCategory(data.expenses, { includeEmptyPriority: true })
+    ? groupExpensesByCategory(data.expenses, {
+      categories: data.categories,
+      includeEmptyPriority: !Array.isArray(data.categories),
+    })
     : [];
   const protectedExpenseGroups = categorizedExpenses
-    ? groupExpensesByCategory(data.protectedExpenses || [])
+    ? groupExpensesByCategory(data.protectedExpenses || [], {
+      categories: Array.isArray(data.categories) ? data.categories : undefined,
+    }).filter((group) => group.expenses.length)
     : [];
+  const otherGroups = expenseGroups.filter((group) => group.priorityIndex >= PRIORITY_CATEGORIES.length);
+  const otherProtectedGroups = protectedExpenseGroups
+    .filter((group) => group.priorityIndex >= PRIORITY_CATEGORIES.length);
+  const groupRows = (groups) => groups.reduce((count, group) => count + group.expenses.length + 3, 0);
   const expenseRowCount = categorizedExpenses
-    ? expenseGroups.reduce((count, group) => count + group.expenses.length + 1, 0)
+    ? groupRows(expenseGroups) + (otherGroups.length ? 1 : 0)
     : data.expenses.length;
   const protectedExpenseRowCount = categorizedExpenses
-    ? protectedExpenseGroups.reduce((count, group) => count + group.expenses.length + 1, 0)
+    ? groupRows(protectedExpenseGroups) + (otherProtectedGroups.length ? 1 : 0)
     : (data.protectedExpenses || []).length;
 
   unmergeEditableRegions(sheet);
@@ -313,7 +410,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     sheet.spliceRows(initialTotalRow, 0, ...Array.from({ length: expenseInsertions }, () => []));
     for (let index = 0; index < expenseInsertions; index += 1) {
       const templateRow = expenseStartRow + (index % expenseCapacity);
-      copyRowAppearance(sheet, templateRow, initialTotalRow + index);
+      copyRowAppearance(sheet, templateRow, initialTotalRow + index, MONTHLY_COLUMN_COUNT);
     }
   }
   const expenseTotalRow = initialTotalRow + expenseInsertions;
@@ -326,9 +423,9 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     const addedRows = protectedExpenseRowCount + 3;
     sheet.spliceRows(expenseTotalRow + 1, 0, ...Array.from({ length: addedRows }, () => []));
     for (let index = 0; index < addedRows; index += 1) {
-      copyRowAppearance(sheet, expenseStartRow, expenseTotalRow + 1 + index);
+      copyRowAppearance(sheet, expenseStartRow, expenseTotalRow + 1 + index, MONTHLY_COLUMN_COUNT);
     }
-    copyRowAppearance(sheet, expenseTotalRow, protectedTotalRow);
+    copyRowAppearance(sheet, expenseTotalRow, protectedTotalRow, MONTHLY_COLUMN_COUNT);
   }
 
   [
@@ -425,29 +522,83 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   sheet.getRow(resourcesRow).hidden = !includeCarryover;
   setMonthlyFinancialCell(sheet, styleSource, savingsRow, 30, data.savingsBalance);
 
-  const categoryTotalRows = [];
-  if (categorizedExpenses) {
-    let rowNumber = expenseStartRow;
-    for (const group of expenseGroups) {
-      sheet.getCell(rowNumber, 4).value = `Catégorie : ${group.category}`;
-      setFormula(
-        sheet.getCell(rowNumber, 5),
-        group.expenses.length
-          ? `SUM(E${rowNumber + 1}:E${rowNumber + group.expenses.length})`
-          : '0',
-        group.total,
-      );
-      sheet.getCell(rowNumber, 5).numFmt = CURRENCY_FORMAT;
-      styleCategoryTotalRow(sheet, rowNumber);
-      categoryTotalRows.push(rowNumber);
+  const categoryTotalRows = new Map();
+  const protectedCategoryTotalRows = new Map();
+  const groupKey = (group) => (
+    group.categoryId === null || group.categoryId === undefined
+      ? `name:${normalize(group.category)}`
+      : `id:${group.categoryId}`
+  );
+  const writeExpense = (rowNumber, expense) => {
+    const date = expense.date instanceof Date
+      ? expense.date.toISOString().slice(0, 10)
+      : expense.date
+        ? String(expense.date).slice(0, 10)
+        : '';
+    const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? new Date(`${date}T00:00:00.000Z`)
+      : '';
+    const values = [
+      dateValue,
+      expense.title || '',
+      Number(expense.amount || 0),
+      expense.quantity ?? '',
+      expense.unit || '',
+      expense.unitPrice === null || expense.unitPrice === undefined || expense.unitPrice === ''
+        ? ''
+        : Number(expense.unitPrice),
+      expense.beneficiary || '',
+      expense.paidBy || '',
+      expense.paymentMethod || '',
+      expense.reference || '',
+      expense.comment || '',
+    ];
+    values.forEach((value, index) => {
+      sheet.getCell(rowNumber, index + 4).value = value;
+    });
+    sheet.getCell(rowNumber, 4).numFmt = 'dd/mm/yyyy';
+    styleExpenseDataRow(sheet, rowNumber);
+  };
+  const renderExpenseGroups = (groups, startRow, totalsByCategory) => {
+    let rowNumber = startRow;
+    let shownOtherHeading = false;
+    for (const group of groups) {
+      if (group.priorityIndex >= PRIORITY_CATEGORIES.length && !shownOtherHeading) {
+        styleCategoryHeadingRow(sheet, rowNumber, 'Autres catégories');
+        rowNumber += 1;
+        shownOtherHeading = true;
+      }
+      styleCategoryHeadingRow(sheet, rowNumber, group.category);
       rowNumber += 1;
+      styleExpenseHeaderRow(sheet, rowNumber);
+      rowNumber += 1;
+      const firstExpenseRow = rowNumber;
       for (const expense of group.expenses) {
-        sheet.getCell(rowNumber, 4).value = expense.title;
-        sheet.getCell(rowNumber, 5).value = Number(expense.amount);
-        sheet.getCell(rowNumber, 5).numFmt = CURRENCY_FORMAT;
+        writeExpense(rowNumber, expense);
         rowNumber += 1;
       }
+      const totalRow = rowNumber;
+      sheet.getCell(totalRow, 5).value = `Total ${group.category}`;
+      if (group.expenses.length) {
+        setFormula(
+          sheet.getCell(totalRow, 6),
+          `SUM(F${firstExpenseRow}:F${rowNumber - 1})`,
+          group.total,
+        );
+      } else {
+        sheet.getCell(totalRow, 6).value = 0;
+      }
+      sheet.getCell(totalRow, 6).numFmt = CURRENCY_FORMAT;
+      styleCategoryTotalRow(sheet, totalRow);
+      totalsByCategory.set(groupKey(group), totalRow);
+      rowNumber += 1;
     }
+    return rowNumber;
+  };
+
+  if (categorizedExpenses) {
+    styleExpenseHeaderRow(sheet, 21 + rowShift);
+    renderExpenseGroups(expenseGroups, expenseStartRow, categoryTotalRows);
   } else {
     data.expenses.forEach((expense, index) => {
       const rowNumber = expenseStartRow + index;
@@ -457,41 +608,25 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     });
   }
   sheet.getCell(expenseTotalRow, 4).value = 'Total';
+  sheet.getCell(expenseTotalRow, 5).value = categorizedExpenses ? data.expenses.length : '';
+  const currentExpenseTotalCell = sheet.getCell(expenseTotalRow, categorizedExpenses ? 6 : 5);
   const expensesFormula = categorizedExpenses
-    ? (categoryTotalRows.length
-      ? `SUM(${categoryTotalRows.map((rowNumber) => `E${rowNumber}`).join(',')})`
-      : `SUM(E${expenseStartRow}:E${expenseTotalRow - 1})`)
+    ? `SUM(${[...categoryTotalRows.values()].map((rowNumber) => `F${rowNumber}`).join(',') || '0'})`
     : `SUM(E${expenseStartRow}:E${expenseTotalRow - 1})`;
-  setFormula(sheet.getCell(expenseTotalRow, 5), expensesFormula, data.totalExpenses);
-  sheet.getCell(expenseTotalRow, 5).numFmt = CURRENCY_FORMAT;
+  setFormula(currentExpenseTotalCell, expensesFormula, data.totalExpenses);
+  currentExpenseTotalCell.numFmt = CURRENCY_FORMAT;
+  styleCategoryTotalRow(sheet, expenseTotalRow);
+
   if (protectedExpenses.length) {
     const sectionHeadingRow = protectedSectionRow;
-    const sectionLabel = sheet.getCell(sectionHeadingRow, 4);
-    sectionLabel.value = 'Dépenses financées par l’épargne protégée';
-    sectionLabel.style = clone(sheet.getCell(20 + rowShift, 4).style);
-    sheet.mergeCells(sectionHeadingRow, 4, sectionHeadingRow, 5);
-    const protectedCategoryTotalRows = [];
+    styleCategoryHeadingRow(sheet, sectionHeadingRow, 'Dépenses financées par l’épargne protégée');
+    let protectedRowsEnd;
     if (categorizedExpenses) {
-      let rowNumber = sectionHeadingRow + 1;
-      for (const group of protectedExpenseGroups) {
-        sheet.getCell(rowNumber, 4).value = `Catégorie : ${group.category}`;
-        setFormula(
-          sheet.getCell(rowNumber, 5),
-          `SUM(E${rowNumber + 1}:E${rowNumber + group.expenses.length})`,
-          group.total,
-        );
-        sheet.getCell(rowNumber, 5).numFmt = CURRENCY_FORMAT;
-        styleCategoryTotalRow(sheet, rowNumber);
-        protectedCategoryTotalRows.push(rowNumber);
-        rowNumber += 1;
-        for (const expense of group.expenses) {
-          sheet.getCell(rowNumber, 4).value = expense.title;
-          sheet.getCell(rowNumber, 5).value = Number(expense.amount);
-          sheet.getCell(rowNumber, 5).numFmt = CURRENCY_FORMAT;
-          setWrappedContent(sheet, rowNumber, 4);
-          rowNumber += 1;
-        }
-      }
+      protectedRowsEnd = renderExpenseGroups(
+        protectedExpenseGroups,
+        sectionHeadingRow + 1,
+        protectedCategoryTotalRows,
+      );
     } else {
       protectedExpenses.forEach((expense, index) => {
         const rowNumber = sectionHeadingRow + 1 + index;
@@ -500,20 +635,71 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
         sheet.getCell(rowNumber, 5).numFmt = CURRENCY_FORMAT;
         setWrappedContent(sheet, rowNumber, 4);
       });
+      protectedRowsEnd = sectionHeadingRow + 1 + protectedExpenses.length;
     }
     const totalLabel = sheet.getCell(protectedTotalRow, 4);
     totalLabel.value = 'Total réglé par l’épargne protégée';
-    totalLabel.style = clone(sheet.getCell(expenseTotalRow, 4).style);
+    const protectedTotalCell = sheet.getCell(protectedTotalRow, categorizedExpenses ? 6 : 5);
     const protectedFormula = categorizedExpenses
-      ? `SUM(${protectedCategoryTotalRows.map((rowNumber) => `E${rowNumber}`).join(',')})`
-      : `SUM(E${sectionHeadingRow + 1}:E${protectedTotalRow - 1})`;
+      ? `SUM(${[...protectedCategoryTotalRows.values()].map((rowNumber) => `F${rowNumber}`).join(',') || '0'})`
+      : `SUM(E${sectionHeadingRow + 1}:E${protectedRowsEnd - 1})`;
     setFormula(
-      sheet.getCell(protectedTotalRow, 5),
+      protectedTotalCell,
       protectedFormula,
       protectedExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0),
     );
-    sheet.getCell(protectedTotalRow, 5).style = clone(sheet.getCell(expenseTotalRow, 5).style);
-    sheet.getCell(protectedTotalRow, 5).numFmt = CURRENCY_FORMAT;
+    protectedTotalCell.numFmt = CURRENCY_FORMAT;
+    styleCategoryTotalRow(sheet, protectedTotalRow);
+  }
+
+  let summaryTotalRow = protectedTotalRow || expenseTotalRow;
+  if (categorizedExpenses) {
+    const summaryTitleRow = summaryTotalRow + 2;
+    const summaryHeaderRow = summaryTitleRow + 1;
+    const summaryFirstRow = summaryHeaderRow + 1;
+    const protectedGroupsByKey = new Map(protectedExpenseGroups.map((group) => [groupKey(group), group]));
+    const mainGroupsByKey = new Map(expenseGroups.map((group) => [groupKey(group), group]));
+    styleCategoryHeadingRow(sheet, summaryTitleRow, 'Récapitulatif des dépenses par catégorie');
+    ['Catégorie', 'Nombre de dépenses', 'Total'].forEach((header, index) => {
+      const cell = sheet.getCell(summaryHeaderRow, index + 4);
+      cell.value = header;
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6EDF5' } };
+      cell.font = { bold: true, color: { argb: 'FF1D3553' } };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
+      cell.alignment = { vertical: 'middle', wrapText: true };
+    });
+    let summaryRow = summaryFirstRow;
+    for (const group of expenseGroups) {
+      const key = groupKey(group);
+      const protectedGroup = protectedGroupsByKey.get(key);
+      const mainTotalRow = categoryTotalRows.get(key);
+      const protectedTotalRowForCategory = protectedCategoryTotalRows.get(key);
+      const totalCells = [
+        mainTotalRow ? `F${mainTotalRow}` : null,
+        protectedTotalRowForCategory ? `F${protectedTotalRowForCategory}` : null,
+      ].filter(Boolean);
+      sheet.getCell(summaryRow, 4).value = group.category;
+      sheet.getCell(summaryRow, 5).value = group.expenses.length + (protectedGroup?.expenses.length || 0);
+      setFormula(
+        sheet.getCell(summaryRow, 6),
+        totalCells.length ? `SUM(${totalCells.join(',')})` : '0',
+        group.total + (protectedGroup?.total || 0),
+      );
+      sheet.getCell(summaryRow, 6).numFmt = CURRENCY_FORMAT;
+      styleExpenseDataRow(sheet, summaryRow);
+      summaryRow += 1;
+    }
+    summaryTotalRow = summaryRow;
+    sheet.getCell(summaryTotalRow, 4).value = 'Total général des dépenses';
+    sheet.getCell(summaryTotalRow, 5).value = data.expenses.length + protectedExpenses.length;
+    const summaryRows = expenseGroups.length
+      ? `SUM(F${summaryFirstRow}:F${summaryTotalRow - 1})`
+      : '0';
+    const grandTotal = data.totalExpenses
+      + protectedExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+    setFormula(sheet.getCell(summaryTotalRow, 6), summaryRows, grandTotal);
+    sheet.getCell(summaryTotalRow, 6).numFmt = CURRENCY_FORMAT;
+    styleCategoryTotalRow(sheet, summaryTotalRow);
   }
   clearBlankExpenseSideCells(
     sheet,
@@ -525,7 +711,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     incomeCell: `B${totalIncomeRow}`,
     openingCell: `B${openingRow}`,
     resourcesCell: `B${resourcesRow}`,
-    expensesCell: `E${expenseTotalRow}`,
+    expensesCell: `${categorizedExpenses ? 'F' : 'E'}${expenseTotalRow}`,
     includeCarryover,
   });
   const exportBalance = calculateMonthlyBalance({
@@ -547,13 +733,17 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
 
   sheet.getCell(1, 1).value = `Loyers du mois ${withDe(data.previousMonthLabel)}`;
   sheet.getCell(20 + rowShift, 4).value = `Dépenses du mois ${withDe(data.monthLabel)}`;
-  sheet.mergeCells(20 + rowShift, 4, 20 + rowShift, 5);
+  sheet.mergeCells(20 + rowShift, 4, 20 + rowShift, MONTHLY_COLUMN_COUNT);
   fitMonthlyColumns(sheet, data, expenseStartRow, expenseTotalRow);
   for (let column = 1; column <= 7; column += 1) {
     if (column !== 3) setWrappedContent(sheet, 2, column, column === 2 ? 3 : column);
   }
-  setWrappedContent(sheet, 20 + rowShift, 4, 5);
-  sheet.pageSetup.printArea = `A1:G${protectedTotalRow || expenseTotalRow}`;
+  setWrappedContent(sheet, 20 + rowShift, 4, MONTHLY_COLUMN_COUNT);
+  sheet.pageSetup.printArea = `A1:N${summaryTotalRow}`;
+  sheet.pageSetup.orientation = 'landscape';
+  sheet.pageSetup.fitToPage = true;
+  sheet.pageSetup.fitToWidth = 1;
+  sheet.pageSetup.fitToHeight = 0;
 
   return {
     exportBalance,
@@ -566,6 +756,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     savingsRow,
     paymentTotalRow,
     expenseTotalRow,
+    expenseAmountColumn: categorizedExpenses ? 'F' : 'E',
     protectedSectionRow,
     protectedTotalRow,
   };
@@ -592,7 +783,11 @@ function buildAnnualSummary(workbook, templateSheet, year, months) {
     sheet.getCell(rowNumber, 1).value = month.monthLabel;
     setFormula(sheet.getCell(rowNumber, 2), `'${month.sheetName}'!B${positions.totalIncomeRow}`, month.incomeTotal);
     setFormula(sheet.getCell(rowNumber, 4), `'${month.sheetName}'!F${positions.tenantTotalRow}`, month.rentExpected);
-    setFormula(sheet.getCell(rowNumber, 5), `'${month.sheetName}'!E${positions.expenseTotalRow}`, month.totalExpenses);
+    setFormula(
+      sheet.getCell(rowNumber, 5),
+      `'${month.sheetName}'!${positions.expenseAmountColumn}${positions.expenseTotalRow}`,
+      month.totalExpenses,
+    );
     setFormula(sheet.getCell(rowNumber, 6), `'${month.sheetName}'!B${positions.remainingRow}`, month.closingBalance);
     setFormula(sheet.getCell(rowNumber, 7), `'${month.sheetName}'!B${positions.savingsRow}`, month.savingsBalance);
     [2, 4, 5, 6, 7].forEach((column) => { sheet.getCell(rowNumber, column).numFmt = CURRENCY_FORMAT; });
@@ -634,7 +829,7 @@ async function buildReferenceWorkbook(months, { annual = false, includeCarryover
     const sourceName = sheetName === 'Août' ? 'Aout' : sheetName;
     const templateSheet = templateWorkbook.getWorksheet(sourceName)
       || templateWorkbook.getWorksheet('Janvier');
-    const sheet = cloneWorksheet(workbook, templateSheet, sheetName);
+    const sheet = cloneWorksheet(workbook, templateSheet, sheetName, MONTHLY_COLUMN_COUNT);
     const { exportBalance, ...positions } = fillMonthlySheet(
       sheet,
       { ...data, monthLabel: sheetName },

@@ -2254,7 +2254,7 @@ async function getReferenceMonthData(year, month) {
   const previousMonthKey = `${previousDate.getUTCFullYear()}-${String(previousDate.getUTCMonth() + 1).padStart(2, '0')}`;
   const monthLabel = MONTH_NAMES[month - 1];
   const previousMonthLabel = `${MONTH_NAMES[previousDate.getUTCMonth()]}${previousDate.getUTCFullYear() === year ? '' : ` ${previousDate.getUTCFullYear()}`}`;
-  const [finance, tenants, incomes, monthlyRevenue, rentPayments, expenses, groceries] = await Promise.all([
+  const [finance, tenants, incomes, monthlyRevenue, rentPayments, expenses, groceries, categories] = await Promise.all([
     getMonthlyFinance(monthKey),
     db.prepare(`
       SELECT t.id, u.floor, u.label, u.housing_type, t.first_name, t.last_name,
@@ -2292,18 +2292,22 @@ async function getReferenceMonthData(year, month) {
       ORDER BY p.id
     `).all(monthKey),
     db.prepare(`
-      SELECT e.title, e.amount, e.funding_source, c.name AS category
+      SELECT e.id, e.category_id, e.expense_date, e.title, e.amount, e.funding_source,
+        e.beneficiary, e.paid_by, e.payment_method, e.reference, e.description,
+        c.name AS category
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id
       WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
       ORDER BY e.expense_date NULLS LAST, e.id
     `).all(monthKey),
     db.prepare(`
-      SELECT item_name AS title, total_amount AS amount
+      SELECT id, purchase_date, item_name AS title, quantity, unit, unit_price, total_amount AS amount,
+        notes, quantity_known AS "quantityKnown", unit_price_known AS "unitPriceKnown"
       FROM grocery_items
       WHERE COALESCE(NULLIF(month_key, ''), to_char(purchase_date, 'YYYY-MM')) = ?
       ORDER BY purchase_date NULLS LAST, id
     `).all(monthKey),
+    readCategories(),
   ]);
   const legacyPension = incomes
     .filter((income) => normalizeIncomeSource(income.source) === 'pension pere')
@@ -2322,14 +2326,44 @@ async function getReferenceMonthData(year, month) {
   const rentReceived = rentPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
   const protectedExpenseRows = expenses
     .filter((row) => row.funding_source === 'protected_savings')
-    .map((row) => ({ title: row.title, amount: Number(row.amount), category: row.category }));
-  const expenseRows = [
-    ...expenses.filter((row) => row.funding_source !== 'protected_savings')
-      .map((row) => ({ title: row.title, amount: Number(row.amount), category: row.category })),
-    ...groceries.map((row) => ({
+    .map((row) => ({
+      categoryId: row.category_id,
+      date: row.expense_date,
       title: row.title,
       amount: Number(row.amount),
-      category: 'Compte boutique',
+      category: row.category || 'Autres dépenses',
+      beneficiary: row.beneficiary,
+      paidBy: row.paid_by,
+      paymentMethod: row.payment_method,
+      reference: row.reference,
+      comment: row.description,
+    }));
+  const boutiqueCategory = categories.find((category) => category.type === 'boutique')
+    || categories.find((category) => category.name === 'Compte boutique');
+  const expenseRows = [
+    ...expenses.filter((row) => row.funding_source !== 'protected_savings')
+      .map((row) => ({
+        categoryId: row.category_id,
+        date: row.expense_date,
+        title: row.title,
+        amount: Number(row.amount),
+        category: row.category || 'Autres dépenses',
+        beneficiary: row.beneficiary,
+        paidBy: row.paid_by,
+        paymentMethod: row.payment_method,
+        reference: row.reference,
+        comment: row.description,
+      })),
+    ...groceries.map((row) => ({
+      categoryId: boutiqueCategory?.id ?? null,
+      date: row.purchase_date,
+      title: row.title,
+      amount: Number(row.amount),
+      category: boutiqueCategory?.name || 'Compte boutique',
+      quantity: row.quantityKnown ? Number(row.quantity) : '',
+      unit: row.unit,
+      unitPrice: row.unitPriceKnown ? Number(row.unit_price) : '',
+      comment: row.notes,
     })),
   ];
   const tenantsForTemplate = tenants.map((tenant) => {
@@ -2354,7 +2388,8 @@ async function getReferenceMonthData(year, month) {
   const sum = (rows) => rows.reduce((total, row) => total + Number(row.amount), 0);
   if (Math.abs(sum(otherIncomes) + pensionPere + pape - Number(finance.ordinaryIncome || 0)) > 0.01
     || Math.abs(rentReceived - Number(finance.rentReceived || 0)) > 0.01
-    || Math.abs(sum(expenseRows) - Number(finance.totalExpenses || 0)) > 0.01) {
+    || Math.abs(sum(expenseRows) - Number(finance.totalExpenses || 0)) > 0.01
+    || Math.abs(sum(protectedExpenseRows) - Number(finance.protectedSavingsExpenses || 0)) > 0.01) {
     throw new Error(`Les totaux de ${monthKey} ne correspondent pas aux opérations de la base.`);
   }
 
@@ -2379,8 +2414,19 @@ async function getReferenceMonthData(year, month) {
     closingBalance: Number(finance.closingBalance),
     expenses: expenseRows,
     protectedExpenses: protectedExpenseRows,
+    categories,
     totalExpenses: Number(finance.totalExpenses),
   };
+}
+
+async function sendMonthlyReferenceExport(res, year, month, includeCarryover) {
+  const monthKey = getMonthKey(year, month);
+  const data = await getReferenceMonthData(year, month);
+  const workbook = await buildReferenceWorkbook([data], { includeCarryover });
+  const buffer = await workbook.xlsx.writeBuffer();
+  res.setHeader('Content-Disposition', `attachment; filename="DEPENSES_MAISON_${monthKey}.xlsx"`);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(Buffer.from(buffer));
 }
 
 async function getMonthlyExpenseExportData(year, month, query) {
@@ -2454,31 +2500,12 @@ app.get('/export/xlsx/month/:year/:month/expenses', async (req, res) => {
   if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
     return res.status(400).send('Période d’exportation invalide.');
   }
-  const { monthKey, headers, rows } = await getMonthlyExpenseExportData(year, month, req.query);
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  worksheet['!cols'] = [
-    { wch: 14 }, { wch: 12 }, { wch: 34 }, { wch: 27 }, { wch: 17 },
-    { wch: 22 }, { wch: 24 }, { wch: 24 }, { wch: 20 }, { wch: 22 }, { wch: 42 },
-  ];
-  worksheet['!autofilter'] = { ref: `A1:K${Math.max(1, rows.length + 1)}` };
-  worksheet['!rows'] = [{ hpt: 24 }];
-  headers.forEach((_, columnIndex) => {
-    const headerCell = worksheet[XLSX.utils.encode_cell({ r: 0, c: columnIndex })];
-    if (headerCell) {
-      headerCell.s = {
-        fill: { fgColor: { rgb: '147967' } },
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-        alignment: { vertical: 'center', wrapText: true },
-      };
-    }
-  });
-  rows.forEach((_, rowIndex) => {
-    const amountCell = worksheet[XLSX.utils.encode_cell({ r: rowIndex + 1, c: 4 })];
-    if (amountCell) amountCell.z = '#,##0 "FCFA"';
-  });
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Dépenses');
-  deliverWorkbook(res, workbook, `MAISON_DEPENSES_${monthKey}.xlsx`);
+  await sendMonthlyReferenceExport(
+    res,
+    year,
+    month,
+    includeCarryoverInExport(req.query.includeCarryover),
+  );
 });
 
 app.get('/export/csv/:year/:kind', async (req, res) => {
@@ -2554,15 +2581,12 @@ app.get('/export/month/:year/:month', async (req, res) => {
   if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
     return res.status(400).send('Période d’exportation invalide.');
   }
-  const monthKey = getMonthKey(year, month);
-  const data = await getReferenceMonthData(year, month);
-  const workbook = await buildReferenceWorkbook([data], {
-    includeCarryover: includeCarryoverInExport(req.query.includeCarryover),
-  });
-  const buffer = await workbook.xlsx.writeBuffer();
-  res.setHeader('Content-Disposition', `attachment; filename="DEPENSES_MAISON_${monthKey}.xlsx"`);
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.send(Buffer.from(buffer));
+  await sendMonthlyReferenceExport(
+    res,
+    year,
+    month,
+    includeCarryoverInExport(req.query.includeCarryover),
+  );
 });
 
 app.get('/export/month', async (req, res) => {
@@ -2571,15 +2595,12 @@ app.get('/export/month', async (req, res) => {
   if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
     return res.status(400).send('Période d’exportation invalide.');
   }
-  const monthKey = getMonthKey(year, month);
-  const data = await getReferenceMonthData(year, month);
-  const workbook = await buildReferenceWorkbook([data], {
-    includeCarryover: includeCarryoverInExport(req.query.includeCarryover),
-  });
-  const buffer = await workbook.xlsx.writeBuffer();
-  res.setHeader('Content-Disposition', `attachment; filename="DEPENSES_MAISON_${monthKey}.xlsx"`);
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.send(Buffer.from(buffer));
+  await sendMonthlyReferenceExport(
+    res,
+    year,
+    month,
+    includeCarryoverInExport(req.query.includeCarryover),
+  );
 });
 
 app.get('/export/months', async (req, res) => {
