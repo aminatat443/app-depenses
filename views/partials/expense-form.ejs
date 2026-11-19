@@ -6,16 +6,30 @@
 <form method="POST" action="<%= expense ? `/expenses/${expense.id}/update` : '/expenses' %>" enctype="multipart/form-data">
   <input type="hidden" name="return_to" value="<%= returnTo %>" />
   <div class="form-grid">
+    <% const selectedExpenseCategoryId = String(expense?.category_id ?? categories[0]?.id ?? ''); %>
+    <% const selectedExpenseCategory = categories.find((category) => String(category.id) === selectedExpenseCategoryId); %>
     <label>Désignation
       <input type="text" name="title" value="<%= expense?.title || '' %>" maxlength="250" required />
     </label>
-    <label>Catégorie
-      <input type="search" data-category-option-search aria-label="Rechercher une catégorie" placeholder="Rechercher une catégorie…" autocomplete="off" />
-      <small class="sr-only" data-category-search-status role="status" aria-live="polite"></small>
-      <select name="category_id" aria-label="Catégorie" required>
-        <% categories.forEach((category) => { %><option value="<%= category.id %>" <%= expense && Number(expense.category_id) === Number(category.id) ? 'selected' : '' %>><%= category.name %></option><% }) %>
+    <div class="category-select-field" data-searchable-category>
+      <span class="category-select-label">Catégorie</span>
+      <select class="sr-only" name="category_id" aria-hidden="true" tabindex="-1" required data-category-select-native>
+        <% categories.forEach((category) => { %><option value="<%= category.id %>" <%= String(category.id) === selectedExpenseCategoryId ? 'selected' : '' %>><%= category.name %></option><% }) %>
       </select>
-    </label>
+      <button class="category-select-trigger" type="button" aria-label="Catégorie : <%= selectedExpenseCategory?.name || 'Choisir une catégorie' %>" aria-haspopup="listbox" aria-expanded="false" data-category-select-trigger>
+        <span data-category-select-value><%= selectedExpenseCategory?.name || 'Choisir une catégorie' %></span>
+        <span aria-hidden="true">⌄</span>
+      </button>
+      <div class="category-select-menu" data-category-select-menu hidden>
+        <input type="search" data-category-option-search aria-label="Rechercher une catégorie" placeholder="Rechercher une catégorie…" autocomplete="off" />
+        <div class="category-select-options" role="listbox" aria-label="Catégories">
+          <% categories.forEach((category) => { %>
+            <button class="category-select-option" type="button" role="option" data-category-option data-category-value="<%= category.id %>" aria-selected="<%= String(category.id) === selectedExpenseCategoryId ? 'true' : 'false' %>"><%= category.name %></button>
+          <% }) %>
+        </div>
+        <small class="category-search-feedback" data-category-search-status role="status" aria-live="polite"></small>
+      </div>
+    </div>
     <label>Montant (FCFA)
       <input type="number" name="amount" step="1" min="1" value="<%= expense?.amount ?? '' %>" required />
     </label>

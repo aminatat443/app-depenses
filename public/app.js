@@ -1073,8 +1073,9 @@
     if (!(event.target instanceof HTMLInputElement)) return;
     const input = event.target;
     if (input.matches('[data-category-option-search]')) {
+      const searchableCategory = input.closest('[data-searchable-category]');
       const select = input.closest('form')?.querySelector('select[name="category"], select[name="category_id"]');
-      if (!(select instanceof HTMLSelectElement)) return;
+      if (!searchableCategory && !(select instanceof HTMLSelectElement)) return;
       const normalizedQuery = input.value
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -1083,6 +1084,27 @@
         .split(/\s+/)
         .filter(Boolean);
       let visibleCount = 0;
+      if (searchableCategory) {
+        searchableCategory.querySelectorAll('[data-category-option]').forEach((option) => {
+          const normalizedName = option.textContent
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLocaleLowerCase('fr');
+          const matches = normalizedQuery.every((term) => normalizedName.includes(term));
+          option.hidden = !matches;
+          if (matches) visibleCount += 1;
+        });
+        const status = searchableCategory.querySelector('[data-category-search-status]');
+        if (status) {
+          status.textContent = normalizedQuery.length
+            ? visibleCount
+              ? `${visibleCount} catégorie${visibleCount > 1 ? 's' : ''} correspondante${visibleCount > 1 ? 's' : ''}.`
+              : 'Aucune catégorie correspondante.'
+            : '';
+        }
+        return;
+      }
+      if (!(select instanceof HTMLSelectElement)) return;
       Array.from(select.options).forEach((option, index) => {
         if (index === 0) {
           option.hidden = false;
@@ -1147,6 +1169,90 @@
     liveSearchTimers.set(form, window.setTimeout(() => {
       if (form.isConnected) form.requestSubmit();
     }, 300));
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (!(event.target instanceof HTMLInputElement)
+      || !event.target.matches('[data-category-option-search]')) return;
+    const searchableCategory = event.target.closest('[data-searchable-category]');
+    if (event.key === 'Enter') {
+      const matchingOptions = searchableCategory
+        ? Array.from(searchableCategory.querySelectorAll('[data-category-option]'))
+          .filter((option) => !option.hidden)
+        : [];
+      event.preventDefault();
+      if (matchingOptions.length === 1) matchingOptions[0].click();
+      return;
+    }
+    if (event.key === 'Escape' && searchableCategory) {
+      const trigger = searchableCategory.querySelector('[data-category-select-trigger]');
+      const menu = searchableCategory.querySelector('[data-category-select-menu]');
+      if (!(trigger instanceof HTMLButtonElement) || !(menu instanceof HTMLElement)) return;
+      event.preventDefault();
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    }
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+    const option = event.target.closest('[data-category-option]');
+    if (option) {
+      const searchableCategory = option.closest('[data-searchable-category]');
+      const select = searchableCategory?.querySelector('[data-category-select-native]');
+      const value = searchableCategory?.querySelector('[data-category-select-value]');
+      const trigger = searchableCategory?.querySelector('[data-category-select-trigger]');
+      const menu = searchableCategory?.querySelector('[data-category-select-menu]');
+      if (!(select instanceof HTMLSelectElement)
+        || !(value instanceof HTMLElement)
+        || !(trigger instanceof HTMLButtonElement)
+        || !(menu instanceof HTMLElement)
+        || !(option instanceof HTMLButtonElement)) return;
+      select.value = option.dataset.categoryValue || '';
+      value.textContent = option.textContent.trim();
+      trigger.setAttribute('aria-label', `Catégorie : ${value.textContent}`);
+      searchableCategory.querySelectorAll('[data-category-option]').forEach((item) => {
+        item.setAttribute('aria-selected', String(item === option));
+      });
+      menu.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      trigger.focus();
+      return;
+    }
+
+    const trigger = event.target.closest('[data-category-select-trigger]');
+    if (trigger instanceof HTMLButtonElement) {
+      const searchableCategory = trigger.closest('[data-searchable-category]');
+      const menu = searchableCategory?.querySelector('[data-category-select-menu]');
+      const search = searchableCategory?.querySelector('[data-category-option-search]');
+      if (!(menu instanceof HTMLElement) || !(search instanceof HTMLInputElement)) return;
+      const shouldOpen = menu.hidden;
+      document.querySelectorAll('[data-searchable-category] [data-category-select-menu]').forEach((openMenu) => {
+        openMenu.hidden = true;
+        openMenu.closest('[data-searchable-category]')
+          ?.querySelector('[data-category-select-trigger]')
+          ?.setAttribute('aria-expanded', 'false');
+      });
+      if (shouldOpen) {
+        menu.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        search.value = '';
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+        search.focus();
+      }
+      return;
+    }
+
+    if (!event.target.closest('[data-searchable-category]')) {
+      document.querySelectorAll('[data-searchable-category] [data-category-select-menu]').forEach((menu) => {
+        menu.hidden = true;
+        menu.closest('[data-searchable-category]')
+          ?.querySelector('[data-category-select-trigger]')
+          ?.setAttribute('aria-expanded', 'false');
+      });
+    }
   });
 
   document.addEventListener('change', (event) => {

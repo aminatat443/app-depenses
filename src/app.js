@@ -2383,24 +2383,19 @@ async function getReferenceMonthData(year, month) {
   };
 }
 
-app.get('/export/csv/month/:year/:month/expenses', async (req, res) => {
-  const year = Number(req.params.year);
-  const month = Number(req.params.month);
-  if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
-    return res.status(400).send('Période d’exportation invalide.');
-  }
+async function getMonthlyExpenseExportData(year, month, query) {
   const monthKey = getMonthKey(year, month);
   let where = `
     WHERE e.funding_source <> 'protected_savings'
       AND COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
   `;
   const params = [monthKey];
-  if (/^\d+$/.test(String(req.query.category || ''))) {
+  if (/^\d+$/.test(String(query.category || ''))) {
     where += ' AND e.category_id = ?';
-    params.push(Number(req.query.category));
+    params.push(Number(query.category));
   }
-  if (req.query.category_alias) {
-    const alias = String(req.query.category_alias);
+  if (query.category_alias) {
+    const alias = String(query.category_alias);
     const allCategories = await readCategories();
     const matchingIds = allCategories
       .filter((category) => resolvePriorityCategory(category.name) === alias
@@ -2414,7 +2409,7 @@ app.get('/export/csv/month/:year/:month/expenses', async (req, res) => {
       where += ' AND 1 = 0';
     }
   }
-  const search = String(req.query.search || '').trim();
+  const search = String(query.search || '').trim();
   if (search) {
     where += `
       AND (e.title ILIKE ? OR e.description ILIKE ? OR e.reference ILIKE ?
@@ -2438,9 +2433,52 @@ app.get('/export/csv/month/:year/:month/expenses', async (req, res) => {
     row.funding_source === 'protected_savings' ? 'Épargne protégée' : 'Compte courant',
     row.beneficiary, row.paid_by, row.payment_method, row.reference, row.description,
   ]);
+  return { monthKey, headers, rows };
+}
+
+app.get('/export/csv/month/:year/:month/expenses', async (req, res) => {
+  const year = Number(req.params.year);
+  const month = Number(req.params.month);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
+    return res.status(400).send('Période d’exportation invalide.');
+  }
+  const { monthKey, headers, rows } = await getMonthlyExpenseExportData(year, month, req.query);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="MAISON_DEPENSES_${monthKey}.csv"`);
   res.send(makeCsv(headers, rows));
+});
+
+app.get('/export/xlsx/month/:year/:month/expenses', async (req, res) => {
+  const year = Number(req.params.year);
+  const month = Number(req.params.month);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
+    return res.status(400).send('Période d’exportation invalide.');
+  }
+  const { monthKey, headers, rows } = await getMonthlyExpenseExportData(year, month, req.query);
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  worksheet['!cols'] = [
+    { wch: 14 }, { wch: 12 }, { wch: 34 }, { wch: 27 }, { wch: 17 },
+    { wch: 22 }, { wch: 24 }, { wch: 24 }, { wch: 20 }, { wch: 22 }, { wch: 42 },
+  ];
+  worksheet['!autofilter'] = { ref: `A1:K${Math.max(1, rows.length + 1)}` };
+  worksheet['!rows'] = [{ hpt: 24 }];
+  headers.forEach((_, columnIndex) => {
+    const headerCell = worksheet[XLSX.utils.encode_cell({ r: 0, c: columnIndex })];
+    if (headerCell) {
+      headerCell.s = {
+        fill: { fgColor: { rgb: '147967' } },
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        alignment: { vertical: 'center', wrapText: true },
+      };
+    }
+  });
+  rows.forEach((_, rowIndex) => {
+    const amountCell = worksheet[XLSX.utils.encode_cell({ r: rowIndex + 1, c: 4 })];
+    if (amountCell) amountCell.z = '#,##0 "FCFA"';
+  });
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Dépenses');
+  deliverWorkbook(res, workbook, `MAISON_DEPENSES_${monthKey}.xlsx`);
 });
 
 app.get('/export/csv/:year/:kind', async (req, res) => {

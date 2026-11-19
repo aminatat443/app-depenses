@@ -1490,13 +1490,17 @@ test('expenses page shows the selected month shop-account total', async () => {
     assert.match(html, /Compte boutique du mois/);
     assert.match(html, /Liste des dépenses/);
     assert.match(html, /class="expense-table-header-actions"[\s\S]*?data-expense-month="2027-12"/);
-    assert.match(html, /href="\/export\/csv\/month\/2027\/12\/expenses\?/);
+    assert.match(html, /href="\/export\/xlsx\/month\/2027\/12\/expenses\?/);
     assert.match(html, /data-expense-month-offset="-1"/);
     assert.match(html, /data-expense-current-month/);
     assert.match(html, /data-category-option-search/);
     const createExpenseTemplate = html.match(/<template id="expense-create">([\s\S]*?)<\/template>/);
     assert.ok(createExpenseTemplate);
     assert.match(createExpenseTemplate[1], /aria-label="Rechercher une catégorie"/);
+    assert.match(createExpenseTemplate[1], /data-category-select-trigger/);
+    assert.match(createExpenseTemplate[1], /data-category-select-menu hidden/);
+    assert.match(createExpenseTemplate[1], /role="option" data-category-option/);
+    assert.match(createExpenseTemplate[1], /data-category-search-status role="status"/);
     const fallbackCategory = await db.prepare("SELECT id FROM categories WHERE name = 'Autres dépenses'").get();
     assert.ok(fallbackCategory);
     assert.match(html, new RegExp(`<option value="${fallbackCategory.id}"\\s*>Autres dépenses</option>`));
@@ -1514,7 +1518,7 @@ test('expenses page shows the selected month shop-account total', async () => {
   }
 });
 
-test('monthly expense CSV export respects the selected month and current search filters', async () => {
+test('monthly expense CSV and Excel exports respect the selected month and current search filters', async () => {
   const category = await db.prepare("SELECT id FROM categories WHERE name = 'Factures'").get();
   const titles = [
     'Export mois dépense ciblée',
@@ -1541,6 +1545,18 @@ test('monthly expense CSV export respects the selected month and current search 
     assert.match(csv, /Export mois dépense ciblée/);
     assert.doesNotMatch(csv, /Export mois autre dépense/);
     assert.doesNotMatch(csv, /Export mois précédent/);
+
+    const excelResponse = await authedFetch(
+      `http://127.0.0.1:${port}/export/xlsx/month/2027/12/expenses?category=${category.id}&search=${encodeURIComponent('dépense ciblée')}`,
+    );
+    assert.equal(excelResponse.status, 200);
+    assert.match(excelResponse.headers.get('content-type'), /spreadsheetml\.sheet/);
+    assert.match(excelResponse.headers.get('content-disposition'), /MAISON_DEPENSES_2027-12\.xlsx/);
+    const workbook = XLSX.read(Buffer.from(await excelResponse.arrayBuffer()), { type: 'buffer' });
+    assert.deepEqual(workbook.SheetNames, ['Dépenses']);
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Dépenses, { header: 1 });
+    assert.ok(rows.some((row) => row.includes(titles[0])));
+    assert.ok(rows.every((row) => !row.includes(titles[1]) && !row.includes(titles[2])));
   } finally {
     await db.prepare('DELETE FROM expenses WHERE title IN (?, ?, ?)').run(...titles);
     await new Promise((resolve) => server.close(resolve));
