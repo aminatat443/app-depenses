@@ -1490,6 +1490,14 @@ test('expenses page shows the selected month shop-account total', async () => {
     assert.match(html, /Compte boutique du mois/);
     assert.match(html, /Liste des dépenses/);
     assert.match(html, /class="expense-table-header-actions"[\s\S]*?data-expense-month="2027-12"/);
+    assert.match(html, /href="\/export\/csv\/month\/2027\/12\/expenses\?/);
+    assert.match(html, /data-expense-month-offset="-1"/);
+    assert.match(html, /data-expense-current-month/);
+    assert.match(html, /data-category-option-search/);
+    const fallbackCategory = await db.prepare("SELECT id FROM categories WHERE name = 'Autres dépenses'").get();
+    assert.ok(fallbackCategory);
+    assert.match(html, new RegExp(`<option value="${fallbackCategory.id}"\\s*>Autres dépenses</option>`));
+    assert.match(html, /Montant restant à reporter/);
     const tableSection = html.match(/<section class="panel-card page-table-card monthly-expense-history">([\s\S]*?)<form id="expense-bulk-form"/);
     assert.ok(tableSection);
     assert.match(tableSection[1], /data-live-search data-expense-list-search/);
@@ -1498,6 +1506,39 @@ test('expenses page shows the selected month shop-account total', async () => {
     assert.ok(html.includes(formattedTotal));
   } finally {
     await db.prepare('DELETE FROM grocery_items WHERE id = ?').run(result.lastInsertRowid);
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('monthly expense CSV export respects the selected month and current search filters', async () => {
+  const category = await db.prepare("SELECT id FROM categories WHERE name = 'Factures'").get();
+  const titles = [
+    'Export mois dépense ciblée',
+    'Export mois autre dépense',
+    'Export mois précédent',
+  ];
+  await db.prepare(`
+    INSERT INTO expenses (title, category_id, amount, expense_date, month_key)
+    VALUES (?, ?, 1250, '2027-12-03', '2027-12'),
+      (?, ?, 2500, '2027-12-04', '2027-12'),
+      (?, ?, 5000, '2027-11-03', '2027-11')
+  `).run(titles[0], category.id, titles[1], category.id, titles[2], category.id);
+  const server = await startServer();
+  const { port } = server.address();
+
+  try {
+    const response = await authedFetch(
+      `http://127.0.0.1:${port}/export/csv/month/2027/12/expenses?category=${category.id}&search=${encodeURIComponent('dépense ciblée')}`,
+    );
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /text\/csv/);
+    assert.match(response.headers.get('content-disposition'), /MAISON_DEPENSES_2027-12\.csv/);
+    const csv = await response.text();
+    assert.match(csv, /Export mois dépense ciblée/);
+    assert.doesNotMatch(csv, /Export mois autre dépense/);
+    assert.doesNotMatch(csv, /Export mois précédent/);
+  } finally {
+    await db.prepare('DELETE FROM expenses WHERE title IN (?, ?, ?)').run(...titles);
     await new Promise((resolve) => server.close(resolve));
   }
 });

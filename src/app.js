@@ -2383,6 +2383,66 @@ async function getReferenceMonthData(year, month) {
   };
 }
 
+app.get('/export/csv/month/:year/:month/expenses', async (req, res) => {
+  const year = Number(req.params.year);
+  const month = Number(req.params.month);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
+    return res.status(400).send('Période d’exportation invalide.');
+  }
+  const monthKey = getMonthKey(year, month);
+  let where = `
+    WHERE e.funding_source <> 'protected_savings'
+      AND COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
+  `;
+  const params = [monthKey];
+  if (/^\d+$/.test(String(req.query.category || ''))) {
+    where += ' AND e.category_id = ?';
+    params.push(Number(req.query.category));
+  }
+  if (req.query.category_alias) {
+    const alias = String(req.query.category_alias);
+    const allCategories = await readCategories();
+    const matchingIds = allCategories
+      .filter((category) => resolvePriorityCategory(category.name) === alias
+        || (alias === 'Compte boutique' && category.type === 'boutique')
+        || (resolvePriorityCategory(category.name) === null && category.name === alias))
+      .map((category) => Number(category.id));
+    if (matchingIds.length) {
+      where += ` AND e.category_id IN (${matchingIds.map(() => '?').join(', ')})`;
+      params.push(...matchingIds);
+    } else {
+      where += ' AND 1 = 0';
+    }
+  }
+  const search = String(req.query.search || '').trim();
+  if (search) {
+    where += `
+      AND (e.title ILIKE ? OR e.description ILIKE ? OR e.reference ILIKE ?
+        OR e.beneficiary ILIKE ? OR e.paid_by ILIKE ? OR c.name ILIKE ?)
+    `;
+    params.push(...Array(6).fill(`%${search}%`));
+  }
+  const headers = [
+    'Date', 'Mois', 'Désignation', 'Catégorie', 'Montant', 'Source de financement',
+    'Bénéficiaire', 'Personne ayant payé', 'Mode de paiement', 'Référence', 'Commentaire',
+  ];
+  const rows = (await db.prepare(`
+    SELECT e.expense_date, COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) AS month_key,
+      e.title, c.name AS category, e.amount, e.funding_source, e.beneficiary, e.paid_by,
+      e.payment_method, e.reference, e.description
+    FROM expenses e JOIN categories c ON c.id = e.category_id
+    ${where}
+    ORDER BY e.expense_date, e.id
+  `).all(...params)).map((row) => [
+    row.expense_date, row.month_key, row.title, row.category, Number(row.amount),
+    row.funding_source === 'protected_savings' ? 'Épargne protégée' : 'Compte courant',
+    row.beneficiary, row.paid_by, row.payment_method, row.reference, row.description,
+  ]);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="MAISON_DEPENSES_${monthKey}.csv"`);
+  res.send(makeCsv(headers, rows));
+});
+
 app.get('/export/csv/:year/:kind', async (req, res) => {
   const year = Number(req.params.year);
   if (!Number.isInteger(year) || year < 2000 || year > 2100) return res.status(400).send('Année d’exportation invalide.');

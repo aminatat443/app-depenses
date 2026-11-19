@@ -561,6 +561,10 @@ svg { display: block; }
 .page-filter-card { display: grid; gap: 11px; padding: 14px 16px; }
 .page-filter-form { display: flex; align-items: end; gap: 11px; }
 .page-filter-form label, .export-year-field { display: grid; min-width: 190px; gap: 5px; color: #536861; font-size: 10px; font-weight: 650; }
+.expense-month-shortcuts { display: flex; align-items: center; gap: 4px; padding-bottom: 1px; }
+.expense-month-shortcuts .table-action { min-height: 36px; }
+.expense-category-filter-search small { min-height: 12px; color: var(--color-muted); font-size: 9px; font-weight: 400; }
+.expense-month-filter select option[hidden] { display: none; }
 .page-filter-form input, .page-filter-form select, .export-year-field input {
   min-width: 0;
   min-height: 36px;

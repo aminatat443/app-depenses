@@ -386,6 +386,7 @@ async function initializeDatabase() {
     ['Factures', '#6795aa'],
   ];
   await db.transaction(async () => {
+    await db.prepare('DELETE FROM category_seed_exclusions WHERE name = ?').run('Autres dépenses');
     for (const [name, color] of defaults) {
       const excluded = await db.prepare('SELECT 1 FROM category_seed_exclusions WHERE name = ?').get(name);
       if (excluded) continue;

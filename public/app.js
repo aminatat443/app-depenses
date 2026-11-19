@@ -1072,6 +1072,40 @@
   document.addEventListener('input', (event) => {
     if (!(event.target instanceof HTMLInputElement)) return;
     const input = event.target;
+    if (input.matches('[data-category-option-search]')) {
+      const select = input.closest('form')?.querySelector('select[name="category"]');
+      if (!(select instanceof HTMLSelectElement)) return;
+      const normalizedQuery = input.value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('fr')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      let visibleCount = 0;
+      Array.from(select.options).forEach((option, index) => {
+        if (index === 0) {
+          option.hidden = false;
+          return;
+        }
+        const normalizedName = option.textContent
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLocaleLowerCase('fr');
+        const matches = normalizedQuery.every((term) => normalizedName.includes(term));
+        option.hidden = !matches && option.value !== select.value;
+        if (matches) visibleCount += 1;
+      });
+      const status = input.closest('label')?.querySelector('[data-category-search-status]');
+      if (status) {
+        status.textContent = normalizedQuery.length
+          ? visibleCount
+            ? `${visibleCount} catégorie${visibleCount > 1 ? 's' : ''} correspondante${visibleCount > 1 ? 's' : ''}.`
+            : 'Aucune catégorie correspondante.'
+          : '';
+      }
+      return;
+    }
     if (input.matches('#global-search input[name="search"]')) {
       globalSearchController?.abort();
       window.clearTimeout(globalSearchTimer);
@@ -1121,8 +1155,31 @@
     if (event.target.matches('select[name="category"]')) {
       const alias = form?.querySelector('input[name="category_alias"]');
       if (alias instanceof HTMLInputElement) alias.value = '';
+      const categorySearch = form?.querySelector('[data-category-option-search]');
+      if (categorySearch instanceof HTMLInputElement && categorySearch.value) {
+        categorySearch.value = '';
+        categorySearch.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }
     if (form) form.requestSubmit();
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!(event.target instanceof Element)) return;
+    const button = event.target.closest('[data-expense-month-offset], [data-expense-current-month]');
+    if (!(button instanceof HTMLButtonElement)) return;
+    const form = button.closest('form[data-expense-month-filter]');
+    const monthInput = form?.querySelector('input[type="month"][name="month"]');
+    if (!(form instanceof HTMLFormElement) || !(monthInput instanceof HTMLInputElement)) return;
+
+    const selected = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(monthInput.value);
+    const baseYear = selected ? Number(selected[1]) : new Date().getFullYear();
+    const baseMonth = selected ? Number(selected[2]) - 1 : new Date().getMonth();
+    const target = button.hasAttribute('data-expense-current-month')
+      ? new Date()
+      : new Date(baseYear, baseMonth + Number(button.dataset.expenseMonthOffset), 1);
+    monthInput.value = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}`;
+    form.requestSubmit();
   });
 
   const openMonthPicker = (input) => {

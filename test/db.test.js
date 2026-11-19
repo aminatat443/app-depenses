@@ -106,6 +106,22 @@ test('category sync merges legacy expenses into the Render category list', async
   }
 });
 
+test('reserved fallback category is restored even if it was previously excluded from seeding', async () => {
+  await initializeDatabase();
+  await db.prepare(`
+    INSERT INTO category_seed_exclusions (name) VALUES ('Autres dépenses')
+    ON CONFLICT (name) DO NOTHING
+  `).run();
+
+  await initializeDatabase();
+
+  assert.ok(await db.prepare("SELECT id FROM categories WHERE name = 'Autres dépenses'").get());
+  assert.equal(
+    await db.prepare("SELECT name FROM category_seed_exclusions WHERE name = 'Autres dépenses'").get(),
+    undefined,
+  );
+});
+
 test('legacy Pape and pension records are backfilled once without deleting their history', async () => {
   await db.prepare("DELETE FROM settings WHERE key = 'monthly_revenues_backfill_v1'").run();
   await db.prepare(`

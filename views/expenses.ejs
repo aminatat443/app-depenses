@@ -12,8 +12,17 @@
 <%- include('partials/monthly-balance-summary', { finance }) %>
 
 <section class="panel-card page-filter-card">
-  <form method="GET" action="/expenses" class="page-filter-form expense-month-filter" data-live-filter data-live-filter-root=".page-content">
+  <form method="GET" action="/expenses" class="page-filter-form expense-month-filter" data-live-filter data-live-filter-root=".page-content" data-expense-month-filter>
     <label>Mois<input type="month" name="month" value="<%= monthKey %>" /></label>
+    <div class="expense-month-shortcuts" aria-label="Raccourcis de mois">
+      <button class="table-action" type="button" data-expense-month-offset="-1" aria-label="Mois précédent">‹</button>
+      <button class="table-action" type="button" data-expense-current-month>Ce mois-ci</button>
+      <button class="table-action" type="button" data-expense-month-offset="1" aria-label="Mois suivant">›</button>
+    </div>
+    <label class="expense-category-filter-search">Rechercher une catégorie
+      <input type="search" data-category-option-search placeholder="Nom de catégorie…" autocomplete="off" />
+      <small data-category-search-status role="status" aria-live="polite"></small>
+    </label>
     <label>Catégorie
       <select name="category">
         <option value="">Toutes les catégories</option>
@@ -83,6 +92,7 @@
     <div><h2>Liste des dépenses</h2><p>Dépenses ordinaires classées par date.</p></div>
     <div class="expense-table-header-actions">
       <button class="button button-primary" type="button" data-modal-template="expense-create" data-expense-month="<%= monthKey %>"><span aria-hidden="true">＋</span> Ajouter une dépense</button>
+      <a class="button button-subtle" href="/export/csv/month/<%= monthKey.slice(0, 4) %>/<%= Number(monthKey.slice(5, 7)) %>/expenses?category=<%= encodeURIComponent(selectedCategory || '') %>&amp;category_alias=<%= encodeURIComponent(selectedCategoryAlias || '') %>&amp;search=<%= encodeURIComponent(search || '') %>">Exporter</a>
       <a class="text-link" href="/history">Tout l’historique <span aria-hidden="true">→</span></a>
     </div>
   </div>
