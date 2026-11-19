@@ -369,23 +369,21 @@ async function initializeDatabase() {
   `);
 
   const defaults = [
+    ['achats alimentaires complémentaires', '#c48c6a'],
     ['Dépenses alimentaires', '#55917f'],
-    ['Facture d’eau', '#6795aa'],
-    ['Facture d’électricité', '#e7aa65'],
-    ['Facture Wi-Fi', '#8795ab'],
-    ['Argent de poche des enfants', '#b79568'],
     ['Compte boutique', '#147967'],
-    ['Salaire femme de ménage', '#a98575'],
-    ['Alimentation des animaux', '#879a73'],
-    ['Pain et achats alimentaires complémentaires', '#c48c6a'],
-    ['Renforcement et aides financières', '#9c88a5'],
-    ['Transport', '#6795aa'],
-    ['Santé, consultations et médicaments', '#d88370'],
-    ['Réparations et entretien de la maison', '#718b83'],
     ['Scolarité et frais éducatifs', '#7889a1'],
+    ['Hygiène et beauté', '#a98575'],
     ['Aumônes et dons', '#c19661'],
-    ['Dépenses exceptionnelles ou imprévues', '#bb7966'],
+    ['entretien de la maison', '#718b83'],
+    ['Réparations', '#84958c'],
+    ['Santé', '#d88370'],
+    ['Transport', '#6795aa'],
+    ['Alimentation des animaux', '#879a73'],
     ['Autres dépenses', '#929d99'],
+    ['Dépenses exceptionnelles', '#bb7966'],
+    ['Depenses imprevues', '#e7aa65'],
+    ['Factures', '#6795aa'],
   ];
   await db.transaction(async () => {
     for (const [name, color] of defaults) {
@@ -396,6 +394,47 @@ async function initializeDatabase() {
         VALUES (?, 'ordinary', ?, TRUE)
         ON CONFLICT (name) DO NOTHING
       `).run(name, color);
+    }
+
+    const categorySyncKey = 'render_categories_sync_v1';
+    const categorySync = await db.prepare('SELECT value FROM settings WHERE key = ?').get(categorySyncKey);
+    if (!categorySync) {
+      const mergedCategories = [
+        ['Pain et achats alimentaires complémentaires', 'achats alimentaires complémentaires'],
+        ['Facture d’eau', 'Factures'],
+        ['Facture d’électricité', 'Factures'],
+        ['Facture Wi-Fi', 'Factures'],
+        ['Eau', 'Factures'],
+        ['Électricité', 'Factures'],
+        ['Internet / Wi-Fi', 'Factures'],
+        ['Entretien', 'entretien de la maison'],
+        ['Réparations et entretien de la maison', 'entretien de la maison'],
+        ['Santé, consultations et médicaments', 'Santé'],
+        ['Santé / Ordonnances', 'Santé'],
+        ['Scolarité', 'Scolarité et frais éducatifs'],
+        ['Autres', 'Autres dépenses'],
+        ['Argent de poche des enfants', 'Autres dépenses'],
+        ['Renforcement et aides financières', 'Autres dépenses'],
+        ['Salaire femme de ménage', 'Autres dépenses'],
+        ['Dépenses exceptionnelles ou imprévues', 'Dépenses exceptionnelles'],
+      ];
+      const fallback = await db.prepare("SELECT id FROM categories WHERE name = 'Autres dépenses'").get();
+      for (const [sourceName, targetName] of mergedCategories) {
+        const source = await db.prepare('SELECT id FROM categories WHERE name = ?').get(sourceName);
+        if (!source) continue;
+        const target = await db.prepare('SELECT id FROM categories WHERE name = ?').get(targetName) || fallback;
+        if (!target || Number(source.id) === Number(target.id)) continue;
+        await db.prepare('UPDATE expenses SET category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE category_id = ?')
+          .run(target.id, source.id);
+        await db.prepare('DELETE FROM categories WHERE id = ?').run(source.id);
+      }
+      const defaultNames = defaults.map(([name]) => name);
+      await db.prepare(`
+        UPDATE categories SET is_system = TRUE
+        WHERE name IN (${defaultNames.map(() => '?').join(', ')})
+      `).run(...defaultNames);
+      await db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')
+        .run(categorySyncKey, 'completed');
     }
 
     const incomeDefaults = ['Pension père', 'Pape', 'Autres recettes'];

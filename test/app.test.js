@@ -1570,8 +1570,8 @@ test('new expense categories appear in the filters and category summary on the n
 });
 
 test('deleting a default category reassigns its expenses and keeps it deleted after initialization', async () => {
-  const categoryName = 'Facture Wi-Fi';
-  const renamedCategoryName = 'Facture Wi-Fi modifiée';
+  const categoryName = 'Factures';
+  const renamedCategoryName = 'Factures test renommées';
   const fallback = await db.prepare("SELECT id FROM categories WHERE name = 'Autres dépenses'").get();
   const category = await db.prepare('SELECT id FROM categories WHERE name = ?').get(categoryName);
   assert.ok(category);

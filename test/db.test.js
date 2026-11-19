@@ -56,6 +56,56 @@ test('PostgreSQL schema initialization is repeatable and retains grocery detail 
   }
 });
 
+test('category sync merges legacy expenses into the Render category list', async () => {
+  await initializeDatabase();
+  await db.prepare("DELETE FROM settings WHERE key = 'render_categories_sync_v1'").run();
+  const legacyCategory = await db.prepare(`
+    INSERT INTO categories (name, type, color)
+    VALUES ('Dépenses exceptionnelles ou imprévues', 'ordinary', '#bb7966')
+    ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+    RETURNING id
+  `).get();
+  const inserted = await db.prepare(`
+    INSERT INTO expenses (title, category_id, amount, expense_date)
+    VALUES ('Migration de catégorie test', ?, 1250, '2026-11-19')
+  `).run(legacyCategory.id);
+
+  try {
+    await initializeDatabase();
+    const target = await db.prepare(`
+      SELECT c.name FROM expenses e JOIN categories c ON c.id = e.category_id
+      WHERE e.id = ?
+    `).get(inserted.lastInsertRowid);
+    assert.equal(target.name, 'Dépenses exceptionnelles');
+    assert.equal(await db.prepare(`
+      SELECT id FROM categories WHERE name = 'Dépenses exceptionnelles ou imprévues'
+    `).get(), undefined);
+    const expectedCategories = [
+      'achats alimentaires complémentaires',
+      'Dépenses alimentaires',
+      'Compte boutique',
+      'Scolarité et frais éducatifs',
+      'Hygiène et beauté',
+      'Aumônes et dons',
+      'entretien de la maison',
+      'Réparations',
+      'Santé',
+      'Transport',
+      'Alimentation des animaux',
+      'Autres dépenses',
+      'Dépenses exceptionnelles',
+      'Depenses imprevues',
+      'Factures',
+    ];
+    const categories = await db.prepare(`
+      SELECT name FROM categories WHERE is_system = TRUE ORDER BY name
+    `).all();
+    assert.deepEqual(categories.map((category) => category.name).sort(), expectedCategories.sort());
+  } finally {
+    await db.prepare('DELETE FROM expenses WHERE id = ?').run(inserted.lastInsertRowid);
+  }
+});
+
 test('legacy Pape and pension records are backfilled once without deleting their history', async () => {
   await db.prepare("DELETE FROM settings WHERE key = 'monthly_revenues_backfill_v1'").run();
   await db.prepare(`
