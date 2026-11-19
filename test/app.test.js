@@ -1629,18 +1629,15 @@ test('monthly CSV filters remain available and expenses Excel uses the reference
     assert.equal(renderedValues.filter((value) => value === septemberTitles[0]).length, 1);
     assert.equal(renderedValues.filter((value) => value === septemberTitles[1]).length, 1);
     assert.ok(!renderedValues.includes(septemberTitles[2]));
-    assert.equal(renderedValues.filter((value) => value === groceryTitle).length, 1);
-    const datedExpenseRow = findExcelColumnRow(expensesSheet, 5, septemberTitles[0]);
-    assert.ok(datedExpenseRow);
-    assert.equal(
-      expensesSheet.getCell(datedExpenseRow, 4).value.toISOString().slice(0, 10),
-      '2026-09-03',
-    );
-    const groceryRow = findExcelColumnRow(expensesSheet, 5, groceryTitle);
-    assert.ok(groceryRow);
-    assert.equal(expensesSheet.getCell(groceryRow, 7).value, 2);
-    assert.equal(expensesSheet.getCell(groceryRow, 8).value, 'kg');
-    assert.equal(expensesSheet.getCell(groceryRow, 9).value, 750);
+    assert.ok(!renderedValues.includes(groceryTitle));
+    const expenseRow = findExcelColumnRow(expensesSheet, 5, septemberTitles[0]);
+    assert.ok(expenseRow);
+    assert.equal(expensesSheet.getCell(expenseRow, 4).value, null);
+    const boutiqueRow = findExcelColumnRow(expensesSheet, 4, 'Compte boutique');
+    assert.ok(boutiqueRow);
+    assert.equal(expensesSheet.getCell(boutiqueRow + 2, 5).value, 'Compte boutique');
+    assert.equal(expensesSheet.getCell(boutiqueRow + 2, 6).value, 1500);
+    assert.equal(expensesSheet.getCell(boutiqueRow + 2, 7).value, null);
     const totalRow = findExcelColumnRow(expensesSheet, 4, 'Total');
     const summaryTotalRow = findExcelColumnRow(expensesSheet, 4, 'Total général des dépenses');
     assert.ok(totalRow);
@@ -1698,8 +1695,7 @@ test('new expense categories appear in the filters and category summary on the n
     const emptyWorkbook = await loadExcelJsWorkbook(Buffer.from(await emptyWorkbookResponse.arrayBuffer()));
     const emptySheet = emptyWorkbook.getWorksheet('Novembre');
     const emptyCategoryRow = findExcelColumnRow(emptySheet, 4, categoryName);
-    assert.ok(emptyCategoryRow);
-    assert.equal(emptySheet.getCell(emptyCategoryRow + 2, 6).value, 0);
+    assert.equal(emptyCategoryRow, null);
 
     await db.prepare(`
       INSERT INTO expenses (title, category_id, amount, expense_date, month_key)

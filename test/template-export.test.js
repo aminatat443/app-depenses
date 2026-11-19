@@ -240,14 +240,16 @@ test('exports from September 2026 group expenses by category with separate total
     const value = septemberSheet.getCell(rowNumber, 4).value;
     if (priorityNames.includes(value)) categoryHeadings.push(value);
   }
-  assert.deepEqual(categoryHeadings, priorityNames);
+  assert.deepEqual(categoryHeadings, ['Wifi']);
 
   const wifiRow = findCellRow(septemberSheet, 4, 'Wifi');
   assert.ok(wifiRow);
-  assert.equal(septemberSheet.getCell(wifiRow + 1, 4).value, 'Date');
   assert.equal(septemberSheet.getCell(wifiRow + 1, 5).value, 'Désignation');
+  assert.equal(septemberSheet.getCell(wifiRow + 1, 6).value, 'Montant');
   assert.equal(septemberSheet.getCell(wifiRow + 2, 5).value, 'Facture internet');
+  assert.equal(septemberSheet.getCell(wifiRow + 2, 6).value, 12_000);
   assert.equal(septemberSheet.getCell(wifiRow + 3, 5).value, 'Abonnement');
+  assert.equal(septemberSheet.getCell(wifiRow + 3, 6).value, 8_000);
   assert.equal(septemberSheet.getCell(wifiRow + 4, 5).value, 'Total Wifi');
   assert.equal(septemberSheet.getCell(wifiRow + 4, 6).value.result, 20_000);
   const otherSectionRow = findCellRow(septemberSheet, 4, 'Autres catégories');
@@ -284,7 +286,7 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(augustSheet.getCell('E22').value, 12_000);
 });
 
-test('live categories drive ordered subtables, empty-category totals and the monthly grand total', async () => {
+test('live categories show only expense categories and retain the monthly grand total', async () => {
   const categories = [
     'Alimentaire', 'Eau', 'Électricité', 'Wifi', 'Compte boutique',
     'Scolarité et frais éducatifs', 'Hygiène et beauté', 'Aumône et dons',
@@ -336,24 +338,27 @@ test('live categories drive ordered subtables, empty-category totals and the mon
     const heading = sheet.getCell(rowNumber, 4).value;
     if (priorityNames.includes(heading)) orderedHeadings.push(heading);
   }
-  assert.deepEqual(orderedHeadings, priorityNames);
+  assert.deepEqual(orderedHeadings, ['Alimentaire']);
+  priorityNames.slice(1).forEach((category) => {
+    assert.equal(findCellRow(sheet, 4, category), null);
+  });
 
   const foodRow = findCellRow(sheet, 4, 'Alimentaire');
-  assert.equal(sheet.getCell(foodRow + 2, 4).value.toISOString(), '2026-09-02T00:00:00.000Z');
+  assert.equal(sheet.getCell(foodRow + 1, 5).value, 'Désignation');
+  assert.equal(sheet.getCell(foodRow + 1, 6).value, 'Montant');
+  assert.equal(sheet.getCell(foodRow + 2, 4).value, null);
   assert.equal(sheet.getCell(foodRow + 2, 5).value, 'Achat de riz');
   assert.equal(sheet.getCell(foodRow + 2, 6).value, 25_000);
-  assert.equal(sheet.getCell(foodRow + 2, 7).value, 5);
-  assert.equal(sheet.getCell(foodRow + 2, 8).value, 'kg');
-  assert.equal(sheet.getCell(foodRow + 2, 9).value, 5_000);
-  assert.equal(sheet.getCell(foodRow + 2, 10).value, 'Famille');
-  assert.equal(sheet.getCell(foodRow + 2, 11).value, 'Awa');
-  assert.equal(sheet.getCell(foodRow + 2, 12).value, 'Espèces');
-  assert.equal(sheet.getCell(foodRow + 2, 13).value, 'RIZ-1');
-  assert.equal(sheet.getCell(foodRow + 2, 14).value, 'Sac de riz');
+  assert.equal(sheet.getCell(foodRow + 2, 7).value, null);
+  assert.equal(sheet.getCell(foodRow + 2, 8).value, null);
+  assert.equal(sheet.getCell(foodRow + 2, 9).value, null);
+  assert.equal(sheet.getCell(foodRow + 2, 10).value, null);
+  assert.equal(sheet.getCell(foodRow + 2, 11).value, null);
+  assert.equal(sheet.getCell(foodRow + 2, 12).value, null);
+  assert.equal(sheet.getCell(foodRow + 2, 13).value, null);
+  assert.equal(sheet.getCell(foodRow + 2, 14).value, null);
   assert.equal(sheet.getCell(foodRow + 4, 6).value.result, 37_000);
 
-  const waterRow = findCellRow(sheet, 4, 'Eau');
-  assert.equal(sheet.getCell(waterRow + 2, 6).value, 0);
   const otherSectionRow = findCellRow(sheet, 4, 'Autres catégories');
   const customRow = findCellRow(sheet, 4, 'Catégorie personnalisée');
   assert.ok(otherSectionRow);
@@ -365,6 +370,49 @@ test('live categories drive ordered subtables, empty-category totals and the mon
   assert.equal(sheet.getCell(totalRow, 6).value.result, 40_000);
   assert.equal(sheet.getCell(summaryTotalRow, 5).value, 3);
   assert.equal(sheet.getCell(summaryTotalRow, 6).value.result, 40_000);
+});
+
+test('exports consolidate boutique purchases into one designation and amount', async () => {
+  const boutiqueItems = [
+    { title: 'Riz', amount: 5_000, category: 'Compte boutique' },
+    { title: 'Huile', amount: 7_000, category: 'Compte boutique' },
+  ];
+  const categories = [{ id: 1, name: 'Compte boutique' }];
+
+  for (const month of [
+    monthData({
+      monthKey: '2026-09',
+      categories,
+      expenses: boutiqueItems,
+      totalExpenses: 12_000,
+    }),
+    monthData({
+      monthKey: '2026-08',
+      expenses: boutiqueItems,
+      totalExpenses: 12_000,
+    }),
+  ]) {
+    const output = await buildReferenceWorkbook([month]);
+    const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
+    const sheet = workbook.getWorksheet(MONTH_NAMES[Number(month.monthKey.slice(5, 7)) - 1]);
+
+    if (month.monthKey >= '2026-09') {
+      const boutiqueRow = findCellRow(sheet, 4, 'Compte boutique');
+      assert.ok(boutiqueRow);
+      assert.equal(sheet.getCell(boutiqueRow + 1, 5).value, 'Désignation');
+      assert.equal(sheet.getCell(boutiqueRow + 1, 6).value, 'Montant');
+      assert.equal(sheet.getCell(boutiqueRow + 2, 5).value, 'Compte boutique');
+      assert.equal(sheet.getCell(boutiqueRow + 2, 6).value, 12_000);
+      assert.equal(sheet.getCell(boutiqueRow + 3, 6).value.result, 12_000);
+    } else {
+      assert.equal(sheet.getCell('D22').value, 'Compte boutique');
+      assert.equal(sheet.getCell('E22').value, 12_000);
+    }
+
+    const displayedValues = sheet.getSheetValues().flat();
+    assert.equal(displayedValues.includes('Riz'), false);
+    assert.equal(displayedValues.includes('Huile'), false);
+  }
 });
 
 test('carryover is always visible but only included in the exported balance when selected', async () => {

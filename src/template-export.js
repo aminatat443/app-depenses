@@ -17,10 +17,7 @@ const MONTH_NAMES = [
 const FLOOR_ORDER = ['Rez-de-chaussée', '1er étage', '2e étage', '3e étage'];
 const CURRENCY_FORMAT = '#,##0 [$CFA-280C]';
 const MONTHLY_COLUMN_COUNT = 14;
-const EXPENSE_HEADERS = [
-  'Date', 'Désignation', 'Montant', 'Quantité', 'Unité', 'Prix unitaire',
-  'Bénéficiaire', 'Personne ayant payé', 'Mode de paiement', 'Référence', 'Commentaire',
-];
+const EXPENSE_HEADERS = ['Désignation', 'Montant'];
 const normalize = (value) => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -215,8 +212,11 @@ function styleCategoryHeadingRow(sheet, rowNumber, category) {
 }
 
 function styleExpenseHeaderRow(sheet, rowNumber) {
+  for (let columnNumber = 4; columnNumber <= MONTHLY_COLUMN_COUNT; columnNumber += 1) {
+    sheet.getCell(rowNumber, columnNumber).value = null;
+  }
   EXPENSE_HEADERS.forEach((header, index) => {
-    const cell = sheet.getCell(rowNumber, index + 4);
+    const cell = sheet.getCell(rowNumber, index + 5);
     cell.value = header;
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6EDF5' } };
     cell.font = { ...cell.font, bold: true, color: { argb: 'FF1D3553' } };
@@ -227,12 +227,12 @@ function styleExpenseHeaderRow(sheet, rowNumber) {
 }
 
 function styleExpenseDataRow(sheet, rowNumber) {
-  for (let columnNumber = 4; columnNumber <= MONTHLY_COLUMN_COUNT; columnNumber += 1) {
+  for (let columnNumber = 5; columnNumber <= 6; columnNumber += 1) {
     const cell = sheet.getCell(rowNumber, columnNumber);
     cell.border = { bottom: { style: 'hair', color: { argb: 'FFDDE4EA' } } };
     cell.alignment = { vertical: 'top', wrapText: true };
   }
-  for (const columnNumber of [6, 9]) sheet.getCell(rowNumber, columnNumber).numFmt = CURRENCY_FORMAT;
+  sheet.getCell(rowNumber, 6).numFmt = CURRENCY_FORMAT;
 }
 
 function clearBlankExpenseSideCells(sheet, firstRow, lastRow) {
@@ -370,11 +370,26 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   const extraIncomeSources = data.otherIncomes || [];
   const incomeInsertions = Math.max(0, extraIncomeSources.length - 3);
   const categorizedExpenses = Array.isArray(data.categories) || data.monthKey >= '2026-09';
+  const boutiqueExpenses = data.expenses.filter(
+    (expense) => resolvePriorityCategory(expense.category) === 'Compte boutique',
+  );
+  const displayedExpenses = boutiqueExpenses.length
+    ? [
+      ...data.expenses.filter(
+        (expense) => resolvePriorityCategory(expense.category) !== 'Compte boutique',
+      ),
+      {
+        title: 'Compte boutique',
+        amount: boutiqueExpenses.reduce((total, expense) => total + Number(expense.amount || 0), 0),
+        category: 'Compte boutique',
+      },
+    ]
+    : data.expenses;
   const expenseGroups = categorizedExpenses
-    ? groupExpensesByCategory(data.expenses, {
+    ? groupExpensesByCategory(displayedExpenses, {
       categories: data.categories,
       includeEmptyPriority: !Array.isArray(data.categories),
-    })
+    }).filter((group) => group.expenses.length > 0)
     : [];
   const protectedExpenseGroups = categorizedExpenses
     ? groupExpensesByCategory(data.protectedExpenses || [], {
@@ -387,7 +402,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   const groupRows = (groups) => groups.reduce((count, group) => count + group.expenses.length + 3, 0);
   const expenseRowCount = categorizedExpenses
     ? groupRows(expenseGroups) + (otherGroups.length ? 1 : 0)
-    : data.expenses.length;
+    : displayedExpenses.length;
   const protectedExpenseRowCount = categorizedExpenses
     ? groupRows(protectedExpenseGroups) + (otherProtectedGroups.length ? 1 : 0)
     : (data.protectedExpenses || []).length;
@@ -530,33 +545,13 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
       : `id:${group.categoryId}`
   );
   const writeExpense = (rowNumber, expense) => {
-    const date = expense.date instanceof Date
-      ? expense.date.toISOString().slice(0, 10)
-      : expense.date
-        ? String(expense.date).slice(0, 10)
-        : '';
-    const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(date)
-      ? new Date(`${date}T00:00:00.000Z`)
-      : '';
     const values = [
-      dateValue,
       expense.title || '',
       Number(expense.amount || 0),
-      expense.quantity ?? '',
-      expense.unit || '',
-      expense.unitPrice === null || expense.unitPrice === undefined || expense.unitPrice === ''
-        ? ''
-        : Number(expense.unitPrice),
-      expense.beneficiary || '',
-      expense.paidBy || '',
-      expense.paymentMethod || '',
-      expense.reference || '',
-      expense.comment || '',
     ];
     values.forEach((value, index) => {
-      sheet.getCell(rowNumber, index + 4).value = value;
+      sheet.getCell(rowNumber, index + 5).value = value;
     });
-    sheet.getCell(rowNumber, 4).numFmt = 'dd/mm/yyyy';
     styleExpenseDataRow(sheet, rowNumber);
   };
   const renderExpenseGroups = (groups, startRow, totalsByCategory) => {
@@ -600,7 +595,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     styleExpenseHeaderRow(sheet, 21 + rowShift);
     renderExpenseGroups(expenseGroups, expenseStartRow, categoryTotalRows);
   } else {
-    data.expenses.forEach((expense, index) => {
+    displayedExpenses.forEach((expense, index) => {
       const rowNumber = expenseStartRow + index;
       sheet.getCell(rowNumber, 4).value = expense.title;
       sheet.getCell(rowNumber, 5).value = Number(expense.amount);
@@ -608,7 +603,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     });
   }
   sheet.getCell(expenseTotalRow, 4).value = 'Total';
-  sheet.getCell(expenseTotalRow, 5).value = categorizedExpenses ? data.expenses.length : '';
+  sheet.getCell(expenseTotalRow, 5).value = categorizedExpenses ? displayedExpenses.length : '';
   const currentExpenseTotalCell = sheet.getCell(expenseTotalRow, categorizedExpenses ? 6 : 5);
   const expensesFormula = categorizedExpenses
     ? `SUM(${[...categoryTotalRows.values()].map((rowNumber) => `F${rowNumber}`).join(',') || '0'})`
@@ -691,7 +686,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     }
     summaryTotalRow = summaryRow;
     sheet.getCell(summaryTotalRow, 4).value = 'Total général des dépenses';
-    sheet.getCell(summaryTotalRow, 5).value = data.expenses.length + protectedExpenses.length;
+    sheet.getCell(summaryTotalRow, 5).value = displayedExpenses.length + protectedExpenses.length;
     const summaryRows = expenseGroups.length
       ? `SUM(F${summaryFirstRow}:F${summaryTotalRow - 1})`
       : '0';
