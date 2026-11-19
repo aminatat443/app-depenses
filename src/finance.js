@@ -962,11 +962,25 @@ router.post('/categories/:id/update', async (req, res) => {
   const before = await db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
   if (!before) return res.status(404).send('Catégorie introuvable.');
   if (before.type === 'boutique') return res.status(403).send('La catégorie du compte boutique ne peut pas être renommée.');
-  await db.prepare('UPDATE categories SET name = ?, color = ? WHERE id = ?').run(name, color, id);
-  const after = await db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
-  await writeAudit(req.user.id, 'category', id, 'update', before, after);
-  res.redirect('/categories');
+  await db.transaction(async () => {
+    await db.prepare('UPDATE categories SET name = ?, color = ? WHERE id = ?').run(name, color, id);
+    if (before.is_system && before.name !== name) {
+      await db.prepare('INSERT INTO category_seed_exclusions (name) VALUES (?) ON CONFLICT (name) DO NOTHING')
+        .run(before.name);
+      await db.prepare('DELETE FROM category_seed_exclusions WHERE name = ?').run(name);
+    }
+    const after = await db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+    await writeAudit(req.user.id, 'category', id, 'update', before, after);
+  });
+  res.redirect(categoryReturnPath(req.body?.return_to));
 });
+
+function categoryReturnPath(value) {
+  const requested = String(value || '');
+  return /^\/expenses\?month=\d{4}-(0[1-9]|1[0-2])$/.test(requested)
+    ? requested
+    : '/categories';
+}
 
 router.post('/categories/:id/delete', async (req, res, next) => {
   const id = Number(req.params.id);
@@ -981,10 +995,14 @@ router.post('/categories/:id/delete', async (req, res, next) => {
       if (!fallback || Number(fallback.id) === id) throw new Error('Catégorie de remplacement indisponible.');
       await db.prepare('UPDATE expenses SET category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE category_id = ?')
         .run(fallback.id, id);
+      if (category.is_system) {
+        await db.prepare('INSERT INTO category_seed_exclusions (name) VALUES (?) ON CONFLICT (name) DO NOTHING')
+          .run(category.name);
+      }
       await db.prepare('DELETE FROM categories WHERE id = ?').run(id);
       await writeAudit(req.user.id, 'category', id, 'delete', category, null);
     });
-    res.redirect('/categories');
+    res.redirect(categoryReturnPath(req.body?.return_to));
   } catch (error) {
     next(error);
   }

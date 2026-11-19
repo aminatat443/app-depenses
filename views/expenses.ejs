@@ -37,7 +37,13 @@
 
 <% if (categoryPresentation) { %>
 <section class="category-presentation" aria-label="Synthèse des catégories">
-  <div class="category-presentation-heading"><div><h2>Dépenses principales</h2><p>Présentation harmonisée à partir de septembre 2026.</p></div></div>
+  <div class="category-presentation-heading">
+    <div><h2>Dépenses principales</h2><p>Les cartes reflètent les catégories actuellement disponibles.</p></div>
+    <div class="category-presentation-actions">
+      <button class="button button-primary" type="button" data-modal-template="category-create"><span aria-hidden="true">＋</span> Créer une catégorie</button>
+      <a class="button button-subtle" href="/categories?return_to=%2Fexpenses%3Fmonth%3D<%= encodeURIComponent(monthKey) %>">Modifier ou supprimer</a>
+    </div>
+  </div>
   <div class="category-card-grid">
     <% categoryPresentation.priority.forEach((group) => { %>
       <article class="category-summary-card">
@@ -84,7 +90,10 @@
 <section class="panel-card page-table-card monthly-expense-history">
   <div class="panel-header">
     <div><h2>Liste des dépenses</h2><p>Dépenses ordinaires classées par date.</p></div>
-    <a class="text-link" href="/history">Tout l’historique <span aria-hidden="true">→</span></a>
+    <div class="expense-table-header-actions">
+      <button class="button button-primary" type="button" data-modal-template="expense-create" data-expense-month="<%= monthKey %>"><span aria-hidden="true">＋</span> Ajouter une dépense</button>
+      <a class="text-link" href="/history">Tout l’historique <span aria-hidden="true">→</span></a>
+    </div>
   </div>
   <form id="expense-bulk-form" class="expense-bulk-toolbar" method="POST" action="/expenses/bulk">
     <input type="hidden" name="month_key" value="<%= monthKey %>" />
@@ -158,4 +167,5 @@
 </section>
 
 <template id="expense-create"><%- include('partials/expense-form', { categories, expense: null, returnTo: '/expenses' }) %></template>
+<template id="category-create"><%- include('partials/category-form', { returnTo: `/expenses?month=${monthKey}` }) %></template>
 <%- include('partials/page-end') %>

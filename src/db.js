@@ -46,7 +46,7 @@ const db = {
       async run(...params) {
         const returnsId = /^\s*INSERT\b/i.test(sql)
           && !/\bRETURNING\b/i.test(sql)
-          && !/^\s*INSERT\s+INTO\s+(settings|user_sessions|monthly_revenues|monthly_balances)\b/i.test(sql);
+          && !/^\s*INSERT\s+INTO\s+(settings|user_sessions|monthly_revenues|monthly_balances|category_seed_exclusions)\b/i.test(sql);
         const statement = returnsId
           ? `${sql.trim().replace(/;$/, '')} RETURNING id`
           : sql;
@@ -142,6 +142,10 @@ async function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS category_seed_exclusions (
+      name TEXT PRIMARY KEY
     );
 
     CREATE TABLE IF NOT EXISTS users (
@@ -385,6 +389,8 @@ async function initializeDatabase() {
   ];
   await db.transaction(async () => {
     for (const [name, color] of defaults) {
+      const excluded = await db.prepare('SELECT 1 FROM category_seed_exclusions WHERE name = ?').get(name);
+      if (excluded) continue;
       await db.prepare(`
         INSERT INTO categories (name, type, color, is_system)
         VALUES (?, 'ordinary', ?, TRUE)

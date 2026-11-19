@@ -4,6 +4,7 @@
   <p>Les catégories servent à classer les dépenses ordinaires.</p>
 </div>
 <form method="POST" action="/categories">
+  <% if (typeof returnTo !== 'undefined' && returnTo) { %><input type="hidden" name="return_to" value="<%= returnTo %>" /><% } %>
   <label>Nom
     <input type="text" name="name" required />
   </label>

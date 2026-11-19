@@ -1267,7 +1267,11 @@ app.get('/history', async (req, res) => {
 
 app.get('/categories', async (req, res) => {
   const categories = sortCategoriesForPresentation(await readCategories());
-  res.render('categories', { categories });
+  const requestedReturnTo = String(req.query.return_to || '');
+  const returnTo = /^\/expenses\?month=\d{4}-(0[1-9]|1[0-2])$/.test(requestedReturnTo)
+    ? requestedReturnTo
+    : '/categories';
+  res.render('categories', { categories, returnTo });
 });
 
 app.post('/categories', async (req, res) => {
@@ -1275,9 +1279,14 @@ app.post('/categories', async (req, res) => {
   const categoryName = String(name || '').trim();
   if (!categoryName || categoryName.length > 100) return res.status(400).send('Le nom de la catégorie est obligatoire (100 caractères maximum).');
   const categoryColor = /^#[0-9a-f]{6}$/i.test(String(color || '')) ? color : '#147967';
-  const result = await db.prepare('INSERT INTO categories (name, color, type) VALUES (?, ?, ?)').run(categoryName, categoryColor, 'ordinary');
-  await writeAudit(req.user.id, 'category', result.lastInsertRowid, 'create', null, { name: categoryName, color: categoryColor });
-  res.redirect('/categories');
+  await db.transaction(async () => {
+    const result = await db.prepare('INSERT INTO categories (name, color, type) VALUES (?, ?, ?)').run(categoryName, categoryColor, 'ordinary');
+    await db.prepare('DELETE FROM category_seed_exclusions WHERE name = ?').run(categoryName);
+    await writeAudit(req.user.id, 'category', result.lastInsertRowid, 'create', null, { name: categoryName, color: categoryColor });
+  });
+  const returnTo = String(req.body.return_to || '');
+  const expensesReturnTo = /^\/expenses\?month=\d{4}-(0[1-9]|1[0-2])$/.test(returnTo) ? returnTo : null;
+  res.redirect(expensesReturnTo || '/categories');
 });
 
 app.get('/monthly', async (req, res) => {

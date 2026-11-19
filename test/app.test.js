@@ -1489,6 +1489,7 @@ test('expenses page shows the selected month shop-account total', async () => {
     assert.equal(response.status, 200);
     assert.match(html, /Compte boutique du mois/);
     assert.match(html, /Liste des dépenses/);
+    assert.match(html, /class="expense-table-header-actions"[\s\S]*?data-expense-month="2027-12"/);
     assert.match(html, /data-live-search data-expense-list-search/);
     assert.match(html, /Rechercher dans la liste des dépenses/);
     assert.ok(html.includes(formattedTotal));
@@ -1508,20 +1509,118 @@ test('new expense categories appear in the filters and category summary on the n
     const createResponse = await authedFetch(`${baseUrl}/categories`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ name: categoryName, color: '#147967' }),
+      body: new URLSearchParams({
+        name: categoryName,
+        color: '#147967',
+        return_to: '/expenses?month=2026-11',
+      }),
       redirect: 'manual',
     });
     assert.equal(createResponse.status, 302);
+    assert.equal(createResponse.headers.get('location'), '/expenses?month=2026-11');
     const category = await db.prepare('SELECT id FROM categories WHERE name = ?').get(categoryName);
     assert.ok(category);
 
     const expensesResponse = await authedFetch(`${baseUrl}/expenses?month=2026-11`);
     const expensesHtml = await expensesResponse.text();
+    assert.match(expensesHtml, /data-modal-template="category-create"/);
+    assert.match(expensesHtml, /href="\/categories\?return_to=%2Fexpenses%3Fmonth%3D2026-11">Modifier ou supprimer/);
+    assert.match(expensesHtml, /name="return_to" value="\/expenses\?month=2026-11"/);
     assert.match(expensesHtml, new RegExp(`<option value="${category.id}"\\s*>${categoryName}</option>`));
     assert.match(expensesHtml, new RegExp(`<h3>${categoryName}</h3>`));
     assert.match(expensesHtml, /0\sFCFA/u);
+    const managementHtml = await (await authedFetch(
+      `${baseUrl}/categories?return_to=${encodeURIComponent('/expenses?month=2026-11')}`,
+    )).text();
+    assert.match(managementHtml, /data-modal-return="\/expenses\?month=2026-11"/);
+    assert.match(managementHtml, /name="return_to" value="\/expenses\?month=2026-11"/);
+
+    const updatedName = 'Catégorie dynamique modifiée';
+    const updateResponse = await authedFetch(`${baseUrl}/categories/${category.id}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        name: updatedName,
+        color: '#147967',
+        return_to: '/expenses?month=2026-11',
+      }),
+      redirect: 'manual',
+    });
+    assert.equal(updateResponse.status, 302);
+    assert.equal(updateResponse.headers.get('location'), '/expenses?month=2026-11');
+    const updatedHtml = await (await authedFetch(`${baseUrl}/expenses?month=2026-11`)).text();
+    assert.match(updatedHtml, new RegExp(`<h3>${updatedName}</h3>`));
+    assert.doesNotMatch(updatedHtml, new RegExp(`<h3>${categoryName}</h3>`));
+
+    const deleteResponse = await authedFetch(`${baseUrl}/categories/${category.id}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ return_to: '/expenses?month=2026-11' }),
+      redirect: 'manual',
+    });
+    assert.equal(deleteResponse.status, 302);
+    assert.equal(deleteResponse.headers.get('location'), '/expenses?month=2026-11');
+    const deletedHtml = await (await authedFetch(`${baseUrl}/expenses?month=2026-11`)).text();
+    assert.doesNotMatch(deletedHtml, new RegExp(`<h3>${updatedName}</h3>`));
+    assert.match(deletedHtml, /Autres dépenses/);
   } finally {
-    await db.prepare('DELETE FROM categories WHERE name = ?').run(categoryName);
+    await db.prepare('DELETE FROM categories WHERE name IN (?, ?)').run(categoryName, 'Catégorie dynamique modifiée');
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('deleting a default category reassigns its expenses and keeps it deleted after initialization', async () => {
+  const categoryName = 'Facture Wi-Fi';
+  const renamedCategoryName = 'Facture Wi-Fi modifiée';
+  const fallback = await db.prepare("SELECT id FROM categories WHERE name = 'Autres dépenses'").get();
+  const category = await db.prepare('SELECT id FROM categories WHERE name = ?').get(categoryName);
+  assert.ok(category);
+  const expense = await db.prepare(`
+    INSERT INTO expenses (title, category_id, amount, expense_date)
+    VALUES ('Dépense catégorie supprimée', ?, 1250, '2026-11-19')
+  `).run(category.id);
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    const updateResponse = await authedFetch(`${baseUrl}/categories/${category.id}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ name: renamedCategoryName, color: '#147967' }),
+      redirect: 'manual',
+    });
+    assert.equal(updateResponse.status, 302);
+
+    const response = await authedFetch(`http://127.0.0.1:${port}/categories/${category.id}/delete`, {
+      method: 'POST',
+      redirect: 'manual',
+    });
+    assert.equal(response.status, 302);
+    assert.equal(
+      Number((await db.prepare('SELECT category_id FROM expenses WHERE id = ?').get(expense.lastInsertRowid)).category_id),
+      Number(fallback.id),
+    );
+    assert.equal(await db.prepare('SELECT id FROM categories WHERE name = ?').get(categoryName), undefined);
+
+    await initializeDatabase();
+    assert.equal(await db.prepare('SELECT id FROM categories WHERE name = ?').get(categoryName), undefined);
+    assert.equal(await db.prepare('SELECT id FROM categories WHERE name = ?').get(renamedCategoryName), undefined);
+
+    const recreated = await authedFetch(`http://127.0.0.1:${port}/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ name: categoryName, color: '#147967' }),
+      redirect: 'manual',
+    });
+    assert.equal(recreated.status, 302);
+    await initializeDatabase();
+    assert.ok(await db.prepare('SELECT id FROM categories WHERE name = ?').get(categoryName));
+  } finally {
+    await db.prepare('DELETE FROM expenses WHERE id = ?').run(expense.lastInsertRowid);
+    await db.prepare('DELETE FROM categories WHERE name IN (?, ?)').run(categoryName, renamedCategoryName);
+    await db.prepare('DELETE FROM category_seed_exclusions WHERE name IN (?, ?)').run(categoryName, renamedCategoryName);
+    await initializeDatabase();
     await new Promise((resolve) => server.close(resolve));
   }
 });

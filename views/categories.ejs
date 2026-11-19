@@ -21,13 +21,14 @@
             <% if (category.type === 'boutique' || category.name === 'Autres dépenses') { %>
               <span class="category-default-note"><%= category.type === 'boutique' ? 'Compte boutique' : 'Catégorie de remplacement' %></span>
             <% } else { %>
-              <button class="table-action icon-action danger" type="button" aria-label="Supprimer la catégorie <%= category.name %>" title="Supprimer" data-modal-confirm="/categories/<%= category.id %>/delete" data-modal-title="Supprimer cette catégorie ?" data-modal-message="Les dépenses associées seront reclassées dans « Autres dépenses »." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
+              <button class="table-action icon-action danger" type="button" aria-label="Supprimer la catégorie <%= category.name %>" title="Supprimer" data-modal-confirm="/categories/<%= category.id %>/delete" data-modal-return="<%= returnTo %>" data-modal-title="Supprimer cette catégorie ?" data-modal-message="Les dépenses associées seront reclassées dans « Autres dépenses »." data-modal-submit="Supprimer" data-modal-danger="true"><%- include('partials/action-icon', { icon: 'delete' }) %></button>
             <% } %>
           </div>
           <% if (category.type !== 'boutique') { %>
             <template id="category-edit-<%= category.id %>">
               <div class="modal-heading"><span class="eyebrow">PERSONNALISATION</span><h2>Modifier la catégorie</h2></div>
               <form method="POST" action="/categories/<%= category.id %>/update">
+                <input type="hidden" name="return_to" value="<%= returnTo %>" />
                 <label>Nom<input type="text" name="name" value="<%= category.name %>" maxlength="100" required /></label>
                 <label>Couleur<input type="color" name="color" value="<%= category.color || '#147967' %>" /></label>
                 <div class="modal-actions"><button type="button" class="secondary-btn" data-close-modal>Annuler</button><button type="submit" class="primary-btn">Enregistrer</button></div>
@@ -42,5 +43,5 @@
   <% } %>
 </section>
 
-<template id="category-create"><%- include('partials/category-form') %></template>
+<template id="category-create"><%- include('partials/category-form', { returnTo }) %></template>
 <%- include('partials/page-end') %>
