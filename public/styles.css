@@ -4280,3 +4280,21 @@ html[data-theme="dark"] .expense-live-search input {
   white-space: nowrap;
 }
 .monthly-expense-history td.table-actions .icon-action { flex: 0 0 30px; }
+.expense-row-title {
+  display: block;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.monthly-expense-history .transactions-table td,
+.expense-history-table td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  line-height: 1.35;
+}
+@media (max-width: 680px) {
+  .expense-row-title { max-width: 180px; }
+  .monthly-expense-history .transactions-table td,
+  .expense-history-table td { padding-top: 10px; padding-bottom: 10px; }
+}

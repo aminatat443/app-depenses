@@ -93,7 +93,7 @@ test('categories created later are sorted into priority or extra positions', () 
   ]);
 });
 
-test('expense category display matches the configured Render category list and omits missing defaults', () => {
+test('expense category display follows current categories and omits missing defaults', () => {
   const categories = [
     { id: 1, name: 'Dépenses alimentaires' },
     { id: 2, name: 'Eau' },
@@ -113,11 +113,13 @@ test('expense category display matches the configured Render category list and o
     groceryItems: [{ id: 7, item_name: 'Riz', total_amount: 1200 }],
   }), categories);
 
-  assert.deepEqual(presentation.priority.map((group) => group.heading), ['Alimentaire', 'Compte boutique']);
+  assert.deepEqual(presentation.priority.map((group) => group.heading), ['Alimentaire', 'Eau', 'Compte boutique']);
   assert.equal(presentation.priority[0].total, 1000);
-  assert.equal(presentation.priority[1].total, 1200);
+  assert.equal(presentation.priority[1].total, 500);
+  assert.equal(presentation.priority[2].total, 1200);
   assert.deepEqual(presentation.extras.map((group) => group.heading), [
     'Alimentation des animaux',
     'Autres dépenses',
+    'Loisirs',
   ]);
 });

@@ -26,23 +26,6 @@ const ICONS = {
   'Transport': '🚌',
 };
 
-const DISPLAYED_CATEGORY_NAMES = new Set([
-  'achats alimentaires complémentaires',
-  'Dépenses alimentaires',
-  'Compte boutique',
-  'Scolarité et frais éducatifs',
-  'Hygiène et beauté',
-  'Aumônes et dons',
-  'Réparations et entretien de la maison',
-  'Santé',
-  'Transport',
-  'Alimentation des animaux',
-  'Autres dépenses',
-  'Dépenses exceptionnelles',
-  'Depenses imprevues',
-  'Factures',
-].map(normalizeCategoryName));
-
 function normalizeCategoryName(value) {
   return String(value || '')
     .normalize('NFD')
@@ -172,10 +155,10 @@ function buildCategoryPresentation({ monthKey = '', categories = [], expenses = 
 }
 
 function filterCategoryPresentation(presentation, categories) {
-  const displayedCategories = (categories || [])
-    .filter((category) => DISPLAYED_CATEGORY_NAMES.has(normalizeCategoryName(category.name)));
-  const categoryIsDisplayed = (name) => DISPLAYED_CATEGORY_NAMES.has(normalizeCategoryName(name));
-  const displayedDetails = (details) => details.filter((item) => categoryIsDisplayed(
+  const displayedCategories = categories || [];
+  const categoryIsAvailable = (name) => displayedCategories.some((category) =>
+    normalizeCategoryName(category.name) === normalizeCategoryName(name));
+  const displayedDetails = (details) => details.filter((item) => categoryIsAvailable(
     item.grocery ? 'Compte boutique' : (item.category_name || item.category),
   ));
   const totalFor = (details) => details.reduce((sum, item) =>
@@ -212,8 +195,7 @@ function filterCategoryPresentation(presentation, categories) {
         count: details.length,
       };
     })
-    .filter((group) => displayedCategories.some((category) =>
-      normalizeCategoryName(category.name) === normalizeCategoryName(group.heading)));
+    .filter((group) => categoryIsAvailable(group.heading));
 
   return { ...presentation, priority, extras };
 }

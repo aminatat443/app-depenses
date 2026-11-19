@@ -109,7 +109,7 @@
             <tr data-modal-template="expense-details-<%= row.id %>" tabindex="0" aria-label="Afficher le détail de <%= row.title %>">
               <td class="expense-select-cell"><input type="checkbox" name="expense_ids" value="<%= row.id %>" form="expense-bulk-form" aria-label="Sélectionner <%= row.title %>" data-expense-select /></td>
               <td class="date-cell"><%= row.expense_date ? formatDate(row.expense_date) : 'Sans date' %></td>
-              <td><strong><%= row.title %></strong><% if (row.funding_source === 'protected_savings') { %><small class="page-note">Payée depuis l’épargne protégée</small><% } %></td>
+              <td><strong class="expense-row-title" title="<%= row.title %>"><%= row.title %></strong><% if (row.funding_source === 'protected_savings') { %><small class="page-note">Payée depuis l’épargne protégée</small><% } %></td>
               <td><span class="category-pill"><%= row.category_name %></span></td>
               <td><%= row.beneficiary || '—' %></td>
               <td><%= row.reference || '—' %></td>

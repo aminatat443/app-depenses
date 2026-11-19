@@ -592,11 +592,14 @@ app.get('/', async (req, res) => {
     : getMonthKey(today.getFullYear(), today.getMonth() + 1);
   const requestedPeriod = Number(req.query.period);
   const period = [3, 6, 12].includes(requestedPeriod) ? requestedPeriod : 6;
-  const [dashboard, categories, finance] = await Promise.all([
+  const [dashboard, allCategories, finance] = await Promise.all([
     currentDashboard(monthKey, period),
     readCategories(),
     getMonthlyFinance(monthKey),
   ]);
+  const categories = sortCategoriesForPresentation(
+    allCategories.filter((category) => category.type !== 'boutique'),
+  );
   res.render('index', { dashboard, categories, finance });
 });
 
@@ -743,7 +746,9 @@ app.post('/groceries/:id/delete', async (req, res) => {
 app.get('/expenses', async (req, res) => {
   const search = (req.query.search || '').toString().trim();
   const allCategories = await readCategories();
-  const categories = allCategories.filter((category) => category.type !== 'boutique');
+  const categories = sortCategoriesForPresentation(
+    allCategories.filter((category) => category.type !== 'boutique'),
+  );
   const today = new Date();
   const requestedMonth = (req.query.month || '').toString();
   const monthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)
@@ -1240,7 +1245,9 @@ app.get('/history', async (req, res) => {
     `).all(...editableGroceryIds)
     : [];
   const editableGroceriesById = Object.fromEntries(editableGroceries.map((grocery) => [grocery.id, grocery]));
-  const categories = (await readCategories()).filter((category) => category.type !== 'boutique');
+  const categories = sortCategoriesForPresentation(
+    (await readCategories()).filter((category) => category.type !== 'boutique'),
+  );
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
   const pageUrl = (pageNumber) => {
     const queryParams = new URLSearchParams();
@@ -1340,7 +1347,9 @@ app.get('/monthly', async (req, res) => {
     totalGeneral: totalGroceries + totalOther,
     finance,
     categoryPresentation,
-    categories: allCategories.filter((category) => category.type !== 'boutique'),
+    categories: sortCategoriesForPresentation(
+      allCategories.filter((category) => category.type !== 'boutique'),
+    ),
   });
 });
 

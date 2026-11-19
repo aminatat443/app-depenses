@@ -51,7 +51,7 @@
   </form>
   <% if (operationList.length) { %>
     <div class="table-wrap">
-      <table class="transactions-table">
+      <table class="transactions-table expense-history-table">
         <thead><tr><th class="expense-select-cell"><input type="checkbox" aria-label="Tout sélectionner sur cette page" data-expense-select-all /></th><th>DATE</th><th>OPÉRATION</th><th>TYPE</th><th>CATÉGORIE</th><th class="amount-cell">MONTANT</th><th></th></tr></thead>
         <tbody>
           <% operationList.forEach((item) => { %>
@@ -71,7 +71,7 @@
             <tr data-row-href="<%= rowHref %>" tabindex="0" aria-label="Ouvrir <%= item.title %>">
               <td class="expense-select-cell"><% if (item.type === 'expense' && item.funding_source !== 'protected_savings') { %><input type="checkbox" name="expense_ids" value="<%= item.id %>" form="expense-bulk-form" aria-label="Sélectionner <%= item.title %>" data-expense-select /><% } %></td>
               <td class="date-cell"><%= item.date ? formatDate(item.date) : 'Sans date' %></td>
-              <td><strong><%= item.title %></strong><% if (item.funding_source === 'protected_savings') { %><small class="page-note">Payée depuis l’épargne protégée</small><% } %></td>
+              <td><strong class="expense-row-title" title="<%= item.title %>"><%= item.title %></strong><% if (item.funding_source === 'protected_savings') { %><small class="page-note">Payée depuis l’épargne protégée</small><% } %></td>
               <td><%= item.funding_source === 'protected_savings' ? 'Dépense protégée' : ({ expense: 'Dépense', grocery: 'Ravitaillement', income: 'Recette', rent: 'Loyer encaissé', savings: 'Épargne' })[item.type] %></td>
               <td><span class="category-pill"><%= item.category %></span></td>
               <td class="amount-cell"><strong><%= formatCurrency(item.amount) %></strong></td>

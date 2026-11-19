@@ -1498,6 +1498,34 @@ test('expenses page shows the selected month shop-account total', async () => {
   }
 });
 
+test('new expense categories appear in the filters and category summary on the next page load', async () => {
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const categoryName = 'Catégorie dynamique dépenses';
+
+  try {
+    const createResponse = await authedFetch(`${baseUrl}/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ name: categoryName, color: '#147967' }),
+      redirect: 'manual',
+    });
+    assert.equal(createResponse.status, 302);
+    const category = await db.prepare('SELECT id FROM categories WHERE name = ?').get(categoryName);
+    assert.ok(category);
+
+    const expensesResponse = await authedFetch(`${baseUrl}/expenses?month=2026-11`);
+    const expensesHtml = await expensesResponse.text();
+    assert.match(expensesHtml, new RegExp(`<option value="${category.id}"\\s*>${categoryName}</option>`));
+    assert.match(expensesHtml, new RegExp(`<h3>${categoryName}</h3>`));
+    assert.match(expensesHtml, /0\sFCFA/u);
+  } finally {
+    await db.prepare('DELETE FROM categories WHERE name = ?').run(categoryName);
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test('historical import backs up before one-time cleanup, filters dates and flags reimport duplicates', async () => {
   const categoryId = (await db.prepare('SELECT id FROM categories ORDER BY id LIMIT 1').get()).id;
   await db.prepare(`
