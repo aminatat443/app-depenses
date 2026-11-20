@@ -151,14 +151,14 @@ test('expanded category expenses do not leave yellow blank cells beside the expe
   const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
   const sheet = workbook.getWorksheet('Septembre');
 
-  const firstExpenseRow = findCellRow(sheet, 5, 'Dépense 1');
+  const firstExpenseRow = findCellRow(sheet, 4, 'Dépense 1');
   const expenseTotalRow = findCellRow(sheet, 4, 'Total');
   assert.ok(firstExpenseRow);
   assert.ok(expenseTotalRow);
-  assert.equal(sheet.getCell(firstExpenseRow, 6).value, 1_000);
-  assert.equal(sheet.getCell(expenseTotalRow, 6).value.result, 25_000);
+  assert.equal(sheet.getCell(firstExpenseRow, 5).value, 1_000);
+  assert.equal(sheet.getCell(expenseTotalRow, 5).value.result, 25_000);
   assert.equal(sheet.getCell('A22').value, 'Restant');
-  assert.equal(sheet.getCell('B22').value.formula, `B24-F${expenseTotalRow}`);
+  assert.equal(sheet.getCell('B22').value.formula, `B24-E${expenseTotalRow}`);
   assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
   assert.equal(sheet.getCell('B30').value, 0);
   for (let rowNumber = 21; rowNumber <= expenseTotalRow; rowNumber += 1) {
@@ -250,24 +250,24 @@ test('exports from September 2026 group expenses by category with separate total
 
   const wifiRow = findCellRow(septemberSheet, 4, 'Wifi');
   assert.ok(wifiRow);
-  assert.equal(septemberSheet.getCell(wifiRow + 1, 5).value, 'Désignation');
-  assert.equal(septemberSheet.getCell(wifiRow + 1, 6).value, 'Montant');
-  assert.equal(septemberSheet.getCell(wifiRow + 2, 5).value, 'Facture internet');
-  assert.equal(septemberSheet.getCell(wifiRow + 2, 6).value, 12_000);
-  assert.equal(septemberSheet.getCell(wifiRow + 3, 5).value, 'Abonnement');
-  assert.equal(septemberSheet.getCell(wifiRow + 3, 6).value, 8_000);
-  assert.equal(septemberSheet.getCell(wifiRow + 4, 5).value, 'Total Wifi');
-  assert.equal(septemberSheet.getCell(wifiRow + 4, 6).value.result, 20_000);
+  assert.equal(septemberSheet.getCell(wifiRow + 1, 4).value, 'Désignation');
+  assert.equal(septemberSheet.getCell(wifiRow + 1, 5).value, 'Montant');
+  assert.equal(septemberSheet.getCell(wifiRow + 2, 4).value, 'Facture internet');
+  assert.equal(septemberSheet.getCell(wifiRow + 2, 5).value, 12_000);
+  assert.equal(septemberSheet.getCell(wifiRow + 3, 4).value, 'Abonnement');
+  assert.equal(septemberSheet.getCell(wifiRow + 3, 5).value, 8_000);
+  assert.equal(septemberSheet.getCell(wifiRow + 4, 4).value, 'Total Wifi');
+  assert.equal(septemberSheet.getCell(wifiRow + 4, 5).value.result, 20_000);
   const otherCategoryRow = findCellRow(septemberSheet, 4, 'Autres dépenses');
   assert.equal(findCellRow(septemberSheet, 4, 'Autres catégories'), null);
   assert.ok(otherCategoryRow);
-  assert.equal(septemberSheet.getCell(otherCategoryRow + 1, 5).value, 'Désignation');
-  assert.equal(septemberSheet.getCell(otherCategoryRow + 2, 5).value, 'Achat urgent');
-  assert.equal(septemberSheet.getCell(otherCategoryRow + 3, 6).value.result, 3_000);
+  assert.equal(septemberSheet.getCell(otherCategoryRow + 1, 4).value, 'Désignation');
+  assert.equal(septemberSheet.getCell(otherCategoryRow + 2, 4).value, 'Achat urgent');
+  assert.equal(septemberSheet.getCell(otherCategoryRow + 3, 5).value.result, 3_000);
 
   assert.ok(expenseTotalRow);
   assert.equal(expenseTotalRow, otherCategoryRow + 4);
-  assert.equal(septemberSheet.getCell(expenseTotalRow, 6).value.result, 23_000);
+  assert.equal(septemberSheet.getCell(expenseTotalRow, 5).value.result, 23_000);
   const protectedSectionRow = findCellRow(
     septemberSheet,
     4,
@@ -276,8 +276,8 @@ test('exports from September 2026 group expenses by category with separate total
   assert.ok(protectedSectionRow);
   assert.equal(protectedSectionRow, expenseTotalRow + 1);
   assert.equal(septemberSheet.getCell(protectedSectionRow + 1, 4).value, 'Santé');
-  assert.equal(septemberSheet.getCell(protectedSectionRow + 5, 6).value.result, 7_000);
-  assert.equal(septemberSheet.getCell(protectedSectionRow + 6, 6).value.result, 7_000);
+  assert.equal(septemberSheet.getCell(protectedSectionRow + 5, 5).value.result, 7_000);
+  assert.equal(septemberSheet.getCell(protectedSectionRow + 6, 5).value.result, 7_000);
   const summaryTotalRow = findCellRow(septemberSheet, 4, 'Total général des dépenses');
   assert.ok(summaryTotalRow);
   assert.equal(septemberSheet.getCell(summaryTotalRow, 5).value, 5);
@@ -354,32 +354,35 @@ test('live categories show only expense categories and retain the monthly grand 
   });
 
   const foodRow = findCellRow(sheet, 4, 'Alimentaire');
-  assert.equal(sheet.getCell(foodRow + 1, 5).value, 'Désignation');
-  assert.equal(sheet.getCell(foodRow + 1, 6).value, 'Montant');
-  assert.equal(sheet.getCell(foodRow + 2, 4).value, null);
-  assert.equal(sheet.getCell(foodRow + 2, 5).value, 'Achat de riz');
-  assert.equal(sheet.getCell(foodRow + 2, 6).value, 25_000);
-  assert.equal(sheet.getCell(foodRow + 2, 7).value, null);
-  assert.equal(sheet.getCell(foodRow + 2, 8).value, null);
-  assert.equal(sheet.getCell(foodRow + 2, 9).value, null);
-  assert.equal(sheet.getCell(foodRow + 2, 10).value, null);
-  assert.equal(sheet.getCell(foodRow + 2, 11).value, null);
-  assert.equal(sheet.getCell(foodRow + 2, 12).value, null);
-  assert.equal(sheet.getCell(foodRow + 2, 13).value, null);
-  assert.equal(sheet.getCell(foodRow + 2, 14).value, null);
-  assert.equal(sheet.getCell(foodRow + 4, 6).value.result, 37_000);
+  assert.equal(sheet.getCell(foodRow, 4).fill.fgColor.argb, 'FF385623');
+  assert.equal(sheet.getCell(foodRow, 4).font.color.argb, 'FFFFFFFF');
+  assert.equal(sheet.getCell(foodRow + 1, 4).value, 'Désignation');
+  assert.equal(sheet.getCell(foodRow + 1, 5).value, 'Montant');
+  assert.equal(sheet.getCell(foodRow + 1, 4).fill.fgColor.argb, 'FF385623');
+  assert.equal(sheet.getCell(foodRow + 1, 4).font.color.argb, 'FFFFFFFF');
+  assert.equal(sheet.getCell(foodRow + 2, 4).value, 'Achat de riz');
+  assert.equal(sheet.getCell(foodRow + 2, 5).value, 25_000);
+  assert.equal(sheet.getCell(foodRow + 4, 5).value.result, 37_000);
 
   const customRow = findCellRow(sheet, 4, 'Catégorie personnalisée');
   assert.equal(findCellRow(sheet, 4, 'Autres catégories'), null);
   assert.ok(customRow);
-  assert.equal(sheet.getCell(customRow + 1, 5).value, 'Désignation');
-  assert.equal(sheet.getCell(customRow + 2, 5).value, 'Dépense personnalisée');
+  assert.equal(sheet.getCell(customRow + 1, 4).value, 'Désignation');
+  assert.equal(sheet.getCell(customRow + 2, 4).value, 'Dépense personnalisée');
 
   const summaryTotalRow = findCellRow(sheet, 4, 'Total général des dépenses');
-  assert.equal(sheet.getCell(totalRow, 5).value, 3);
-  assert.equal(sheet.getCell(totalRow, 6).value.result, 40_000);
+  const summaryTitleRow = findCellRow(sheet, 4, 'Récapitulatif des dépenses par catégorie');
+  assert.equal(sheet.getCell(summaryTitleRow + 1, 4).fill.fgColor.argb, 'FF385623');
+  assert.equal(sheet.getCell(totalRow, 5).value.result, 40_000);
   assert.equal(sheet.getCell(summaryTotalRow, 5).value, 3);
   assert.equal(sheet.getCell(summaryTotalRow, 6).value.result, 40_000);
+  for (const rowNumber of [foodRow + 1, foodRow + 2, foodRow + 4, totalRow]) {
+    for (let columnNumber = 6; columnNumber <= 14; columnNumber += 1) {
+      const cell = sheet.getCell(rowNumber, columnNumber);
+      assert.ok(!cell.fill || cell.fill.pattern === 'none');
+      assert.deepEqual(cell.border || {}, {});
+    }
+  }
 });
 
 test('exports consolidate boutique purchases into one designation and amount', async () => {
@@ -409,11 +412,11 @@ test('exports consolidate boutique purchases into one designation and amount', a
     if (month.monthKey >= '2026-09') {
       const boutiqueRow = findCellRow(sheet, 4, 'Compte boutique');
       assert.ok(boutiqueRow);
-      assert.equal(sheet.getCell(boutiqueRow + 1, 5).value, 'Désignation');
-      assert.equal(sheet.getCell(boutiqueRow + 1, 6).value, 'Montant');
-      assert.equal(sheet.getCell(boutiqueRow + 2, 5).value, 'Compte boutique');
-      assert.equal(sheet.getCell(boutiqueRow + 2, 6).value, 12_000);
-      assert.equal(sheet.getCell(boutiqueRow + 3, 6).value.result, 12_000);
+      assert.equal(sheet.getCell(boutiqueRow + 1, 4).value, 'Désignation');
+      assert.equal(sheet.getCell(boutiqueRow + 1, 5).value, 'Montant');
+      assert.equal(sheet.getCell(boutiqueRow + 2, 4).value, 'Compte boutique');
+      assert.equal(sheet.getCell(boutiqueRow + 2, 5).value, 12_000);
+      assert.equal(sheet.getCell(boutiqueRow + 3, 5).value.result, 12_000);
     } else {
       assert.equal(sheet.getCell('D22').value, 'Compte boutique');
       assert.equal(sheet.getCell('E22').value, 12_000);
@@ -425,13 +428,14 @@ test('exports consolidate boutique purchases into one designation and amount', a
   }
 });
 
-test('carryover is always visible but only included in the exported balance when selected', async () => {
+test('unchecked exports show the prior month balance without its carryover', async () => {
   const month = monthData({
     monthKey: '2026-04',
     monthLabel: 'Avril',
     previousMonthLabel: 'Mars',
     incomeTotal: 680_000,
     openingBalance: 10_650,
+    openingBalanceWithoutCarryover: 650,
     resourcesAvailable: 690_650,
     expenses: [{ title: 'Dépense test', amount: 630_000 }],
     totalExpenses: 630_000,
@@ -446,10 +450,11 @@ test('carryover is always visible but only included in the exported balance when
 
   for (const sheet of [excludedSheet, includedSheet]) {
     assert.equal(sheet.getCell('A23').value, 'Restant du mois dernier');
-    assert.equal(sheet.getCell('B23').value, 10_650);
     assert.equal(sheet.getRow(23).hidden, false);
     assert.equal(sheet.getCell('B22').value.formula.startsWith('B24-E'), true);
   }
+  assert.equal(excludedSheet.getCell('B23').value, 650);
+  assert.equal(includedSheet.getCell('B23').value, 10_650);
   assert.equal(excludedSheet.getCell('B24').value.formula, 'B21');
   assert.equal(excludedSheet.getRow(24).hidden, true);
   assert.equal(excludedSheet.getCell('B24').value.result, 680_000);
@@ -480,6 +485,7 @@ test('carryover is always visible but only included in the exported balance when
   assert.equal(annualExcluded.getWorksheet('Récapitulatif annuel').getCell('F6').value.result, 50_000);
   assert.equal(annualIncluded.getWorksheet('Récapitulatif annuel').getCell('F6').value.result, 60_650);
   assert.equal(annualExcluded.getWorksheet('Avril').getCell('A23').value, 'Restant du mois dernier');
+  assert.equal(annualExcluded.getWorksheet('Avril').getCell('B23').value, 650);
   assert.equal(annualIncluded.getWorksheet('Avril').getCell('B23').value, 10_650);
 });
 

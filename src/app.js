@@ -2254,8 +2254,19 @@ async function getReferenceMonthData(year, month) {
   const previousMonthKey = `${previousDate.getUTCFullYear()}-${String(previousDate.getUTCMonth() + 1).padStart(2, '0')}`;
   const monthLabel = MONTH_NAMES[month - 1];
   const previousMonthLabel = `${MONTH_NAMES[previousDate.getUTCMonth()]}${previousDate.getUTCFullYear() === year ? '' : ` ${previousDate.getUTCFullYear()}`}`;
-  const [finance, tenants, incomes, monthlyRevenue, rentPayments, expenses, groceries, categories] = await Promise.all([
+  const [
+    finance,
+    previousFinance,
+    tenants,
+    incomes,
+    monthlyRevenue,
+    rentPayments,
+    expenses,
+    groceries,
+    categories,
+  ] = await Promise.all([
     getMonthlyFinance(monthKey),
+    getMonthlyFinance(previousMonthKey),
     db.prepare(`
       SELECT t.id, u.floor, u.label, u.housing_type, t.first_name, t.last_name,
         t.people_count,
@@ -2403,6 +2414,8 @@ async function getReferenceMonthData(year, month) {
     otherIncomes,
     incomeTotal: Number(finance.incomeTotal),
     openingBalance: Number(finance.openingBalance),
+    openingBalanceWithoutCarryover: Number(previousFinance.closingBalance)
+      - Number(previousFinance.openingBalance),
     resourcesAvailable: Number(finance.resourcesAvailable),
     savingsBalance: Number(finance.protectedSavingsBalance),
     savingsDeposits: Number(finance.savingsDeposits),
