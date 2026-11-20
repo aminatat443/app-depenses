@@ -4013,7 +4013,6 @@ html[data-theme="dark"] .app-page-area .page-filter-card {
 }
 
 @media (max-width: 1024px) {
-  body.mobile-nav-open .mobile-sidebar-toggle { z-index: 101; }
   .mobile-sidebar-toggle {
     position: fixed;
     z-index: 98;
@@ -4384,3 +4383,82 @@ html[data-theme="dark"] .expense-live-search input {
 .category-select-option:focus-visible,
 .category-select-option[aria-selected="true"] { outline: 0; background: var(--color-bg-secondary); }
 .category-search-feedback { min-height: 12px; color: var(--color-muted); font-size: 10px; }
+.mobile-list-toggle,
+.transactions-table .mobile-list-generated-action,
+.transactions-table td.mobile-list-generated-only { display: none; }
+
+@media (max-width: 1024px) {
+  .mobile-list-toggle {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg);
+    color: var(--color-muted);
+  }
+  .mobile-list-toggle svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    transition: transform .18s ease;
+  }
+  .mobile-list-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  .mobile-list-item[aria-expanded="true"] .mobile-list-toggle svg { transform: rotate(180deg); }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    cursor: pointer;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item:not(.mobile-list-expanded) > td.mobile-list-detail {
+    display: none !important;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item > td.mobile-list-summary {
+    display: block !important;
+    min-width: 0;
+    grid-column: auto !important;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item > td.mobile-list-primary {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    grid-column: 1 !important;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item > td.mobile-list-summary::before {
+    display: none !important;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item > td.mobile-list-amount {
+    justify-self: end;
+    text-align: right !important;
+    white-space: nowrap;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item.mobile-list-expanded > td.mobile-list-actions {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-end;
+    grid-column: 1 / -1 !important;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item.mobile-list-expanded > td.mobile-list-actions .table-actions {
+    justify-content: flex-end;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item.mobile-list-expanded .mobile-list-generated-action {
+    display: grid;
+  }
+  .income-entry.mobile-list-item { cursor: pointer; }
+  .income-entry.mobile-list-item:not(.mobile-list-expanded) .mobile-list-detail,
+  .category-settings-row.mobile-list-item:not(.mobile-list-expanded) .mobile-list-detail {
+    display: none !important;
+  }
+  .income-entry.mobile-list-expanded .income-entry-copy .mobile-list-detail { display: block !important; }
+  .income-entry.mobile-list-expanded .income-entry-actions { display: flex !important; }
+  .category-settings-row.mobile-list-item { cursor: pointer; }
+  .category-settings-row.mobile-list-expanded .table-actions { display: flex !important; }
+  .category-settings-row.mobile-list-expanded .category-default-note { display: inline-flex !important; }
+}

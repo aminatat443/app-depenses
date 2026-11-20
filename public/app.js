@@ -127,39 +127,181 @@
     }
   };
 
+  const sidebarDrawerQuery = window.matchMedia('(max-width: 1024px)');
+  const mobileListLabel = (cell) => (cell.dataset.label || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const addListAction = (row, actionCell, label, urlOrTemplate, isLink = false) => {
+    let targetCell = actionCell;
+    if (!targetCell) {
+      targetCell = row.insertCell(-1);
+      targetCell.classList.add('mobile-list-generated-only');
+      targetCell.dataset.label = 'Actions';
+    }
+    let actions = targetCell.matches('.table-actions')
+      ? targetCell
+      : targetCell.querySelector('.table-actions');
+    if (!actions) {
+      actions = document.createElement('div');
+      actions.className = 'table-actions';
+      targetCell.append(actions);
+    }
+    const action = document.createElement(isLink ? 'a' : 'button');
+    action.className = 'table-action icon-action mobile-list-generated-action';
+    action.setAttribute('aria-label', label);
+    action.setAttribute('title', label);
+    if (isLink) {
+      action.href = urlOrTemplate;
+    } else {
+      action.type = 'button';
+      action.dataset.modalTemplate = urlOrTemplate;
+    }
+    action.innerHTML = '<svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>';
+    actions.prepend(action);
+    return targetCell;
+  };
+  const prepareMobileTableRow = (row) => {
+    if (row.dataset.mobileDisclosurePrepared === 'true') return;
+    const rowActions = row.querySelector('.table-actions, .table-action, [data-modal-template], [data-modal-confirm]');
+    const templateId = row.dataset.modalTemplate || '';
+    const detailTemplate = /(?:^|-)details?-/.test(templateId);
+    const canOpenRow = Boolean(templateId || row.dataset.rowHref);
+    if (!rowActions && !canOpenRow) return;
+
+    let actionCell = Array.from(row.cells).find((cell) => (
+      cell.matches('.table-actions')
+      || cell.querySelector('.table-actions, .table-action, [data-modal-template], [data-modal-confirm]')
+      || mobileListLabel(cell).includes('action')
+    ));
+    if (detailTemplate) {
+      const alreadyHasView = Array.from(row.querySelectorAll('[data-modal-template]'))
+        .some((button) => button.dataset.modalTemplate === templateId);
+      if (!alreadyHasView) {
+        const title = row.getAttribute('aria-label') || 'Afficher le détail';
+        actionCell = addListAction(row, actionCell, title, templateId);
+      }
+    } else if (row.dataset.rowHref) {
+      const alreadyHasView = row.querySelector('.mobile-list-generated-action');
+      if (!alreadyHasView) {
+        actionCell = addListAction(row, actionCell, row.getAttribute('aria-label') || 'Afficher le détail', row.dataset.rowHref, true);
+      }
+    }
+
+    const cells = Array.from(row.cells);
+    const contentCells = cells.filter((cell) => (
+      cell !== actionCell
+      && !cell.matches('.table-actions')
+      && !cell.querySelector('input[type="checkbox"]')
+    ));
+    if (!contentCells.length) return;
+
+    const primaryCell = contentCells.find((cell) => (
+      /designation|operation|marchandise|locataire|compte|libelle|mois|logement|nom|categorie|fichier|sauvegarde/.test(mobileListLabel(cell))
+    )) || contentCells[0];
+    const amountCell = contentCells.find((cell) => (
+      cell !== primaryCell
+      && (cell.classList.contains('amount-cell')
+        || /montant|restant|solde|loyer|total|attendu|paye/.test(mobileListLabel(cell)))
+    ));
+    const summaryText = primaryCell.textContent.trim().replace(/\s+/g, ' ') || 'cet élément';
+
+    cells.forEach((cell) => {
+      if (cell === primaryCell || cell === amountCell) {
+        cell.classList.add('mobile-list-summary');
+      } else {
+        cell.classList.add('mobile-list-detail');
+      }
+    });
+    primaryCell.classList.add('mobile-list-primary');
+    amountCell?.classList.add('mobile-list-amount');
+    if (actionCell) actionCell.classList.add('mobile-list-actions', 'mobile-list-detail');
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'mobile-list-toggle';
+    toggle.dataset.mobileListToggle = '';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', `Afficher les détails de ${summaryText}`);
+    toggle.dataset.mobileListLabel = summaryText;
+    toggle.innerHTML = '<span class="sr-only">Afficher les détails</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+    primaryCell.append(toggle);
+    row.classList.add('mobile-list-item');
+    row.setAttribute('aria-expanded', 'false');
+    row.dataset.mobileDisclosurePrepared = 'true';
+  };
   const enhanceTables = (root = document) => {
     root.querySelectorAll('.transactions-table').forEach((table) => {
       const headers = Array.from(table.querySelectorAll('thead th'), (cell) => cell.textContent.trim());
       const rows = table.querySelectorAll('tbody tr');
-      if (headers.length) {
-        table.dataset.responsiveCards = 'true';
-        rows.forEach((row) => {
+      table.dataset.responsiveCards = 'true';
+      rows.forEach((row) => {
+        if (headers.length) {
           Array.from(row.cells).forEach((cell, index) => {
             if (cell.tagName !== 'TH' && cell.colSpan === 1 && headers[index]) {
               cell.dataset.label ||= headers[index];
             }
           });
-        });
-        return;
-      }
-
-      rows.forEach((row) => {
-        const rowHeading = row.querySelector('th')?.textContent.trim();
-        if (!rowHeading) return;
-        table.dataset.responsiveCards = 'true';
-        Array.from(row.cells).forEach((cell) => {
-          if (cell.tagName !== 'TH' && cell.colSpan === 1) cell.dataset.label ||= rowHeading;
-        });
+        } else {
+          const rowHeading = row.querySelector('th')?.textContent.trim();
+          if (rowHeading) {
+            Array.from(row.cells).forEach((cell) => {
+              if (cell.tagName !== 'TH' && cell.colSpan === 1) cell.dataset.label ||= rowHeading;
+            });
+          }
+        }
+        prepareMobileTableRow(row);
       });
     });
   };
+  const enhanceMobileDisclosureCards = (root = document) => {
+    root.querySelectorAll('.income-entry-list .income-entry').forEach((entry) => {
+      if (entry.dataset.mobileDisclosurePrepared === 'true') return;
+      const copy = entry.querySelector('.income-entry-copy');
+      if (!copy) return;
+      copy.querySelectorAll('span, small').forEach((detail) => detail.classList.add('mobile-list-detail'));
+      entry.querySelector('.income-entry-actions')?.classList.add('mobile-list-detail');
+      const title = copy.querySelector('strong')?.textContent.trim() || 'ce revenu';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'mobile-list-toggle';
+      toggle.dataset.mobileListToggle = '';
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', `Afficher les détails de ${title}`);
+      toggle.dataset.mobileListLabel = title;
+      toggle.innerHTML = '<span class="sr-only">Afficher les détails</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+      copy.append(toggle);
+      entry.classList.add('mobile-list-item');
+      entry.setAttribute('aria-expanded', 'false');
+      entry.dataset.mobileDisclosurePrepared = 'true';
+    });
+    root.querySelectorAll('.category-settings-list .category-settings-row').forEach((entry) => {
+      if (entry.dataset.mobileDisclosurePrepared === 'true') return;
+      const name = entry.querySelector('.category-settings-name');
+      if (!name) return;
+      entry.querySelector('.table-actions, .category-default-note')?.classList.add('mobile-list-detail');
+      const title = name.textContent.trim();
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'mobile-list-toggle';
+      toggle.dataset.mobileListToggle = '';
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.setAttribute('aria-label', `Afficher les actions de ${title}`);
+      toggle.dataset.mobileListLabel = title;
+      toggle.innerHTML = '<span class="sr-only">Afficher les actions</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+      name.append(toggle);
+      entry.classList.add('mobile-list-item');
+      entry.setAttribute('aria-expanded', 'false');
+      entry.dataset.mobileDisclosurePrepared = 'true';
+    });
+  };
   enhanceTables();
+  enhanceMobileDisclosureCards();
 
   const sidebar = document.querySelector('.sidebar');
   const mobileMenu = sidebar;
   const mobileMenuTrigger = document.querySelector('[data-mobile-sidebar-toggle]');
   const mobileMenuOverlay = document.querySelector('.mobile-nav-overlay');
-  const sidebarDrawerQuery = window.matchMedia('(max-width: 1024px)');
   let mobileMenuReturnFocus = null;
 
   const setMobileMenu = (open, restoreFocus = true) => {
@@ -544,8 +686,35 @@
     }
   };
 
+  const toggleMobileListItem = (item) => {
+    const expanded = !item.classList.contains('mobile-list-expanded');
+    item.classList.toggle('mobile-list-expanded', expanded);
+    item.setAttribute('aria-expanded', String(expanded));
+    const toggle = item.querySelector('[data-mobile-list-toggle]');
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', String(expanded));
+      const label = toggle.dataset.mobileListLabel || 'cet élément';
+      toggle.setAttribute(
+        'aria-label',
+        `${expanded ? 'Masquer' : 'Afficher'} ${item.matches('.category-settings-row') ? 'les actions' : 'les détails'} de ${label}`,
+      );
+    }
+  };
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Element)) return;
+    const mobileListItem = event.target.closest('.mobile-list-item');
+    if (mobileListItem && sidebarDrawerQuery.matches) {
+      const toggle = event.target.closest('[data-mobile-list-toggle]');
+      if (toggle) {
+        toggleMobileListItem(mobileListItem);
+        return;
+      }
+      if (!event.target.closest('a, button, input, select, textarea, form, label')) {
+        toggleMobileListItem(mobileListItem);
+        return;
+      }
+    }
+
     const row = event.target.closest('tr[data-row-href]');
     if (row && !event.target.closest('a, button, input, select, textarea, form')) {
       window.location.assign(row.dataset.rowHref);
@@ -664,6 +833,11 @@
   document.addEventListener('keydown', (event) => {
     if ((event.key !== 'Enter' && event.key !== ' ') || !(event.target instanceof HTMLTableRowElement)) return;
     const row = event.target;
+    if (row.classList.contains('mobile-list-item') && sidebarDrawerQuery.matches) {
+      event.preventDefault();
+      toggleMobileListItem(row);
+      return;
+    }
     if (!row.dataset.rowHref && !row.dataset.modalTemplate) return;
     event.preventDefault();
     if (row.dataset.rowHref) {
@@ -894,6 +1068,7 @@
       if (liveSearchControllers.get(form) !== controller) return;
       currentResults.replaceWith(nextResults);
       enhanceTables(nextResults);
+      enhanceMobileDisclosureCards(nextResults);
       filterCurrentPageItems(document.querySelector('#global-search input')?.value || '');
       window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
       setLiveSearchStatus(form, '');
@@ -935,6 +1110,7 @@
       if (nextSearchInput) nextSearchInput.value = globalQuery;
       currentRoot.replaceWith(nextRoot);
       enhanceTables(nextRoot);
+      enhanceMobileDisclosureCards(nextRoot);
       filterCurrentPageItems(globalQuery);
       if (globalQuery && nextSearchInput && document.body.dataset.page === 'overview') {
         runGlobalSearch(nextSearchInput);
