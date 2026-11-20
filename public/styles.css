@@ -4013,6 +4013,7 @@ html[data-theme="dark"] .app-page-area .page-filter-card {
 }
 
 @media (max-width: 1024px) {
+  body.mobile-nav-open .mobile-sidebar-toggle { z-index: 101; }
   .mobile-sidebar-toggle {
     position: fixed;
     z-index: 98;

@@ -184,7 +184,7 @@
   };
 
   mobileMenuTrigger?.addEventListener('click', () => {
-    setMobileMenu(mobileMenuTrigger.getAttribute('aria-expanded') !== 'true');
+    setMobileMenu(!sidebar?.classList.contains('mobile-menu-open'));
   });
   mobileMenuOverlay?.addEventListener('click', () => setMobileMenu(false, false));
   document.addEventListener('click', (event) => {
@@ -219,7 +219,12 @@
     }
     syncPageScrollLock();
   };
-  sidebarDrawerQuery.addEventListener('change', syncMobileSidebarMode);
+  if (typeof sidebarDrawerQuery.addEventListener === 'function') {
+    sidebarDrawerQuery.addEventListener('change', syncMobileSidebarMode);
+  } else {
+    sidebarDrawerQuery.addListener(syncMobileSidebarMode);
+  }
+  window.addEventListener('resize', syncMobileSidebarMode, { passive: true });
   syncMobileSidebarMode();
 
   const modal = document.getElementById('app-modal');

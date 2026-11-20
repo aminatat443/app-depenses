@@ -255,6 +255,7 @@ test('grocery page filters the selected month and accepts total-only pricing', a
     assert.equal(totalPriceResponse.status, 200);
     const totalPriceHtml = await totalPriceResponse.text();
     assert.match(totalPriceHtml, /name="month" value="2040-04"/);
+    assert.match(totalPriceHtml, /<input type="text" name="item_name"[^>]*data-modal-initial-focus/);
     assert.match(totalPriceHtml, new RegExp(totalPricedItem));
     assert.doesNotMatch(totalPriceHtml, new RegExp(unitPricedItem));
 
@@ -939,7 +940,7 @@ test('rent Excel statuses match each month obligation and the rents page', async
   const cases = [
     { key: 'fully-paid', firstName: 'Loyer', lastName: 'Intégral', expected: 50_000, paid: 50_000, status: 'PAYÉ' },
     { key: 'unpaid', firstName: 'Loyer', lastName: 'Absent', expected: 50_000, paid: 0, status: 'IMPAYÉ' },
-    { key: 'partial', firstName: 'Loyer', lastName: 'Partiel', expected: 50_000, paid: 30_000, status: 'IMPAYÉ' },
+    { key: 'partial', firstName: 'Loyer', lastName: 'Partiel', expected: 50_000, paid: 30_000, status: 'PARTIELLEMENT PAYÉ' },
     {
       key: 'installments',
       firstName: 'Loyer',

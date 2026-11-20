@@ -11,6 +11,7 @@ const {
 const { getRentPaymentStatus } = require('./rent-status');
 
 const EXPENSE_HEADER_GREEN = 'FF385623';
+const EXPENSE_HEADER_GRAY = 'FF595959';
 const REFERENCE_TEMPLATE = path.join(__dirname, '..', 'templates', 'depenses-maison-reference.xlsx');
 const MONTH_NAMES = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -212,9 +213,34 @@ function styleCategoryTotalRow(sheet, rowNumber, amountColumn = 6) {
 function styleCategoryHeadingRow(sheet, rowNumber, category) {
   const heading = sheet.getCell(rowNumber, 4);
   heading.value = category;
+  for (let columnNumber = 4; columnNumber <= 5; columnNumber += 1) {
+    const cell = sheet.getCell(rowNumber, columnNumber);
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: EXPENSE_HEADER_GREEN },
+      bgColor: { argb: EXPENSE_HEADER_GREEN },
+    };
+    cell.font = { ...cell.font, bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
+  }
+  sheet.getRow(rowNumber).height = 23;
+  sheet.mergeCells(rowNumber, 4, rowNumber, 5);
+  clearExpenseCellsAfterAmount(sheet, rowNumber, 5);
+}
+
+function styleExpenseSectionHeadingRow(sheet, rowNumber, title) {
+  const heading = sheet.getCell(rowNumber, 4);
+  heading.value = title;
   for (let columnNumber = 4; columnNumber <= MONTHLY_COLUMN_COUNT; columnNumber += 1) {
     const cell = sheet.getCell(rowNumber, columnNumber);
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EXPENSE_HEADER_GREEN } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: EXPENSE_HEADER_GREEN },
+      bgColor: { argb: EXPENSE_HEADER_GREEN },
+    };
     cell.font = { ...cell.font, bold: true, color: { argb: 'FFFFFFFF' } };
     cell.alignment = { vertical: 'middle', wrapText: true };
     cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
@@ -233,11 +259,11 @@ function styleExpenseHeaderRow(sheet, rowNumber, firstColumn = 5) {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: EXPENSE_HEADER_GREEN },
-      bgColor: { argb: EXPENSE_HEADER_GREEN },
+      fgColor: { argb: EXPENSE_HEADER_GRAY },
+      bgColor: { argb: EXPENSE_HEADER_GRAY },
     };
     cell.font = { ...cell.font, bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.alignment = { vertical: 'middle', wrapText: true };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
   });
   clearExpenseCellsAfterAmount(sheet, rowNumber, firstColumn + EXPENSE_HEADERS.length - 1);
@@ -247,6 +273,7 @@ function styleExpenseHeaderRow(sheet, rowNumber, firstColumn = 5) {
 function styleExpenseDataRow(sheet, rowNumber, amountColumn = 6, firstColumn = 5) {
   for (let columnNumber = firstColumn; columnNumber <= amountColumn; columnNumber += 1) {
     const cell = sheet.getCell(rowNumber, columnNumber);
+    cell.fill = { type: 'pattern', pattern: 'none' };
     cell.border = { bottom: { style: 'hair', color: { argb: 'FFDDE4EA' } } };
     cell.alignment = { vertical: 'top', wrapText: true };
   }
@@ -280,6 +307,7 @@ function applyStatusStyle(cell, status) {
   const styles = {
     PAYÉ: { fill: 'FFE2F0E9', color: 'FF264B47' },
     IMPAYÉ: { fill: 'FFF4CCCC', color: 'FF9C0006' },
+    'PARTIELLEMENT PAYÉ': { fill: 'FFFFE699', color: 'FF7F6000' },
   };
   const style = styles[status];
   if (!style) return;
@@ -559,6 +587,10 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   const resourcesRow = 24 + rowShift;
   const savingsRow = 30 + rowShift;
   setMonthlyFinancialCell(sheet, styleSource, pensionRow, 15, data.pensionPere);
+  for (const columnNumber of [1, 2]) {
+    const cell = sheet.getCell(pensionRow, columnNumber);
+    cell.alignment = { ...cell.alignment, vertical: 'middle' };
+  }
   setMonthlyFinancialCell(sheet, styleSource, papeRow, 17, data.pape);
 
   extraIncomeSources.forEach((income, extraIndex) => {
@@ -660,7 +692,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
 
   if (protectedExpenses.length) {
     const sectionHeadingRow = protectedSectionRow;
-    styleCategoryHeadingRow(sheet, sectionHeadingRow, 'Dépenses financées par l’épargne protégée');
+    styleExpenseSectionHeadingRow(sheet, sectionHeadingRow, 'Dépenses financées par l’épargne protégée');
     let protectedRowsEnd;
     if (categorizedExpenses) {
       protectedRowsEnd = renderExpenseGroups(
@@ -701,7 +733,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     const summaryFirstRow = summaryHeaderRow + 1;
     const protectedGroupsByKey = new Map(protectedExpenseGroups.map((group) => [groupKey(group), group]));
     const mainGroupsByKey = new Map(expenseGroups.map((group) => [groupKey(group), group]));
-    styleCategoryHeadingRow(sheet, summaryTitleRow, 'Récapitulatif des dépenses par catégorie');
+    styleExpenseSectionHeadingRow(sheet, summaryTitleRow, 'Récapitulatif des dépenses par catégorie');
     ['Catégorie', 'Nombre de dépenses', 'Total'].forEach((header, index) => {
       const cell = sheet.getCell(summaryHeaderRow, index + 4);
       cell.value = header;

@@ -115,9 +115,18 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
         paidAmount: 0,
         status: 'PAYÉ',
       },
+      {
+        floor: '2e étage',
+        name: 'Locataire partiellement payée',
+        housingType: 'Une chambre',
+        peopleCount: 1,
+        expectedAmount: 50_000,
+        paidAmount: 30_000,
+        status: 'PAYÉ',
+      },
     ],
-    totalPeople: 2,
-    rentExpected: 100_000,
+    totalPeople: 3,
+    rentExpected: 150_000,
     savingsBalance: 25_000,
   })]);
   const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
@@ -129,6 +138,9 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('G4').value, 'IMPAYÉ');
   assert.equal(sheet.getCell('G4').fill.fgColor.argb, 'FFF4CCCC');
   assert.equal(sheet.getCell('G4').font.color.argb, 'FF9C0006');
+  assert.equal(sheet.getCell('G5').value, 'PARTIELLEMENT PAYÉ');
+  assert.equal(sheet.getCell('G5').fill.fgColor.argb, 'FFFFE699');
+  assert.equal(sheet.getCell('G5').font.color.argb, 'FF7F6000');
   assert.ok(!sheet.model.merges.includes('A30:A32'));
   assert.ok(!sheet.model.merges.includes('B30:B32'));
   assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
@@ -196,6 +208,8 @@ test('monthly revenues use the original cells and exclude protected savings from
   assert.equal(sheet.getCell('B15').value, 180_000);
   assert.equal(sheet.getCell('B17').value, 350_000);
   assert.equal(sheet.getCell('A15').value, 'Pension père');
+  assert.equal(sheet.getCell('A15').alignment.vertical, 'middle');
+  assert.equal(sheet.getCell('B15').alignment.vertical, 'middle');
   assert.equal(sheet.getCell('A17').value, 'Pape');
   assert.equal(sheet.getCell('E13').value, 'Total des paiements reçus');
   assert.equal(sheet.getCell('F13').value.result, 200_000);
@@ -356,12 +370,23 @@ test('live categories show only expense categories and retain the monthly grand 
   const foodRow = findCellRow(sheet, 4, 'Alimentaire');
   assert.equal(sheet.getCell(foodRow, 4).fill.fgColor.argb, 'FF385623');
   assert.equal(sheet.getCell(foodRow, 4).font.color.argb, 'FFFFFFFF');
+  assert.equal(sheet.getCell(foodRow, 4).font.bold, true);
+  assert.equal(sheet.getCell(foodRow, 4).font.size, 12);
+  assert.equal(sheet.getCell(foodRow, 4).alignment.horizontal, 'center');
+  assert.equal(sheet.getCell(foodRow, 4).alignment.vertical, 'middle');
+  assert.equal(sheet.getRow(foodRow).height, 23);
+  assert.ok(sheet.model.merges.includes(`D${foodRow}:E${foodRow}`));
+  assert.ok(!sheet.model.merges.includes(`D${foodRow}:N${foodRow}`));
   assert.equal(sheet.getCell(foodRow + 1, 4).value, 'Désignation');
   assert.equal(sheet.getCell(foodRow + 1, 5).value, 'Montant');
-  assert.equal(sheet.getCell(foodRow + 1, 4).fill.fgColor.argb, 'FF385623');
+  assert.equal(sheet.getCell(foodRow + 1, 4).fill.fgColor.argb, 'FF595959');
+  assert.equal(sheet.getCell(foodRow + 1, 5).fill.fgColor.argb, 'FF595959');
+  assert.equal(sheet.getCell(foodRow + 1, 4).font.bold, true);
   assert.equal(sheet.getCell(foodRow + 1, 4).font.color.argb, 'FFFFFFFF');
+  assert.equal(sheet.getCell(foodRow + 1, 4).alignment.vertical, 'middle');
   assert.equal(sheet.getCell(foodRow + 2, 4).value, 'Achat de riz');
   assert.equal(sheet.getCell(foodRow + 2, 5).value, 25_000);
+  assert.ok(!sheet.getCell(foodRow + 2, 4).fill || sheet.getCell(foodRow + 2, 4).fill.pattern === 'none');
   assert.equal(sheet.getCell(foodRow + 4, 5).value.result, 37_000);
 
   const customRow = findCellRow(sheet, 4, 'Catégorie personnalisée');
@@ -376,7 +401,7 @@ test('live categories show only expense categories and retain the monthly grand 
   assert.equal(sheet.getCell(totalRow, 5).value.result, 40_000);
   assert.equal(sheet.getCell(summaryTotalRow, 5).value, 3);
   assert.equal(sheet.getCell(summaryTotalRow, 6).value.result, 40_000);
-  for (const rowNumber of [foodRow + 1, foodRow + 2, foodRow + 4, totalRow]) {
+  for (const rowNumber of [foodRow, foodRow + 1, foodRow + 2, foodRow + 4, totalRow]) {
     for (let columnNumber = 6; columnNumber <= 14; columnNumber += 1) {
       const cell = sheet.getCell(rowNumber, columnNumber);
       assert.ok(!cell.fill || cell.fill.pattern === 'none');
@@ -519,7 +544,10 @@ test('annual exports keep monthly totals while hiding excluded resources rows', 
     assert.equal(sheet.getCell('B30').value, 0);
     assert.equal(sheet.getCell('B21').value.formula, 'B15+B17+F13');
     assertWrappedTemplateStyle(sheet.getCell('A15'), janTemplate.getCell('A15'));
-    assert.deepEqual(sheet.getCell('B15').style, janTemplate.getCell('B15').style);
+    assert.deepEqual(sheet.getCell('B15').style, {
+      ...janTemplate.getCell('B15').style,
+      alignment: { ...janTemplate.getCell('B15').alignment, vertical: 'middle' },
+    });
     assertWrappedTemplateStyle(sheet.getCell('A17'), janTemplate.getCell('A17'));
     assert.deepEqual(sheet.getCell('B17').style, janTemplate.getCell('B17').style);
     assertWrappedTemplateStyle(sheet.getCell('A23'), janTemplate.getCell('A23'));

@@ -11,7 +11,7 @@
       <input type="date" name="purchase_date" value="<%= grocery?.purchase_date ? String(grocery.purchase_date).slice(0, 10) : (grocery ? '' : defaultPurchaseDate) %>" <%= !grocery || grocery.purchase_date ? 'required' : '' %> />
     </label>
     <label>Marchandise
-      <input type="text" name="item_name" value="<%= grocery?.item_name || '' %>" placeholder="Sac de riz" required />
+      <input type="text" name="item_name" value="<%= grocery?.item_name || '' %>" placeholder="Sac de riz" required data-modal-initial-focus />
     </label>
     <label>Quantité
       <input type="number" name="quantity" step="0.01" min="0" value="<%= grocery?.quantity_known ? grocery.quantity : (grocery ? '' : '1') %>" <%= !grocery || grocery.quantity_known ? 'required' : '' %> />
