@@ -1140,7 +1140,7 @@ test('protected-savings expenses stay separate from current balances and appear 
       }
     }
     assert.ok(protectedCategoryTotalRow);
-    assert.equal(sheet.getCell(protectedCategoryTotalRow, 4).fill.fgColor.argb, 'FFE2F0E9');
+    assert.equal(sheet.getCell(protectedCategoryTotalRow, 4).fill.fgColor.argb, 'FFFFF2CC');
     assert.equal(sheet.getCell(protectedCategoryTotalRow, 5).value.result, 2500);
     assert.equal(sheet.getCell(protectedCategoryTotalRow - 1, 4).value, 'Dépense test épargne protégée');
 
@@ -1537,7 +1537,7 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     assert.equal(workbook.Sheets.Janvier[`E${januaryExpenseTotalRow}`].v, 0);
     assert.equal(workbook.Sheets['Récapitulatif annuel'].A1.v, 'Récapitulatif annuel 2026');
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 0 && range.s.c === 0 && range.e.c === 6));
-    assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 13));
+    assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 4));
     const uncheckedAnnualResponse = await authedFetch(
       `http://127.0.0.1:${port}/export/2026?includeCarryover=0`,
     );

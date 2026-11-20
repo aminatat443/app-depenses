@@ -74,6 +74,8 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.equal(sheet.getCell('B22').value.formula, 'B24-E22');
   assert.equal(sheet.getCell('A24').value, 'Total des ressources disponibles');
   assert.equal(sheet.getCell('B24').value.formula, 'B21');
+  assert.equal(sheet.getCell('A14').value, 'RÉCAPITULATIF FINANCIER');
+  assert.ok(sheet.model.merges.includes('A14:B14'));
   assert.equal(sheet.getRow(24).hidden, true);
   assert.equal(Number(sheet.getCell('B24').value.result || 0), 0);
   assert.equal(sheet.getCell('A3').value, null);
@@ -88,10 +90,12 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.equal(generatedAlignment.horizontal, templateAlignment.horizontal);
   assert.equal(generatedAlignment.vertical, 'middle');
   assert.equal(generatedAlignment.wrapText, true);
-  assert.deepEqual(sheet.getColumn(4).width, templateSheet.getColumn(4).width);
+  assert.equal(sheet.getColumn(4).width, 30);
+  assert.equal(sheet.getColumn(5).width, 18);
   assert.deepEqual(sheet.pageMargins, templateSheet.pageMargins);
   assert.ok(sheet.model.merges.includes('A1:G1'));
-  assert.ok(sheet.model.merges.includes('D20:N20'));
+  assert.ok(sheet.model.merges.includes('D20:E20'));
+  assert.ok(!sheet.model.merges.includes('D20:N20'));
 });
 
 test('rent payment statuses are clear and the protected-savings cells stay on one row', async () => {
@@ -226,8 +230,9 @@ test('monthly revenues use the original cells and exclude protected savings from
   assert.equal(sheet.getCell('B24').value.result, 740_000);
   assert.equal(sheet.getCell('B22').value.formula, 'B24-E23');
   assert.ok(sheet.getColumn(2).width >= 18);
-  assertWrappedTemplateStyle(sheet.getCell('A30'), template.getWorksheet('Janvier').getCell('A30'));
-  assert.deepEqual(sheet.getCell('B30').style, template.getWorksheet('Janvier').getCell('B30').style);
+  assert.equal(sheet.getCell('A14').value, 'RÉCAPITULATIF FINANCIER');
+  assert.equal(sheet.getCell('A30').fill.fgColor.argb, 'FFD9EAD3');
+  assert.equal(sheet.getCell('B30').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('B22').value.result, 90_000);
 });
 
@@ -272,6 +277,11 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(septemberSheet.getCell(wifiRow + 3, 5).value, 8_000);
   assert.equal(septemberSheet.getCell(wifiRow + 4, 4).value, 'Total Wifi');
   assert.equal(septemberSheet.getCell(wifiRow + 4, 5).value.result, 20_000);
+  assert.equal(septemberSheet.getCell(wifiRow + 4, 4).fill.fgColor.argb, 'FFFFF2CC');
+  assert.equal(septemberSheet.getCell(wifiRow + 4, 5).fill.fgColor.argb, 'FFFFF2CC');
+  assert.equal(septemberSheet.getCell(wifiRow + 4, 4).font.bold, true);
+  assert.equal(septemberSheet.getCell(wifiRow + 4, 5).font.bold, true);
+  assert.equal(septemberSheet.getCell(wifiRow + 4, 5).alignment.horizontal, 'right');
   const otherCategoryRow = findCellRow(septemberSheet, 4, 'Autres dépenses');
   assert.equal(findCellRow(septemberSheet, 4, 'Autres catégories'), null);
   assert.ok(otherCategoryRow);
@@ -282,6 +292,13 @@ test('exports from September 2026 group expenses by category with separate total
   assert.ok(expenseTotalRow);
   assert.equal(expenseTotalRow, otherCategoryRow + 4);
   assert.equal(septemberSheet.getCell(expenseTotalRow, 5).value.result, 23_000);
+  assert.equal(septemberSheet.getCell(expenseTotalRow, 4).fill.fgColor.argb, 'FFD9EAD3');
+  assert.equal(septemberSheet.getCell(expenseTotalRow, 5).fill.fgColor.argb, 'FFD9EAD3');
+  assert.equal(septemberSheet.getCell('D20').fill.fgColor.argb, 'FF385623');
+  assert.equal(septemberSheet.getCell('E20').fill.fgColor.argb, 'FF385623');
+  assert.ok(septemberSheet.model.merges.includes('D20:E20'));
+  assert.ok(septemberSheet.model.merges.includes('A14:B14'));
+  assert.equal(septemberSheet.getCell('E22').fill.fgColor.argb, 'FF595959');
   const protectedSectionRow = findCellRow(
     septemberSheet,
     4,
@@ -296,6 +313,14 @@ test('exports from September 2026 group expenses by category with separate total
   assert.ok(summaryTotalRow);
   assert.equal(septemberSheet.getCell(summaryTotalRow, 5).value, 5);
   assert.equal(septemberSheet.getCell(summaryTotalRow, 6).value.result, 30_000);
+  const summaryHeadingRow = findCellRow(
+    septemberSheet,
+    4,
+    'Récapitulatif des dépenses par catégorie',
+  );
+  assert.ok(summaryHeadingRow);
+  assert.ok(septemberSheet.model.merges.includes(`D${summaryHeadingRow}:F${summaryHeadingRow}`));
+  assert.equal(septemberSheet.getCell(summaryTotalRow, 4).fill.fgColor.argb, 'FFD9EAD3');
 
   const augustWorkbook = await buildReferenceWorkbook([monthData({
     monthKey: '2026-08',
@@ -515,15 +540,12 @@ test('unchecked exports show the prior month balance without its carryover', asy
 });
 
 test('annual exports keep monthly totals while hiding excluded resources rows', async () => {
-  const template = new ExcelJS.Workbook();
-  await template.xlsx.readFile(REFERENCE_TEMPLATE);
   const months = MONTH_NAMES.map((monthLabel, index) => monthData({
     monthKey: `2026-${String(index + 1).padStart(2, '0')}`,
     monthLabel,
   }));
   const output = await buildReferenceWorkbook(months, { annual: true });
   const generated = await workbookFromBuffer(await output.xlsx.writeBuffer());
-  const janTemplate = template.getWorksheet('Janvier');
 
   assert.equal(generated.worksheets.length, 13);
   for (const monthLabel of MONTH_NAMES) {
@@ -543,20 +565,28 @@ test('annual exports keep monthly totals while hiding excluded resources rows', 
     assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
     assert.equal(sheet.getCell('B30').value, 0);
     assert.equal(sheet.getCell('B21').value.formula, 'B15+B17+F13');
-    assertWrappedTemplateStyle(sheet.getCell('A15'), janTemplate.getCell('A15'));
-    assert.deepEqual(sheet.getCell('B15').style, {
-      ...janTemplate.getCell('B15').style,
-      alignment: { ...janTemplate.getCell('B15').alignment, vertical: 'middle' },
-    });
-    assertWrappedTemplateStyle(sheet.getCell('A17'), janTemplate.getCell('A17'));
-    assert.deepEqual(sheet.getCell('B17').style, janTemplate.getCell('B17').style);
-    assertWrappedTemplateStyle(sheet.getCell('A23'), janTemplate.getCell('A23'));
-    assert.deepEqual(sheet.getCell('B23').style, janTemplate.getCell('B23').style);
-    assertWrappedTemplateStyle(sheet.getCell('A24'), janTemplate.getCell('A21'));
-    assert.deepEqual(sheet.getCell('B24').style, janTemplate.getCell('B21').style);
-    assertWrappedTemplateStyle(sheet.getCell('A30'), janTemplate.getCell('A30'));
-    assert.deepEqual(sheet.getCell('B30').style, janTemplate.getCell('B30').style);
+    assert.ok(sheet.model.merges.includes('A14:B14'));
+    assert.ok(sheet.model.merges.includes('D20:E20'));
+    assert.equal(sheet.getCell('A14').value, 'RÉCAPITULATIF FINANCIER');
+    assert.equal(sheet.getCell('A15').alignment.vertical, 'middle');
+    assert.equal(sheet.getCell('B15').alignment.vertical, 'middle');
+    assert.equal(sheet.getCell('A21').fill.fgColor.argb, 'FFD9EAD3');
+    assert.equal(sheet.getCell('A30').fill.fgColor.argb, 'FFD9EAD3');
   }
+  const annualSheet = generated.getWorksheet('Récapitulatif annuel');
+  assert.equal(annualSheet.getCell('A1').fill.fgColor.argb, 'FF385623');
+  assert.equal(annualSheet.getCell('A2').fill.fgColor.argb, 'FF595959');
+  assert.equal(annualSheet.getCell('A15').fill.fgColor.argb, 'FFD9EAD3');
+  assert.equal(annualSheet.getCell('E15').value.formula, 'SUM(E3:E14)');
+  assert.ok(annualSheet.model.merges.includes('B15:C15'));
+  assert.equal(annualSheet.getCell('C15').value.formula, 'SUM(B3:B14)');
+  assert.deepEqual(annualSheet.getCell('A17').style, {});
+  assert.deepEqual(annualSheet.getCell('D20').style, {});
+  assert.equal(annualSheet.pageSetup.printArea, 'A1:G15');
+  assert.equal(annualSheet.pageSetup.orientation, 'landscape');
+  assert.equal(annualSheet.pageSetup.fitToPage, true);
+  assert.equal(annualSheet.pageSetup.fitToWidth, 1);
+  assert.equal(annualSheet.pageSetup.fitToHeight, 1);
 });
 
 test('reference exports expand tenants, income sources and expense rows without overlap', async () => {
@@ -613,7 +643,9 @@ test('reference exports expand tenants, income sources and expense rows without 
   assert.equal(sheet.getCell('A20').value, 'Source 2');
   assert.equal(sheet.getCell('A22').value, 'Source 4');
   assert.equal(sheet.getCell('B23').value.formula, 'B16+B18+F14+SUM(B19:B22)');
-  assert.ok(sheet.model.merges.includes('D22:N22'));
+  assert.ok(sheet.model.merges.includes('D22:E22'));
+  assert.ok(!sheet.model.merges.includes('D22:N22'));
+  assert.ok(sheet.model.merges.includes('A15:B15'));
   assert.ok(sheet.model.merges.includes('B12:D12'));
   assert.ok(sheet.model.merges.includes('A3:A5'));
   assert.ok(sheet.model.merges.includes('B11:C11'));

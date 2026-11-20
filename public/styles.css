@@ -3044,15 +3044,46 @@ body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSyst
   .account-form input, #modal-content input, #modal-content select, #modal-content textarea {
     min-height: 42px;
   }
-  .transactions-table[data-responsive-cards] tbody { gap: 0; }
+  .transactions-table[data-responsive-cards] tbody { gap: 9px; }
   .transactions-table[data-responsive-cards] tbody tr {
-    padding: 13px 0;
-    border: 0;
-    border-bottom: 1px solid #eeeeee;
-    border-radius: 0;
-    background: transparent;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg);
   }
-  .transactions-table[data-responsive-cards] tbody tr:hover { background: transparent; }
+  .transactions-table[data-responsive-cards] tbody tr:hover { background: var(--color-bg-secondary); }
+  .category-settings-list { gap: 8px; }
+  .category-settings-row.mobile-list-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-content: initial;
+    min-height: 0;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg);
+  }
+  .category-settings-name { min-width: 0; }
+  .category-settings-row.mobile-list-expanded .table-actions,
+  .category-settings-row.mobile-list-expanded .category-default-note {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .income-entry-list { gap: 8px; }
+  .income-entry.mobile-list-item {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 9px;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg);
+  }
+  .income-entry.mobile-list-expanded .income-entry-actions {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+  .income-entry.mobile-list-expanded .income-entry-copy .mobile-list-detail { padding-top: 6px; border-top: 1px solid var(--color-line); }
   .transactions-table[data-responsive-cards] td::before { color: #858585; font-weight: 550; }
   .mobile-nav-overlay { background: rgba(23, 23, 23, .24); }
   .mobile-more-menu {
@@ -4388,6 +4419,45 @@ html[data-theme="dark"] .expense-live-search input {
 .transactions-table td.mobile-list-generated-only { display: none; }
 
 @media (max-width: 1024px) {
+  .table-wrap { overflow: visible; }
+  .transactions-table[data-responsive-cards] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .transactions-table[data-responsive-cards] thead { display: none; }
+  .transactions-table[data-responsive-cards] tbody { display: grid; gap: 9px; }
+  .transactions-table[data-responsive-cards] tbody tr {
+    display: grid;
+    gap: 9px 12px;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg);
+  }
+  .transactions-table[data-responsive-cards] td,
+  .transactions-table[data-responsive-cards] th {
+    display: block;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    font-size: 11px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .transactions-table[data-responsive-cards] td::before {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--color-muted);
+    content: attr(data-label);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
   .mobile-list-toggle {
     display: grid;
     width: 32px;
@@ -4413,10 +4483,25 @@ html[data-theme="dark"] .expense-live-search input {
   .mobile-list-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
   .mobile-list-item[aria-expanded="true"] .mobile-list-toggle svg { transform: rotate(180deg); }
   .transactions-table[data-responsive-cards] tbody tr.mobile-list-item {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    padding-right: 54px;
     cursor: pointer;
   }
+  .category-settings-list,
+  .income-entry-list { gap: 8px; }
+  .category-settings-row.mobile-list-item,
+  .income-entry.mobile-list-item {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-bg);
+    cursor: pointer;
+  }
+  .category-settings-row.mobile-list-item { padding: 12px; }
+  .income-entry.mobile-list-item { padding: 12px; }
+  .income-entry-copy { position: relative; padding-right: 38px; }
+  .income-entry-copy .mobile-list-toggle { position: absolute; top: -4px; right: 0; }
   .transactions-table[data-responsive-cards] tbody tr.mobile-list-item:not(.mobile-list-expanded) > td.mobile-list-detail {
     display: none !important;
   }
@@ -4426,18 +4511,23 @@ html[data-theme="dark"] .expense-live-search input {
     grid-column: auto !important;
   }
   .transactions-table[data-responsive-cards] tbody tr.mobile-list-item > td.mobile-list-primary {
-    display: flex !important;
-    align-items: center;
-    gap: 8px;
-    grid-column: 1 !important;
+    display: block !important;
+    grid-column: 1 / -1 !important;
+    padding-right: 2px;
   }
   .transactions-table[data-responsive-cards] tbody tr.mobile-list-item > td.mobile-list-summary::before {
     display: none !important;
   }
   .transactions-table[data-responsive-cards] tbody tr.mobile-list-item > td.mobile-list-amount {
-    justify-self: end;
-    text-align: right !important;
-    white-space: nowrap;
+    grid-column: 1 !important;
+    justify-self: start;
+    text-align: left !important;
+    white-space: normal;
+  }
+  .transactions-table[data-responsive-cards] tbody tr.mobile-list-item .mobile-list-toggle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
   }
   .transactions-table[data-responsive-cards] tbody tr.mobile-list-item.mobile-list-expanded > td.mobile-list-actions {
     display: flex !important;
