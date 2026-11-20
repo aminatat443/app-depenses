@@ -52,7 +52,7 @@ async function workbookFromBuffer(buffer) {
 }
 
 function findCellRow(sheet, columnNumber, value) {
-  for (let rowNumber = 22; rowNumber <= sheet.rowCount; rowNumber += 1) {
+  for (let rowNumber = 21; rowNumber <= sheet.rowCount; rowNumber += 1) {
     if (sheet.getCell(rowNumber, columnNumber).value === value) return rowNumber;
   }
   return null;
@@ -69,13 +69,17 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.deepEqual(generated.worksheets.map((worksheet) => worksheet.name), ['Janvier']);
   assert.equal(sheet.getCell('A1').value, 'Loyers du mois de Décembre 2025');
   assert.equal(sheet.getCell('D20').value, 'Dépenses du mois de Janvier');
-  assert.equal(sheet.getCell('E42').value.formula, 'SUM(E22:E41)');
-  assert.equal(sheet.getCell('B22').value.formula, 'B24-E42');
+  assert.equal(sheet.getCell('E22').value.formula, '0');
+  assert.equal(Number(sheet.getCell('E22').value.result || 0), 0);
+  assert.equal(sheet.getCell('B22').value.formula, 'B24-E22');
   assert.equal(sheet.getCell('A24').value, 'Total des ressources disponibles');
   assert.equal(sheet.getCell('B24').value.formula, 'B21');
   assert.equal(sheet.getRow(24).hidden, true);
   assert.equal(Number(sheet.getCell('B24').value.result || 0), 0);
   assert.equal(sheet.getCell('A3').value, null);
+  for (let rowNumber = 3; rowNumber <= 10; rowNumber += 1) {
+    assert.equal(sheet.getCell(rowNumber, 7).value, null);
+  }
   assertTenantHeaders(sheet);
   assert.equal(sheet.getCell('A2').alignment.wrapText, true);
   const { alignment: generatedAlignment, ...generatedStyle } = sheet.getCell('A3').style;
@@ -99,7 +103,8 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
         housingType: 'Une chambre',
         peopleCount: 1,
         expectedAmount: 50_000,
-        status: 'Payé',
+        paidAmount: 50_000,
+        status: 'IMPAYÉ',
       },
       {
         floor: '1er étage',
@@ -107,7 +112,8 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
         housingType: 'Une chambre',
         peopleCount: 1,
         expectedAmount: 50_000,
-        status: 'Non payé',
+        paidAmount: 0,
+        status: 'PAYÉ',
       },
     ],
     totalPeople: 2,
@@ -117,10 +123,10 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
   const sheet = workbook.getWorksheet('Janvier');
 
-  assert.equal(sheet.getCell('G3').value, 'Payé');
+  assert.equal(sheet.getCell('G3').value, 'PAYÉ');
   assert.equal(sheet.getCell('G3').fill.fgColor.argb, 'FFE2F0E9');
   assert.equal(sheet.getCell('G3').font.color.argb, 'FF264B47');
-  assert.equal(sheet.getCell('G4').value, 'Non payé');
+  assert.equal(sheet.getCell('G4').value, 'IMPAYÉ');
   assert.equal(sheet.getCell('G4').fill.fgColor.argb, 'FFF4CCCC');
   assert.equal(sheet.getCell('G4').font.color.argb, 'FF9C0006');
   assert.ok(!sheet.model.merges.includes('A30:A32'));
@@ -155,7 +161,7 @@ test('expanded category expenses do not leave yellow blank cells beside the expe
   assert.equal(sheet.getCell('B22').value.formula, `B24-F${expenseTotalRow}`);
   assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
   assert.equal(sheet.getCell('B30').value, 0);
-  for (let rowNumber = 22; rowNumber <= expenseTotalRow; rowNumber += 1) {
+  for (let rowNumber = 21; rowNumber <= expenseTotalRow; rowNumber += 1) {
     for (const columnNumber of [1, 2]) {
       const cell = sheet.getCell(rowNumber, columnNumber);
       if (cell.value !== null) continue;
@@ -204,7 +210,7 @@ test('monthly revenues use the original cells and exclude protected savings from
   assert.equal(sheet.getRow(24).hidden, false);
   assert.equal(sheet.getCell('B24').value.formula, 'B21+B23');
   assert.equal(sheet.getCell('B24').value.result, 740_000);
-  assert.equal(sheet.getCell('B22').value.formula, 'B24-E43');
+  assert.equal(sheet.getCell('B22').value.formula, 'B24-E23');
   assert.ok(sheet.getColumn(2).width >= 18);
   assertWrappedTemplateStyle(sheet.getCell('A30'), template.getWorksheet('Janvier').getCell('A30'));
   assert.deepEqual(sheet.getCell('B30').style, template.getWorksheet('Janvier').getCell('B30').style);
@@ -236,7 +242,7 @@ test('exports from September 2026 group expenses by category with separate total
   ];
   const categoryHeadings = [];
   const expenseTotalRow = findCellRow(septemberSheet, 4, 'Total');
-  for (let rowNumber = 22; rowNumber < expenseTotalRow; rowNumber += 1) {
+  for (let rowNumber = 21; rowNumber < expenseTotalRow; rowNumber += 1) {
     const value = septemberSheet.getCell(rowNumber, 4).value;
     if (priorityNames.includes(value)) categoryHeadings.push(value);
   }
@@ -252,14 +258,15 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(septemberSheet.getCell(wifiRow + 3, 6).value, 8_000);
   assert.equal(septemberSheet.getCell(wifiRow + 4, 5).value, 'Total Wifi');
   assert.equal(septemberSheet.getCell(wifiRow + 4, 6).value.result, 20_000);
-  const otherSectionRow = findCellRow(septemberSheet, 4, 'Autres catégories');
   const otherCategoryRow = findCellRow(septemberSheet, 4, 'Autres dépenses');
-  assert.ok(otherSectionRow);
-  assert.ok(otherCategoryRow > otherSectionRow);
+  assert.equal(findCellRow(septemberSheet, 4, 'Autres catégories'), null);
+  assert.ok(otherCategoryRow);
+  assert.equal(septemberSheet.getCell(otherCategoryRow + 1, 5).value, 'Désignation');
   assert.equal(septemberSheet.getCell(otherCategoryRow + 2, 5).value, 'Achat urgent');
   assert.equal(septemberSheet.getCell(otherCategoryRow + 3, 6).value.result, 3_000);
 
   assert.ok(expenseTotalRow);
+  assert.equal(expenseTotalRow, otherCategoryRow + 4);
   assert.equal(septemberSheet.getCell(expenseTotalRow, 6).value.result, 23_000);
   const protectedSectionRow = findCellRow(
     septemberSheet,
@@ -267,6 +274,7 @@ test('exports from September 2026 group expenses by category with separate total
     'Dépenses financées par l’épargne protégée',
   );
   assert.ok(protectedSectionRow);
+  assert.equal(protectedSectionRow, expenseTotalRow + 1);
   assert.equal(septemberSheet.getCell(protectedSectionRow + 1, 4).value, 'Santé');
   assert.equal(septemberSheet.getCell(protectedSectionRow + 5, 6).value.result, 7_000);
   assert.equal(septemberSheet.getCell(protectedSectionRow + 6, 6).value.result, 7_000);
@@ -282,6 +290,8 @@ test('exports from September 2026 group expenses by category with separate total
   })]);
   const august = await workbookFromBuffer(await augustWorkbook.xlsx.writeBuffer());
   const augustSheet = august.getWorksheet('Août');
+  assert.equal(augustSheet.getCell('D21').value, 'Désignation');
+  assert.equal(augustSheet.getCell('E21').value, 'Montant');
   assert.equal(augustSheet.getCell('D22').value, 'Facture internet');
   assert.equal(augustSheet.getCell('E22').value, 12_000);
 });
@@ -334,7 +344,7 @@ test('live categories show only expense categories and retain the monthly grand 
   const priorityNames = categories.slice(0, 11).map(({ name }) => name);
   const orderedHeadings = [];
   const totalRow = findCellRow(sheet, 4, 'Total');
-  for (let rowNumber = 22; rowNumber < totalRow; rowNumber += 1) {
+  for (let rowNumber = 21; rowNumber < totalRow; rowNumber += 1) {
     const heading = sheet.getCell(rowNumber, 4).value;
     if (priorityNames.includes(heading)) orderedHeadings.push(heading);
   }
@@ -359,10 +369,10 @@ test('live categories show only expense categories and retain the monthly grand 
   assert.equal(sheet.getCell(foodRow + 2, 14).value, null);
   assert.equal(sheet.getCell(foodRow + 4, 6).value.result, 37_000);
 
-  const otherSectionRow = findCellRow(sheet, 4, 'Autres catégories');
   const customRow = findCellRow(sheet, 4, 'Catégorie personnalisée');
-  assert.ok(otherSectionRow);
-  assert.ok(customRow > otherSectionRow);
+  assert.equal(findCellRow(sheet, 4, 'Autres catégories'), null);
+  assert.ok(customRow);
+  assert.equal(sheet.getCell(customRow + 1, 5).value, 'Désignation');
   assert.equal(sheet.getCell(customRow + 2, 5).value, 'Dépense personnalisée');
 
   const summaryTotalRow = findCellRow(sheet, 4, 'Total général des dépenses');
@@ -522,7 +532,8 @@ test('reference exports expand tenants, income sources and expense rows without 
     housingType: index === 0 ? 'Un logement avec une très longue description qui doit être affichée intégralement dans la cellule sans être tronquée' : 'Une chambre',
     peopleCount: 1,
     expectedAmount: 10_000,
-    status: 'Payé',
+    paidAmount: 10_000,
+    status: 'IMPAYÉ',
   }));
   const expenses = Array.from({ length: 25 }, (_, index) => ({
     title: index === 0 ? `Dépense exceptionnelle ${'avec une désignation très détaillée '.repeat(5)}` : `Dépense ${index + 1}`,
@@ -550,10 +561,11 @@ test('reference exports expand tenants, income sources and expense rows without 
   assert.equal(sheet.getCell('D3').value, tenants[0].housingType);
   assert.equal(sheet.getCell('E3').value, 1);
   assert.equal(sheet.getCell('F3').value, 10_000);
-  assert.equal(sheet.getCell('G3').value, 'Payé');
+  assert.equal(sheet.getCell('G3').value, 'PAYÉ');
   assert.equal(sheet.getCell('B11').value, 'Locataire 9');
   assert.equal(sheet.getCell('D22').value, 'Dépenses du mois de Janvier');
-  assert.equal(sheet.getCell('D23').value, 'Type de depenses');
+  assert.equal(sheet.getCell('D23').value, 'Désignation');
+  assert.equal(sheet.getCell('E23').value, 'Montant');
   assert.match(sheet.getCell('D24').value, /^Dépense exceptionnelle/);
   assert.equal(sheet.getCell('D48').value, 'Dépense 25');
   assert.equal(sheet.getCell('D49').value, 'Total');

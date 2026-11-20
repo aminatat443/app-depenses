@@ -48,7 +48,7 @@
           <td class="amount-cell"><%= formatCurrency(row.expected_amount) %></td>
           <td class="amount-cell"><%= formatCurrency(row.amount_paid) %></td>
           <td class="amount-cell"><strong><%= formatCurrency(remaining) %></strong></td>
-          <td><span class="category-pill"><%= remaining === 0 ? 'Payé' : Number(row.amount_paid) > 0 ? 'Partiel' : 'Impayé' %></span></td>
+          <td><span class="category-pill"><%= row.status %></span></td>
           <td><% if (remaining > 0) { %><button class="table-action" type="button" data-modal-template="rent-payment-<%= row.id %>">Enregistrer un paiement</button><% } else { %>—<% } %></td>
         </tr>
         <% if (remaining > 0) { %>

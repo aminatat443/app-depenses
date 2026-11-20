@@ -2270,14 +2270,17 @@ async function getReferenceMonthData(year, month) {
       LEFT JOIN LATERAL (
         SELECT SUM(amount) AS paid_amount FROM rent_payments WHERE obligation_id = o.id
       ) p ON TRUE
-      WHERE t.is_active = TRUE
+      WHERE o.id IS NOT NULL OR (
+        t.is_active = TRUE
+        AND (t.entry_date IS NULL OR t.entry_date < (? || '-01')::date + INTERVAL '1 month')
+      )
       ORDER BY CASE u.floor
         WHEN 'Rez-de-chaussée' THEN 0
         WHEN '1er étage' THEN 1
         WHEN '2e étage' THEN 2
         WHEN '3e étage' THEN 3
         ELSE 4 END, u.label, t.last_name, t.first_name
-    `).all(previousMonthKey, previousMonthKey),
+    `).all(previousMonthKey, previousMonthKey, previousMonthKey),
     db.prepare(`
       SELECT source, SUM(amount) AS amount
       FROM incomes WHERE month_key = ?
@@ -2369,20 +2372,13 @@ async function getReferenceMonthData(year, month) {
   const tenantsForTemplate = tenants.map((tenant) => {
     const expectedAmount = Number(tenant.expected_amount);
     const paidAmount = Number(tenant.paid_amount);
-    const status = expectedAmount <= 0
-      ? 'Non dû'
-      : paidAmount >= expectedAmount
-        ? 'Payé'
-        : paidAmount > 0
-          ? 'Partiellement payé'
-          : 'Non payé';
     return {
       floor: tenant.floor,
       name: `${tenant.first_name} ${tenant.last_name}`,
       housingType: tenant.housing_type,
       peopleCount: Number(tenant.people_count),
       expectedAmount,
-      status,
+      paidAmount,
     };
   });
   const sum = (rows) => rows.reduce((total, row) => total + Number(row.amount), 0);

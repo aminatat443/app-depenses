@@ -65,7 +65,7 @@ function findExcelRow(sheet, label) {
 }
 
 function findExcelColumnRow(sheet, columnNumber, label) {
-  for (let rowNumber = 22; rowNumber <= sheet.rowCount; rowNumber += 1) {
+  for (let rowNumber = 21; rowNumber <= sheet.rowCount; rowNumber += 1) {
     if (sheet.getCell(rowNumber, columnNumber).value === label) return rowNumber;
   }
   return null;
@@ -74,7 +74,7 @@ function findExcelColumnRow(sheet, columnNumber, label) {
 function findXlsxColumnRow(sheet, column, label) {
   const range = XLSX.utils.decode_range(sheet['!ref']);
   const columnNumber = XLSX.utils.decode_col(column);
-  for (let rowNumber = Math.max(range.s.r, 21); rowNumber <= range.e.r; rowNumber += 1) {
+  for (let rowNumber = Math.max(range.s.r, 20); rowNumber <= range.e.r; rowNumber += 1) {
     const cell = sheet[XLSX.utils.encode_cell({ r: rowNumber, c: columnNumber })];
     if (cell?.v === label) return rowNumber + 1;
   }
@@ -920,6 +920,134 @@ test('rent payments can omit dates and mark all remaining obligations paid', asy
     assert.equal(deletionAudit.after_data, null);
   } finally {
     await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('rent Excel statuses match each month obligation and the rents page', async () => {
+  const server = await startServer();
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const cases = [
+    { key: 'fully-paid', firstName: 'Loyer', lastName: 'Intégral', expected: 50_000, paid: 50_000, status: 'PAYÉ' },
+    { key: 'unpaid', firstName: 'Loyer', lastName: 'Absent', expected: 50_000, paid: 0, status: 'IMPAYÉ' },
+    { key: 'partial', firstName: 'Loyer', lastName: 'Partiel', expected: 50_000, paid: 30_000, status: 'IMPAYÉ' },
+    {
+      key: 'installments',
+      firstName: 'Loyer',
+      lastName: 'Versements',
+      expected: 100_000,
+      payments: [40_000, 60_000],
+      status: 'PAYÉ',
+    },
+    { key: 'other-month', firstName: 'Loyer', lastName: 'AutreMois', expected: 70_000, paid: 0, status: 'IMPAYÉ' },
+    { key: 'overpaid', firstName: 'Loyer', lastName: 'TropPerçu', expected: 50_000, paid: 60_000, status: 'PAYÉ' },
+    {
+      key: 'changed-rent',
+      firstName: 'Loyer',
+      lastName: 'Modifié',
+      expected: 50_000,
+      paid: 50_000,
+      monthlyRent: 80_000,
+      status: 'PAYÉ',
+    },
+  ];
+  const unitIds = [];
+  const tenantIds = [];
+
+  try {
+    for (const renter of cases) {
+      const unit = await db.prepare(`
+        INSERT INTO units (floor, label, housing_type) VALUES (?, ?, 'Studio')
+      `).run('Rez-de-chaussée', `STATUS-${renter.key}`);
+      unitIds.push(unit.lastInsertRowid);
+      const tenant = await db.prepare(`
+        INSERT INTO tenants (
+          unit_id, first_name, last_name, people_count, monthly_rent, entry_date
+        ) VALUES (?, ?, ?, 1, ?, '2026-01-01')
+      `).run(
+        unit.lastInsertRowid,
+        renter.firstName,
+        renter.lastName,
+        renter.monthlyRent || renter.expected,
+      );
+      tenantIds.push(tenant.lastInsertRowid);
+
+      const obligation = await db.prepare(`
+        INSERT INTO rent_obligations (tenant_id, month_key, expected_amount)
+        VALUES (?, '2027-06', ?)
+      `).run(tenant.lastInsertRowid, renter.expected);
+      let payments = renter.payments || (renter.paid ? [renter.paid] : []);
+      if (renter.key === 'other-month') {
+        const mayObligation = await db.prepare(`
+          INSERT INTO rent_obligations (tenant_id, month_key, expected_amount)
+          VALUES (?, '2027-05', ?)
+        `).run(tenant.lastInsertRowid, renter.expected);
+        await db.prepare(`
+          INSERT INTO rent_payments (
+            obligation_id, amount, payment_date, received_month_key
+          ) VALUES (?, ?, '2027-06-02', '2027-06')
+        `).run(mayObligation.lastInsertRowid, renter.expected);
+        payments = [];
+      }
+      for (const [index, amount] of payments.entries()) {
+        await db.prepare(`
+          INSERT INTO rent_payments (
+            obligation_id, amount, payment_date, received_month_key
+          ) VALUES (?, ?, ?, '2027-07')
+        `).run(obligation.lastInsertRowid, amount, `2027-07-${String(index + 1).padStart(2, '0')}`);
+      }
+    }
+
+    const rentsHtml = await (await authedFetch(`${baseUrl}/rents?month=2027-06`)).text();
+    const visibleRows = [...rentsHtml.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((match) => match[1]);
+    for (const renter of cases) {
+      const fullName = `${renter.firstName} ${renter.lastName}`;
+      const visibleRow = visibleRows.find((row) => row.includes(`<strong>${fullName}</strong>`));
+      assert.ok(visibleRow, `missing rents-page row for ${fullName}`);
+      assert.match(visibleRow, new RegExp(`<span class="category-pill">${renter.status}</span>`));
+    }
+
+    async function exportedStatuses(url) {
+      const response = await authedFetch(`${baseUrl}${url}`);
+      assert.equal(response.status, 200);
+      const workbook = await loadExcelJsWorkbook(Buffer.from(await response.arrayBuffer()));
+      const sheet = workbook.getWorksheet('Juillet');
+      return new Map(cases.map((renter) => {
+        const fullName = `${renter.firstName} ${renter.lastName}`;
+        let rowNumber = 3;
+        while (rowNumber <= sheet.rowCount && sheet.getCell(rowNumber, 2).value !== fullName) rowNumber += 1;
+        assert.ok(rowNumber <= sheet.rowCount, `missing Excel row for ${fullName}`);
+        assert.equal(Number(sheet.getCell(rowNumber, 6).value), renter.expected);
+        return [renter.key, sheet.getCell(rowNumber, 7).value];
+      }));
+    }
+
+    const monthlyStatuses = await exportedStatuses('/export/month/2027/7');
+    assert.deepEqual([...monthlyStatuses.values()], cases.map((renter) => renter.status));
+    assert.deepEqual(
+      [...await exportedStatuses('/export/month?year=2027&month=7').then((statuses) => statuses.values())],
+      cases.map((renter) => renter.status),
+    );
+    assert.deepEqual(
+      [...await exportedStatuses('/export/months?year=2027&months=7&months=8').then((statuses) => statuses.values())],
+      cases.map((renter) => renter.status),
+    );
+    assert.deepEqual(
+      [...await exportedStatuses('/export/2027').then((statuses) => statuses.values())],
+      cases.map((renter) => renter.status),
+    );
+    assert.equal(monthlyStatuses.get('other-month'), 'IMPAYÉ');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    if (tenantIds.length) {
+      await db.prepare(`
+        DELETE FROM rent_payments
+        WHERE obligation_id IN (SELECT id FROM rent_obligations WHERE tenant_id = ANY(?))
+      `).run(tenantIds);
+      await db.prepare('DELETE FROM rent_obligations WHERE tenant_id = ANY(?)').run(tenantIds);
+      await db.prepare('DELETE FROM tenants WHERE id = ANY(?)').run(tenantIds);
+    }
+    if (unitIds.length) await db.prepare('DELETE FROM units WHERE id = ANY(?)').run(unitIds);
   }
 });
 

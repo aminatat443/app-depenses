@@ -1,6 +1,7 @@
 const express = require('express');
 const { db } = require('./db');
 const { calculateMonthlyBalance } = require('./monthly-balance');
+const { getRentPaymentStatus } = require('./rent-status');
 
 const router = express.Router();
 const FLOORS = ['Rez-de-chaussée', '1er étage', '2e étage', '3e étage'];
@@ -314,7 +315,7 @@ async function getUnitFloor(unitId) {
 
 router.get('/rents', async (req, res) => {
   const monthKey = validMonth(req.query.month) ? req.query.month : currentMonth();
-  const obligations = await db.prepare(`
+  const obligationRows = await db.prepare(`
     SELECT o.id, o.month_key, o.expected_amount, t.first_name, t.last_name,
       u.floor, u.label AS unit_label, COALESCE(SUM(p.amount), 0) AS amount_paid
     FROM rent_obligations o
@@ -325,6 +326,10 @@ router.get('/rents', async (req, res) => {
     GROUP BY o.id, t.first_name, t.last_name, u.floor, u.label
     ORDER BY u.floor, u.label, t.last_name, t.first_name
   `).all(monthKey);
+  const obligations = obligationRows.map((row) => ({
+    ...row,
+    status: getRentPaymentStatus(row.expected_amount, row.amount_paid),
+  }));
   const paymentDetails = await db.prepare(`
     SELECT p.id, p.amount, p.payment_date, p.payment_method, p.comment, o.month_key,
       o.expected_amount, t.first_name, t.last_name, u.floor, u.label AS unit_label
