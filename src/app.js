@@ -886,6 +886,12 @@ function includeCarryoverInExport(value) {
   return submittedValues.some((item) => String(item) === '1');
 }
 
+function includeAnnualSummaryInExport(value) {
+  if (value === undefined) return false;
+  const submittedValues = Array.isArray(value) ? value : [value];
+  return submittedValues.some((item) => String(item) === '1');
+}
+
 async function storeReceipt(file) {
   if (!file) return null;
   const signatureValid = {
@@ -2624,6 +2630,7 @@ app.get('/export/months', async (req, res) => {
   const monthData = await Promise.all(months.sort((a, b) => a - b).map((month) => getReferenceMonthData(year, month)));
   const workbook = await buildReferenceWorkbook(monthData, {
     includeCarryover: includeCarryoverInExport(req.query.includeCarryover),
+    annual: includeAnnualSummaryInExport(req.query.includeAnnualSummary),
   });
   const buffer = await workbook.xlsx.writeBuffer();
   res.setHeader('Content-Disposition', `attachment; filename="DEPENSES_MAISON_${year}_MOIS.xlsx"`);
@@ -2711,6 +2718,9 @@ app.get('/export/:year', async (req, res) => {
   const workbook = await buildReferenceWorkbook(months, {
     annual: true,
     includeCarryover: includeCarryoverInExport(req.query.includeCarryover),
+    includeAnnualSummary: req.query.includeAnnualSummary === undefined
+      ? true
+      : includeAnnualSummaryInExport(req.query.includeAnnualSummary),
   });
   const buffer = await workbook.xlsx.writeBuffer();
   res.setHeader('Content-Disposition', `attachment; filename="DEPENSES_MAISON_${year}.xlsx"`);

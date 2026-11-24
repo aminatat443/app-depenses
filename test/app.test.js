@@ -1476,6 +1476,7 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     const exportHtml = await exportPage.text();
     assert.match(exportHtml, /name="includeCarryover" value="1"/);
     assert.doesNotMatch(exportHtml, /name="includeCarryover" value="1" checked/);
+    assert.match(exportHtml, /name="includeAnnualSummary" value="1" checked/);
     assert.match(exportHtml, /Inclure le report du mois dernier dans le calcul du restant final/);
     assert.deepEqual(workbook.SheetNames, [
       'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -1530,11 +1531,12 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 0 && range.s.c === 0 && range.e.c === 6));
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 5));
     const uncheckedAnnualResponse = await authedFetch(
-      `http://127.0.0.1:${port}/export/2026?includeCarryover=0`,
+      `http://127.0.0.1:${port}/export/2026?includeCarryover=0&includeAnnualSummary=0`,
     );
     const uncheckedAnnual = await loadExcelJsWorkbook(
       Buffer.from(await uncheckedAnnualResponse.arrayBuffer()),
     );
+    assert.equal(uncheckedAnnual.getWorksheet('Récapitulatif annuel'), undefined);
     for (const monthName of workbook.SheetNames.slice(0, 12)) {
       const sheet = uncheckedAnnual.getWorksheet(monthName);
       const reportRow = findExcelRow(sheet, 'Restant du mois dernier');
@@ -1773,16 +1775,10 @@ test('monthly CSV filters remain available and expenses Excel uses the reference
     assert.equal(expensesSheet.getCell(boutiqueRow, 4).value, 'Compte boutique');
     assert.equal(expensesSheet.getCell(boutiqueRow, 6).value, 1500);
     const totalRow = findExcelColumnRow(expensesSheet, 4, 'Total général');
-    const summaryTotalRow = findExcelColumnRow(expensesSheet, 4, 'TOTAL GÉNÉRAL');
     assert.ok(totalRow);
-    assert.ok(summaryTotalRow);
     const financeResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-09`);
     const finance = await financeResponse.json();
     assert.equal(expensesSheet.getCell(totalRow, 6).value.result, finance.totalExpenses + finance.protectedSavingsExpenses);
-    assert.equal(
-      expensesSheet.getCell(summaryTotalRow, 6).value.result,
-      finance.totalExpenses + finance.protectedSavingsExpenses,
-    );
   } finally {
     await db.prepare('DELETE FROM expenses WHERE title IN (?, ?, ?, ?, ?, ?)').run(...titles, ...septemberTitles);
     await db.prepare('DELETE FROM grocery_items WHERE id = ?').run(grocery.lastInsertRowid);
@@ -1829,7 +1825,7 @@ test('new expense categories appear in the filters and category summary on the n
     const emptyWorkbook = await loadExcelJsWorkbook(Buffer.from(await emptyWorkbookResponse.arrayBuffer()));
     const emptySheet = emptyWorkbook.getWorksheet('Novembre');
     const emptyCategoryRow = findExcelColumnRow(emptySheet, 4, categoryName);
-    assert.ok(emptyCategoryRow);
+    assert.equal(emptyCategoryRow, null);
 
     await db.prepare(`
       INSERT INTO expenses (title, category_id, amount, expense_date, month_key)
@@ -1841,16 +1837,6 @@ test('new expense categories appear in the filters and category summary on the n
     const createdSheet = createdWorkbook.getWorksheet('Novembre');
     const createdCategoryRow = findExcelColumnRow(createdSheet, 4, categoryName);
     assert.ok(createdCategoryRow);
-    const createdSummaryTitleRow = findExcelColumnRow(createdSheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE');
-    let createdSummaryRow = null;
-    for (let rowNumber = createdSummaryTitleRow + 2; rowNumber <= createdSheet.rowCount; rowNumber += 1) {
-      if (createdSheet.getCell(rowNumber, 4).value === categoryName) {
-        createdSummaryRow = rowNumber;
-        break;
-      }
-    }
-    assert.ok(createdSummaryRow);
-    assert.equal(createdSheet.getCell(createdSummaryRow, 6).value.result, 7500);
 
     const managementHtml = await (await authedFetch(
       `${baseUrl}/categories?return_to=${encodeURIComponent('/expenses?month=2026-11')}`,
@@ -1878,16 +1864,6 @@ test('new expense categories appear in the filters and category summary on the n
     const renamedSheet = renamedWorkbook.getWorksheet('Novembre');
     assert.ok(findExcelColumnRow(renamedSheet, 4, updatedName));
     assert.equal(findExcelColumnRow(renamedSheet, 4, categoryName), null);
-    const renamedSummaryTitleRow = findExcelColumnRow(renamedSheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE');
-    let renamedSummaryRow = null;
-    for (let rowNumber = renamedSummaryTitleRow + 2; rowNumber <= renamedSheet.rowCount; rowNumber += 1) {
-      if (renamedSheet.getCell(rowNumber, 4).value === updatedName) {
-        renamedSummaryRow = rowNumber;
-        break;
-      }
-    }
-    assert.ok(renamedSummaryRow);
-    assert.equal(renamedSheet.getCell(renamedSummaryRow, 6).value.result, 7500);
 
     const deleteResponse = await authedFetch(`${baseUrl}/categories/${category.id}/delete`, {
       method: 'POST',
@@ -1905,16 +1881,6 @@ test('new expense categories appear in the filters and category summary on the n
     const deletedSheet = deletedWorkbook.getWorksheet('Novembre');
     assert.equal(findExcelColumnRow(deletedSheet, 4, updatedName), null);
     assert.equal(findExcelColumnRow(deletedSheet, 4, categoryName), null);
-    const fallbackSummaryTitleRow = findExcelColumnRow(deletedSheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE');
-    let fallbackSummaryRow = null;
-    for (let rowNumber = fallbackSummaryTitleRow + 2; rowNumber <= deletedSheet.rowCount; rowNumber += 1) {
-      if (deletedSheet.getCell(rowNumber, 4).value === 'Autres dépenses') {
-        fallbackSummaryRow = rowNumber;
-        break;
-      }
-    }
-    assert.ok(fallbackSummaryRow);
-    assert.equal(deletedSheet.getCell(fallbackSummaryRow, 6).value.result, 7500);
     const deletedValues = Array.from({ length: deletedSheet.rowCount }, (_, rowIndex) => (
       Array.from({ length: deletedSheet.columnCount }, (_, columnIndex) => (
         deletedSheet.getCell(rowIndex + 1, columnIndex + 1).value

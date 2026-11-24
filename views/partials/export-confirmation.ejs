@@ -15,6 +15,7 @@
 <% } else { %>
   <form method="GET" action="/export/<%= year %>" class="export-option-form">
     <%- include('export-carryover-option') %>
+    <%- include('export-annual-summary-option') %>
     <div class="modal-actions">
       <button type="button" class="secondary-btn" data-close-modal>Annuler</button>
       <a class="button button-subtle" href="/export/pdf/year/<%= year %>">PDF annuel</a>

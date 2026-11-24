@@ -151,6 +151,8 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.ok(!sheet.model.merges.includes('A30:A32'));
   assert.ok(!sheet.model.merges.includes('B30:B32'));
   assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
+  assert.equal(sheet.getCell('A29').value, null);
+  assert.equal(sheet.getCell('B29').value, null);
   assert.equal(sheet.getCell('B30').value, 25_000);
   assert.equal(sheet.getCell('A31').value, null);
   assert.equal(sheet.getCell('B31').value, null);
@@ -256,7 +258,7 @@ test('exports from September 2026 group expenses by category with separate total
   const september = await workbookFromBuffer(await septemberWorkbook.xlsx.writeBuffer());
   const septemberSheet = september.getWorksheet('Septembre');
 
-  assert.equal(septemberSheet.getCell('D20').fill.fgColor.argb, 'FF385623');
+  assert.equal(septemberSheet.getCell('D20').fill.fgColor.argb, 'FF000000');
   assert.equal(septemberSheet.getCell('D20').font.color.argb, 'FFFFFFFF');
   assert.ok(septemberSheet.model.merges.includes('D20:F20'));
   assert.equal(septemberSheet.getCell('D21').value, 'Catégorie');
@@ -264,8 +266,12 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(septemberSheet.getCell('F21').value, 'Montant');
   assert.equal(septemberSheet.autoFilter, 'D21:F26');
   assert.equal(septemberSheet.getCell('D22').value, 'Wifi');
+  assert.equal(septemberSheet.getCell('D22').alignment.horizontal, 'center');
+  assert.equal(septemberSheet.getCell('D22').alignment.vertical, 'middle');
   assert.equal(septemberSheet.getCell('E22').value, 'Abonnement');
   assert.equal(septemberSheet.getCell('F22').value, 8_000);
+  assert.equal(septemberSheet.getCell('E22').font.color.argb, 'FF000000');
+  assert.equal(septemberSheet.getCell('F22').font.color.argb, 'FFFA7D00');
   assert.ok(septemberSheet.model.merges.includes('D22:D23'));
   assert.ok(septemberSheet.model.merges.includes('D24:D25'));
   assert.equal(septemberSheet.getCell('D23').value, 'Wifi');
@@ -279,9 +285,7 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(septemberSheet.getCell('E26').value, 'Achat urgent');
   const expenseTotalRow = findCellRow(septemberSheet, 4, 'Total général');
   assert.equal(septemberSheet.getCell(expenseTotalRow, 6).value.result, 30_000);
-  const summaryTotalRow = findCellRow(septemberSheet, 4, 'TOTAL GÉNÉRAL');
-  assert.equal(septemberSheet.getCell(summaryTotalRow, 5).value, 5);
-  assert.equal(septemberSheet.getCell(summaryTotalRow, 6).value.result, 30_000);
+  assert.equal(findCellRow(septemberSheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE'), null);
 
   const augustWorkbook = await buildReferenceWorkbook([monthData({
     monthKey: '2026-08',
@@ -365,8 +369,6 @@ test('live categories show only expense categories and retain the monthly grand 
   }
   const totalRow = findCellRow(sheet, 4, 'Total général');
   assert.equal(sheet.getCell(totalRow, 6).value.result, 40_000);
-  const summaryTitleRow = findCellRow(sheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE');
-  assert.ok(summaryTitleRow);
 });
 
 test('exports keep boutique purchases on separate expense rows', async () => {
