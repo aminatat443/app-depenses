@@ -685,6 +685,16 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     sheet.getCell(rowNumber, 7).value = status;
     applyStatusStyle(sheet.getCell(rowNumber, 7), status);
     sheet.mergeCells(rowNumber, 2, rowNumber, 3);
+    const rowFill = index % 2 === 0 ? 'FFF7F9F5' : 'FFFFFFFF';
+    for (let columnNumber = 1; columnNumber <= 6; columnNumber += 1) {
+      const cell = sheet.getCell(rowNumber, columnNumber);
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: rowFill },
+        bgColor: { argb: rowFill },
+      };
+    }
   });
   for (let rowNumber = 2; rowNumber <= 13 + tenantInsertions; rowNumber += 1) {
     for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
@@ -718,6 +728,16 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     data.rentExpected,
   );
   sheet.getCell(tenantTotalRow, 6).numFmt = CURRENCY_FORMAT;
+  for (let columnNumber = 2; columnNumber <= 6; columnNumber += 1) {
+    const cell = sheet.getCell(tenantTotalRow, columnNumber);
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: GRAND_TOTAL_GREEN },
+      bgColor: { argb: GRAND_TOTAL_GREEN },
+    };
+    cell.font = { ...cell.font, bold: true, color: { argb: 'FF274E13' } };
+  }
 
   const paymentTotalRow = 13 + tenantInsertions;
   sheet.getCell(paymentTotalRow, 5).value = 'Total des paiements reçus';
@@ -726,6 +746,16 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     : '0';
   setFormula(sheet.getCell(paymentTotalRow, 6), cashFormula, data.rentReceived);
   sheet.getCell(paymentTotalRow, 6).numFmt = CURRENCY_FORMAT;
+  for (let columnNumber = 5; columnNumber <= 6; columnNumber += 1) {
+    const cell = sheet.getCell(paymentTotalRow, columnNumber);
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: GRAND_TOTAL_GREEN },
+      bgColor: { argb: GRAND_TOTAL_GREEN },
+    };
+    cell.font = { ...cell.font, bold: true, color: { argb: 'FF274E13' } };
+  }
 
   const pensionRow = 15 + tenantInsertions;
   const papeRow = 17 + tenantInsertions;

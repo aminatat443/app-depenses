@@ -2592,6 +2592,47 @@ app.get('/export/csv/:year/:kind', async (req, res) => {
   res.send(makeCsv(headers, rows));
 });
 
+app.get('/export/preview/month/:year/:month', async (req, res) => {
+  const year = Number(req.params.year);
+  const month = Number(req.params.month);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
+    return res.status(400).send('Période d’exportation invalide.');
+  }
+  const data = await getReferenceMonthData(year, month);
+  res.render('excel-preview', {
+    title: `Aperçu Excel · ${month} ${year}`,
+    months: [{ ...data, monthLabel: new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' })
+      .format(new Date(Date.UTC(year, month - 1, 1)))
+      .replace(/^./, (letter) => letter.toUpperCase()) }],
+  });
+});
+
+app.get('/export/preview/months', async (req, res) => {
+  const year = Number(req.query.year);
+  const rawMonths = Array.isArray(req.query.months) ? req.query.months : [req.query.months];
+  const months = rawMonths.map(Number).filter((month) => Number.isInteger(month) && month >= 1 && month <= 12);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100 || months.length === 0) {
+    return res.status(400).send('Sélection de périodes invalide.');
+  }
+  const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const rows = await Promise.all([...new Set(months)].sort((a, b) => a - b).map(async (month) => ({
+    ...(await getReferenceMonthData(year, month)),
+    monthLabel: monthNames[month - 1],
+  })));
+  res.render('excel-preview', { title: `Aperçu Excel · ${year} · Mois sélectionnés`, months: rows });
+});
+
+app.get('/export/preview/:year', async (req, res) => {
+  const year = Number(req.params.year);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return res.status(400).send('Année d’exportation invalide.');
+  const monthNames = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const rows = await Promise.all(Array.from({ length: 12 }, async (_, index) => ({
+    ...(await getReferenceMonthData(year, index + 1)),
+    monthLabel: monthNames[index],
+  })));
+  res.render('excel-preview', { title: `Aperçu Excel annuel · ${year}`, months: rows });
+});
+
 app.get('/export/month/:year/:month', async (req, res) => {
   const year = Number(req.params.year);
   const month = Number(req.params.month);

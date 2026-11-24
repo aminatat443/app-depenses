@@ -153,6 +153,12 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('G4').font.color.argb, 'FF9C0006');
   assert.equal(sheet.getCell('G5').value, 'PARTIELLEMENT PAYÉ');
   assert.equal(sheet.getCell('G5').fill.fgColor.argb, 'FFFFE699');
+  assert.equal(sheet.getCell('A3').fill.fgColor.argb, 'FFF7F9F5');
+  assert.equal(sheet.getCell('A4').fill.fgColor.argb, 'FFFFFFFF');
+  assert.equal(sheet.getCell('B11').fill.fgColor.argb, 'FFD9EAD3');
+  assert.equal(sheet.getCell('F11').fill.fgColor.argb, 'FFD9EAD3');
+  assert.equal(sheet.getCell('E13').fill.fgColor.argb, 'FFD9EAD3');
+  assert.equal(sheet.getCell('F13').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('G5').font.color.argb, 'FF7F6000');
   assert.ok(!sheet.model.merges.includes('A30:A32'));
   assert.ok(!sheet.model.merges.includes('B30:B32'));

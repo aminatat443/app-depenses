@@ -1,0 +1,42 @@
+<%- include('partials/page-start', {
+  pageTitle: 'Aperçu Excel',
+  pageDescription: 'Aperçu natif du classeur avant téléchargement.',
+  activePage: 'export'
+}) %>
+
+<section class="panel-card excel-preview-card">
+  <div class="panel-header">
+    <div>
+      <h2><%= title %></h2>
+      <p>Contenu du fichier Excel, prêt à être téléchargé ou partagé.</p>
+    </div>
+  </div>
+  <% months.forEach((month) => { %>
+    <article class="excel-preview-month">
+      <h3><%= month.monthLabel %></h3>
+      <div class="table-wrap">
+        <table class="transactions-table excel-preview-rent">
+          <thead><tr><th>Locataire</th><th>Logement</th><th>Personnes</th><th>Montant à payer</th><th>Statut</th></tr></thead>
+          <tbody>
+            <% month.tenants.forEach((tenant) => { %>
+              <tr><td><%= tenant.name %></td><td><%= tenant.housingType %></td><td><%= tenant.peopleCount %></td><td class="amount-cell"><strong><%= formatCurrency(tenant.expectedAmount) %></strong></td><td><%= tenant.status %></td></tr>
+            <% }) %>
+          </tbody>
+          <tfoot><tr><td colspan="3"><strong>Total</strong></td><td class="amount-cell"><strong><%= formatCurrency(month.rentExpected) %></strong></td><td><%= month.rentReceived ? 'Paiements reçus: ' + formatCurrency(month.rentReceived) : '' %></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table class="transactions-table">
+          <thead><tr><th>Catégorie</th><th>Désignation</th><th class="amount-cell">Montant</th></tr></thead>
+          <tbody>
+            <% const ordinary = [...(month.expenses || []), ...(month.protectedExpenses || [])]; ordinary.forEach((expense) => { %>
+              <tr><td><strong><%= expense.category %></strong></td><td><%= expense.title %></td><td class="amount-cell"><strong><%= formatCurrency(expense.amount) %></strong></td></tr>
+            <% }) %>
+          </tbody>
+          <tfoot><tr><td colspan="2"><strong>Total général</strong></td><td class="amount-cell"><strong><%= formatCurrency(month.totalExpenses + (month.protectedExpenses || []).reduce((sum, expense) => sum + Number(expense.amount || 0), 0)) %></strong></td></tr></tfoot>
+        </table>
+      </div>
+    </article>
+  <% }) %>
+</section>
+<%- include('partials/page-end') %>

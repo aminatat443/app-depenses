@@ -1533,10 +1533,10 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 0 && range.s.c === 0 && range.e.c === 6));
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 5));
     const previewResponse = await authedFetch(
-      `http://127.0.0.1:${port}/export/month/2026/1?preview=1`,
+      `http://127.0.0.1:${port}/export/preview/month/2026/1`,
     );
     assert.equal(previewResponse.status, 200);
-    assert.match(previewResponse.headers.get('content-disposition'), /^inline;/);
+    assert.match(await previewResponse.text(), /Aperçu Excel/);
     const uncheckedAnnualResponse = await authedFetch(
       `http://127.0.0.1:${port}/export/2026?includeCarryover=0&includeAnnualSummary=0`,
     );

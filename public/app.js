@@ -36,7 +36,29 @@
 
     const url = buildNativeExcelUrl(container, Boolean(previewButton));
     if (previewButton) {
-      window.open(url.toString(), '_blank', 'noopener');
+      const previewUrl = new URL(url.toString());
+      previewUrl.pathname = previewUrl.pathname.replace('/export/months', '/export/preview/months')
+        .replace(/\/export\/month\/(\d+)\/(\d+)/, '/export/preview/month/$1/$2')
+        .replace(/\/export\/(\d{4})$/, '/export/preview/$1');
+      if (previewUrl.pathname === '/export/month') {
+        const year = previewUrl.searchParams.get('year');
+        const month = previewUrl.searchParams.get('month');
+        if (/^\d{4}$/.test(year || '') && /^\d{1,2}$/.test(month || '')) {
+          previewUrl.pathname = `/export/preview/month/${year}/${month}`;
+        }
+      }
+      previewUrl.searchParams.delete('preview');
+      try {
+        const previewResponse = await fetch(previewUrl.toString(), { credentials: 'same-origin' });
+        if (!previewResponse.ok) throw new Error('Aperçu Excel indisponible.');
+        const html = await previewResponse.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const content = doc.querySelector('.page-content') || doc.querySelector('main');
+        if (!content) throw new Error('Aperçu Excel indisponible.');
+        openModal(content.cloneNode(true), previewButton);
+      } catch (error) {
+        alert(error?.message || 'Aperçu Excel indisponible.');
+      }
       return;
     }
 
