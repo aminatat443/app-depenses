@@ -2434,12 +2434,13 @@ async function getReferenceMonthData(year, month) {
   };
 }
 
-async function sendMonthlyReferenceExport(res, year, month, includeCarryover) {
+async function sendMonthlyReferenceExport(res, year, month, includeCarryover, preview = false) {
   const monthKey = getMonthKey(year, month);
   const data = await getReferenceMonthData(year, month);
   const workbook = await buildReferenceWorkbook([data], { includeCarryover });
   const buffer = await workbook.xlsx.writeBuffer();
-  res.setHeader('Content-Disposition', `attachment; filename="DEPENSES_MAISON_${monthKey}.xlsx"`);
+  const disposition = preview ? 'inline' : 'attachment';
+  res.setHeader('Content-Disposition', `${disposition}; filename="DEPENSES_MAISON_${monthKey}.xlsx"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.send(Buffer.from(buffer));
 }
@@ -2520,6 +2521,7 @@ app.get('/export/xlsx/month/:year/:month/expenses', async (req, res) => {
     year,
     month,
     includeCarryoverInExport(req.query.includeCarryover),
+    req.query.preview === '1',
   );
 });
 
@@ -2601,6 +2603,7 @@ app.get('/export/month/:year/:month', async (req, res) => {
     year,
     month,
     includeCarryoverInExport(req.query.includeCarryover),
+    req.query.preview === '1',
   );
 });
 
@@ -2615,6 +2618,7 @@ app.get('/export/month', async (req, res) => {
     year,
     month,
     includeCarryoverInExport(req.query.includeCarryover),
+    req.query.preview === '1',
   );
 });
 
@@ -2633,7 +2637,8 @@ app.get('/export/months', async (req, res) => {
     annual: includeAnnualSummaryInExport(req.query.includeAnnualSummary),
   });
   const buffer = await workbook.xlsx.writeBuffer();
-  res.setHeader('Content-Disposition', `attachment; filename="DEPENSES_MAISON_${year}_MOIS.xlsx"`);
+  const disposition = req.query.preview === '1' ? 'inline' : 'attachment';
+  res.setHeader('Content-Disposition', `${disposition}; filename="DEPENSES_MAISON_${year}_MOIS.xlsx"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.send(Buffer.from(buffer));
 });
@@ -2723,7 +2728,8 @@ app.get('/export/:year', async (req, res) => {
       : includeAnnualSummaryInExport(req.query.includeAnnualSummary),
   });
   const buffer = await workbook.xlsx.writeBuffer();
-  res.setHeader('Content-Disposition', `attachment; filename="DEPENSES_MAISON_${year}.xlsx"`);
+  const disposition = req.query.preview === '1' ? 'inline' : 'attachment';
+  res.setHeader('Content-Disposition', `${disposition}; filename="DEPENSES_MAISON_${year}.xlsx"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.send(Buffer.from(buffer));
 });

@@ -1477,6 +1477,8 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     assert.match(exportHtml, /name="includeCarryover" value="1"/);
     assert.doesNotMatch(exportHtml, /name="includeCarryover" value="1" checked/);
     assert.match(exportHtml, /name="includeAnnualSummary" value="1" checked/);
+    assert.match(exportHtml, /Aperçu Excel/);
+    assert.match(exportHtml, /Partager sur WhatsApp/);
     assert.match(exportHtml, /Inclure le report du mois dernier dans le calcul du restant final/);
     assert.deepEqual(workbook.SheetNames, [
       'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -1530,6 +1532,11 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     assert.equal(workbook.Sheets['Récapitulatif annuel'].A1.v, 'Récapitulatif annuel 2026');
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 0 && range.s.c === 0 && range.e.c === 6));
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 5));
+    const previewResponse = await authedFetch(
+      `http://127.0.0.1:${port}/export/month/2026/1?preview=1`,
+    );
+    assert.equal(previewResponse.status, 200);
+    assert.match(previewResponse.headers.get('content-disposition'), /^inline;/);
     const uncheckedAnnualResponse = await authedFetch(
       `http://127.0.0.1:${port}/export/2026?includeCarryover=0&includeAnnualSummary=0`,
     );

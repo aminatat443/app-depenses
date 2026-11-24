@@ -6,6 +6,7 @@
 <% if (typeof month === 'number') { %>
   <form method="GET" action="/export/month/<%= year %>/<%= month %>" class="export-option-form">
     <%- include('export-carryover-option') %>
+    <%- include('excel-native-actions', { exportUrl: `/export/month/${year}/${month}`, caption: `Classeur Excel ${year}-${String(month).padStart(2, '0')} · Dépenses maison` }) %>
     <div class="modal-actions">
       <button type="button" class="secondary-btn" data-close-modal>Annuler</button>
       <a class="button button-subtle" href="/export/pdf/month/<%= year %>/<%= month %>">PDF mensuel</a>
@@ -16,6 +17,7 @@
   <form method="GET" action="/export/<%= year %>" class="export-option-form">
     <%- include('export-carryover-option') %>
     <%- include('export-annual-summary-option') %>
+    <%- include('excel-native-actions', { exportUrl: `/export/${year}`, caption: `Classeur Excel annuel ${year} · Dépenses maison` }) %>
     <div class="modal-actions">
       <button type="button" class="secondary-btn" data-close-modal>Annuler</button>
       <a class="button button-subtle" href="/export/pdf/year/<%= year %>">PDF annuel</a>

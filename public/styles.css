@@ -632,6 +632,9 @@ select option[hidden] { display: none; }
 .export-carryover-option input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--color-primary); }
 .export-carryover-option span { min-width: 0; }
 .export-format-links { padding: 16px; }
+.excel-native-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.excel-native-actions .button { min-height: 38px; }
+.expense-table-header-actions .excel-native-actions { gap: 6px; }
 .modal-heading { margin-bottom: 17px; }
 .modal-heading h2 { margin: 5px 0; color: var(--color-text); font-size: 20px; letter-spacing: -.03em; }
 .modal-heading p { margin: 0; color: var(--color-muted); font-size: 11px; }

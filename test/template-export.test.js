@@ -85,10 +85,16 @@ test('reference exports preserve the template layout and hide excluded resources
     assert.equal(sheet.getCell(rowNumber, 7).value, null);
   }
   assertTenantHeaders(sheet);
+  for (let rowNumber = 2; rowNumber <= 13; rowNumber += 1) {
+    for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
+      assert.ok(!sheet.getCell(rowNumber, columnNumber).border ||
+        Object.keys(sheet.getCell(rowNumber, columnNumber).border).length === 0);
+    }
+  }
   assert.equal(sheet.getCell('A2').alignment.wrapText, true);
-  const { alignment: generatedAlignment, ...generatedStyle } = sheet.getCell('A3').style;
-  const { alignment: templateAlignment, ...templateStyle } = templateSheet.getCell('A3').style;
-  assert.deepEqual(generatedStyle, templateStyle);
+  const generatedAlignment = sheet.getCell('A3').alignment;
+  const templateAlignment = templateSheet.getCell('A3').alignment;
+  assert.equal(sheet.getCell('A3').fill.fgColor.argb, templateSheet.getCell('A3').fill.fgColor.argb);
   assert.equal(generatedAlignment.horizontal, templateAlignment.horizontal);
   assert.equal(generatedAlignment.vertical, 'middle');
   assert.equal(generatedAlignment.wrapText, true);
@@ -265,22 +271,27 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(septemberSheet.getCell('E21').value, 'Désignation');
   assert.equal(septemberSheet.getCell('F21').value, 'Montant');
   assert.equal(septemberSheet.autoFilter, 'D21:F26');
-  assert.equal(septemberSheet.getCell('D22').value, 'Wifi');
+  assert.equal(septemberSheet.getCell('D22').value, 'Santé');
   assert.equal(septemberSheet.getCell('D22').alignment.horizontal, 'center');
   assert.equal(septemberSheet.getCell('D22').alignment.vertical, 'middle');
-  assert.equal(septemberSheet.getCell('E22').value, 'Abonnement');
-  assert.equal(septemberSheet.getCell('F22').value, 8_000);
+  assert.equal(septemberSheet.getCell('E22').value, 'Consultation');
+  assert.equal(septemberSheet.getCell('F22').value, 5_000);
   assert.equal(septemberSheet.getCell('E22').font.color.argb, 'FF000000');
   assert.equal(septemberSheet.getCell('F22').font.color.argb, 'FFFA7D00');
+  assert.equal(septemberSheet.getCell('E26').font.size, 11);
+  assert.equal(septemberSheet.getCell('D26').alignment.horizontal, 'center');
+  assert.equal(septemberSheet.getCell('D26').font.size, 11);
   assert.ok(septemberSheet.model.merges.includes('D22:D23'));
+  assert.equal(septemberSheet.getCell('D23').value, 'Santé');
+  assert.equal(septemberSheet.getCell('E23').value, 'Médicament');
+  assert.equal(septemberSheet.getCell('F23').value, 2_000);
   assert.ok(septemberSheet.model.merges.includes('D24:D25'));
-  assert.equal(septemberSheet.getCell('D23').value, 'Wifi');
-  assert.equal(septemberSheet.getCell('E23').value, 'Facture internet');
-  assert.equal(septemberSheet.getCell('F23').value, 12_000);
-  assert.equal(septemberSheet.getCell('D24').value, 'Santé');
-  assert.equal(septemberSheet.getCell('E24').value, 'Consultation');
-  assert.equal(septemberSheet.getCell('D25').value, 'Santé');
-  assert.equal(septemberSheet.getCell('E25').value, 'Médicament');
+  assert.equal(septemberSheet.getCell('D24').value, 'Wifi');
+  assert.equal(septemberSheet.getCell('E24').value, 'Abonnement');
+  assert.equal(septemberSheet.getCell('F24').value, 8_000);
+  assert.equal(septemberSheet.getCell('D25').value, 'Wifi');
+  assert.equal(septemberSheet.getCell('E25').value, 'Facture internet');
+  assert.equal(septemberSheet.getCell('F25').value, 12_000);
   assert.equal(septemberSheet.getCell('D26').value, 'Autres dépenses');
   assert.equal(septemberSheet.getCell('E26').value, 'Achat urgent');
   const expenseTotalRow = findCellRow(septemberSheet, 4, 'Total général');

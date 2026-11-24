@@ -597,10 +597,27 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   };
   const categoryPriorityIndex = (name) => {
     const normalizedName = normalize(name);
-    const index = PRIORITY_CATEGORIES.findIndex(
-      (category) => normalize(category) === normalizedName,
+    const resolved = resolvePriorityCategory(name);
+    const orderedNames = [
+      'Alimentaire',
+      'Compte boutique',
+      'Scolarité et frais éducatifs',
+      'Santé',
+      'Hygiène et beauté',
+      'Eau',
+      'Électricité',
+      'Wifi',
+      'Aumône et dons',
+      'Entretien de la maison',
+      'Transport',
+    ];
+    const presentationName = orderedNames.find(
+      (category) => normalize(category) === normalize(resolved || name),
+    ) || resolved;
+    const index = orderedNames.findIndex(
+      (category) => normalize(category) === normalize(presentationName),
     );
-    return index >= 0 ? index : PRIORITY_CATEGORIES.length;
+    return index >= 0 ? index : orderedNames.length;
   };
   const sortedTableExpenses = [...allTableExpenses].sort((left, right) => {
     const leftCategory = expenseCategoryName(left);
@@ -669,6 +686,11 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     applyStatusStyle(sheet.getCell(rowNumber, 7), status);
     sheet.mergeCells(rowNumber, 2, rowNumber, 3);
   });
+  for (let rowNumber = 2; rowNumber <= 13 + tenantInsertions; rowNumber += 1) {
+    for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
+      sheet.getCell(rowNumber, columnNumber).border = {};
+    }
+  }
 
   let index = 0;
   while (index < data.tenants.length) {
@@ -761,6 +783,14 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
       cell.border = {};
     }
   }
+  for (let rowNumber = expenseTotalRow + 1; rowNumber <= sheet.rowCount; rowNumber += 1) {
+    for (let columnNumber = 4; columnNumber <= 6; columnNumber += 1) {
+      const cell = sheet.getCell(rowNumber, columnNumber);
+      cell.value = null;
+      cell.fill = { type: 'pattern', pattern: 'none' };
+      cell.border = {};
+    }
+  }
 
   styleExpenseSectionHeadingRow(
     sheet,
@@ -809,6 +839,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     sheet.getCell(rowNumber, 6).numFmt = CURRENCY_FORMAT;
     sheet.getCell(rowNumber, 5).font = {
       ...sheet.getCell(rowNumber, 5).font,
+      size: 11,
       color: { argb: 'FF000000' },
     };
     sheet.getCell(rowNumber, 6).font = {
@@ -835,6 +866,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     sheet.getCell(rowNumber, 4).font = {
       ...sheet.getCell(rowNumber, 4).font,
       bold: true,
+      size: 11,
       color: { argb: 'FF334155' },
     };
     sheet.getCell(rowNumber, 4).alignment = {
@@ -865,6 +897,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
       categoryCell.font = {
         ...categoryCell.font,
         bold: true,
+        size: 11,
         color: { argb: 'FF334155' },
       };
       categoryCell.alignment = {
@@ -884,6 +917,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
       categoryCell.font = {
         ...categoryCell.font,
         bold: true,
+        size: 11,
         color: { argb: 'FF334155' },
       };
     }

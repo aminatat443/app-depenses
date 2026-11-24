@@ -10,6 +10,63 @@
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#111318' : '#fafafa');
   };
   syncThemeToggles();
+  const buildNativeExcelUrl = (container, preview) => {
+    const baseUrl = container.dataset.excelUrl || '';
+    const form = container.closest('form');
+    const url = new URL(baseUrl, window.location.origin);
+    if (form) {
+      new URLSearchParams(new FormData(form)).forEach((value, key) => {
+        url.searchParams.append(key, value);
+      });
+    }
+    if (preview) url.searchParams.set('preview', '1');
+    return url;
+  };
+
+  const captionFromExcelContainer = (container) =>
+    container.dataset.excelCaption || 'Classeur Excel · Dépenses maison';
+
+  document.addEventListener('click', async (event) => {
+    if (!(event.target instanceof Element)) return;
+    const previewButton = event.target.closest('[data-excel-preview]');
+    const shareButton = event.target.closest('[data-excel-share]');
+    if (!previewButton && !shareButton) return;
+    const container = (previewButton || shareButton)?.closest('[data-excel-native-actions]');
+    if (!container) return;
+
+    const url = buildNativeExcelUrl(container, Boolean(previewButton));
+    if (previewButton) {
+      window.open(url.toString(), '_blank', 'noopener');
+      return;
+    }
+
+    const caption = captionFromExcelContainer(container);
+    try {
+      const response = await fetch(url.toString(), { credentials: 'same-origin' });
+      if (!response.ok) throw new Error('Impossible de générer le fichier Excel.');
+      const blob = await response.blob();
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const fileNameMatch = disposition.match(/filename="?([^\";]+)"?/i);
+      const fileName = fileNameMatch?.[1] || 'depenses-maison.xlsx';
+      const file = new File([blob], fileName, {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+        await navigator.share({
+          files: [file],
+          title: 'Dépenses maison',
+          text: caption,
+        });
+        return;
+      }
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+    }
+
+    const whatsAppUrl = `https://wa.me/?text=${encodeURIComponent(caption)}`;
+    window.open(whatsAppUrl, '_blank', 'noopener');
+  });
+
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Element)) return;
     const toggle = event.target.closest('[data-theme-toggle]');
