@@ -90,8 +90,8 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.equal(generatedAlignment.horizontal, templateAlignment.horizontal);
   assert.equal(generatedAlignment.vertical, 'middle');
   assert.equal(generatedAlignment.wrapText, true);
-  assert.equal(sheet.getColumn(4).width, 30);
-  assert.equal(sheet.getColumn(5).width, 18);
+  assert.equal(sheet.getColumn(4).width, 42.75);
+  assert.equal(sheet.getColumn(5).width, 30);
   assert.deepEqual(sheet.pageMargins, templateSheet.pageMargins);
   assert.ok(sheet.model.merges.includes('A1:G1'));
   assert.ok(sheet.model.merges.includes('D20:E20'));
@@ -290,12 +290,13 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(septemberSheet.getCell(otherCategoryRow + 3, 5).value.result, 3_000);
 
   assert.ok(expenseTotalRow);
-  assert.equal(expenseTotalRow, otherCategoryRow + 4);
+  assert.equal(expenseTotalRow, otherCategoryRow + 6);
   assert.equal(septemberSheet.getCell(expenseTotalRow, 5).value.result, 23_000);
   assert.equal(septemberSheet.getCell(expenseTotalRow, 4).fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(septemberSheet.getCell(expenseTotalRow, 5).fill.fgColor.argb, 'FFD9EAD3');
-  assert.equal(septemberSheet.getCell('D20').fill.fgColor.argb, 'FF385623');
-  assert.equal(septemberSheet.getCell('E20').fill.fgColor.argb, 'FF385623');
+  assert.equal(septemberSheet.getCell('D20').fill.fgColor.argb, 'FFFFFFFF');
+  assert.equal(septemberSheet.getCell('E20').fill.fgColor.argb, 'FFFFFFFF');
+  assert.equal(septemberSheet.getCell('D20').font.color.argb, 'FF000000');
   assert.ok(septemberSheet.model.merges.includes('D20:E20'));
   assert.ok(septemberSheet.model.merges.includes('A14:B14'));
   assert.equal(septemberSheet.getCell('E22').fill.fgColor.argb, 'FF595959');
@@ -308,19 +309,19 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(protectedSectionRow, expenseTotalRow + 1);
   assert.equal(septemberSheet.getCell(protectedSectionRow + 1, 4).value, 'Santé');
   assert.equal(septemberSheet.getCell(protectedSectionRow + 5, 5).value.result, 7_000);
-  assert.equal(septemberSheet.getCell(protectedSectionRow + 6, 5).value.result, 7_000);
-  const summaryTotalRow = findCellRow(septemberSheet, 4, 'Total général des dépenses');
+  assert.equal(septemberSheet.getCell(protectedSectionRow + 7, 5).value.result, 7_000);
+  const summaryTotalRow = findCellRow(septemberSheet, 7, 'Total général des dépenses');
   assert.ok(summaryTotalRow);
-  assert.equal(septemberSheet.getCell(summaryTotalRow, 5).value, 5);
-  assert.equal(septemberSheet.getCell(summaryTotalRow, 6).value.result, 30_000);
+  assert.equal(septemberSheet.getCell(summaryTotalRow, 8).value, 5);
+  assert.equal(septemberSheet.getCell(summaryTotalRow, 9).value.result, 30_000);
   const summaryHeadingRow = findCellRow(
     septemberSheet,
-    4,
+    7,
     'Récapitulatif des dépenses par catégorie',
   );
   assert.ok(summaryHeadingRow);
-  assert.ok(septemberSheet.model.merges.includes(`D${summaryHeadingRow}:F${summaryHeadingRow}`));
-  assert.equal(septemberSheet.getCell(summaryTotalRow, 4).fill.fgColor.argb, 'FFD9EAD3');
+  assert.ok(septemberSheet.model.merges.includes(`G${summaryHeadingRow}:I${summaryHeadingRow}`));
+  assert.equal(septemberSheet.getCell(summaryTotalRow, 7).fill.fgColor.argb, 'FFD9EAD3');
 
   const augustWorkbook = await buildReferenceWorkbook([monthData({
     monthKey: '2026-08',
@@ -399,7 +400,7 @@ test('live categories show only expense categories and retain the monthly grand 
   assert.equal(sheet.getCell(foodRow, 4).font.size, 12);
   assert.equal(sheet.getCell(foodRow, 4).alignment.horizontal, 'center');
   assert.equal(sheet.getCell(foodRow, 4).alignment.vertical, 'middle');
-  assert.equal(sheet.getRow(foodRow).height, 23);
+  assert.ok(sheet.getRow(foodRow).height >= 23);
   assert.ok(sheet.model.merges.includes(`D${foodRow}:E${foodRow}`));
   assert.ok(!sheet.model.merges.includes(`D${foodRow}:N${foodRow}`));
   assert.equal(sheet.getCell(foodRow + 1, 4).value, 'Désignation');
@@ -420,14 +421,14 @@ test('live categories show only expense categories and retain the monthly grand 
   assert.equal(sheet.getCell(customRow + 1, 4).value, 'Désignation');
   assert.equal(sheet.getCell(customRow + 2, 4).value, 'Dépense personnalisée');
 
-  const summaryTotalRow = findCellRow(sheet, 4, 'Total général des dépenses');
-  const summaryTitleRow = findCellRow(sheet, 4, 'Récapitulatif des dépenses par catégorie');
-  assert.equal(sheet.getCell(summaryTitleRow + 1, 4).fill.fgColor.argb, 'FF385623');
+  const summaryTotalRow = findCellRow(sheet, 7, 'Total général des dépenses');
+  const summaryTitleRow = findCellRow(sheet, 7, 'Récapitulatif des dépenses par catégorie');
+  assert.equal(sheet.getCell(summaryTitleRow + 1, 7).fill.fgColor.argb, 'FF385623');
   assert.equal(sheet.getCell(totalRow, 5).value.result, 40_000);
-  assert.equal(sheet.getCell(summaryTotalRow, 5).value, 3);
-  assert.equal(sheet.getCell(summaryTotalRow, 6).value.result, 40_000);
+  assert.equal(sheet.getCell(summaryTotalRow, 8).value, 3);
+  assert.equal(sheet.getCell(summaryTotalRow, 9).value.result, 40_000);
   for (const rowNumber of [foodRow, foodRow + 1, foodRow + 2, foodRow + 4, totalRow]) {
-    for (let columnNumber = 6; columnNumber <= 14; columnNumber += 1) {
+    for (const columnNumber of [6, 10, 11, 12, 13, 14]) {
       const cell = sheet.getCell(rowNumber, columnNumber);
       assert.ok(!cell.fill || cell.fill.pattern === 'none');
       assert.deepEqual(cell.border || {}, {});

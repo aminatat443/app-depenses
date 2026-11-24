@@ -1784,14 +1784,14 @@ test('monthly CSV filters remain available and expenses Excel uses the reference
     assert.equal(expensesSheet.getCell(boutiqueRow + 2, 5).value, 1500);
     assert.equal(expensesSheet.getCell(boutiqueRow + 2, 6).value, null);
     const totalRow = findExcelColumnRow(expensesSheet, 4, 'Total');
-    const summaryTotalRow = findExcelColumnRow(expensesSheet, 4, 'Total général des dépenses');
+    const summaryTotalRow = findExcelColumnRow(expensesSheet, 7, 'Total général des dépenses');
     assert.ok(totalRow);
     assert.ok(summaryTotalRow);
     const financeResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-09`);
     const finance = await financeResponse.json();
     assert.equal(expensesSheet.getCell(totalRow, 5).value.result, finance.totalExpenses);
     assert.equal(
-      expensesSheet.getCell(summaryTotalRow, 6).value.result,
+      expensesSheet.getCell(summaryTotalRow, 9).value.result,
       finance.totalExpenses + finance.protectedSavingsExpenses,
     );
   } finally {
