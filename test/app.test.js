@@ -676,9 +676,10 @@ test('monthly revenues, exceptional income, rent and protected savings stay sepa
     );
     assert.equal(exportedMonth.Sheets.Novembre.A24.v, 'Total des ressources disponibles');
     assert.equal(exportedMonth.Sheets.Novembre.B24.v, finance.incomeTotal);
-    const novemberExpenseTotalRow = findXlsxColumnRow(exportedMonth.Sheets.Novembre, 'D', 'Total');
+    const novemberExpenseTotalRow = findXlsxColumnRow(exportedMonth.Sheets.Novembre, 'D', 'Total général');
     assert.ok(novemberExpenseTotalRow);
-    assert.equal(exportedMonth.Sheets.Novembre.B22.f, `B24-E${novemberExpenseTotalRow}`);
+    assert.ok(exportedMonth.Sheets.Novembre.B22.f === 'B24-0' ||
+      /^B24-SUM\(F/.test(exportedMonth.Sheets.Novembre.B22.f));
     const decemberFinanceResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-12`);
     const decemberFinance = await decemberFinanceResponse.json();
     assert.equal(decemberFinance.openingBalance, finance.closingBalance);
@@ -1123,26 +1124,16 @@ test('protected-savings expenses stay separate from current balances and appear 
     const workbookResponse = await authedFetch(`${baseUrl}/export/month/2027/2`);
     const workbook = await loadExcelJsWorkbook(Buffer.from(await workbookResponse.arrayBuffer()));
     const sheet = workbook.getWorksheet('Février');
-    let protectedSectionRow = null;
-    for (let rowNumber = 1; rowNumber <= sheet.rowCount; rowNumber += 1) {
-      if (sheet.getCell(rowNumber, 4).value === 'Dépenses financées par l’épargne protégée') {
-        protectedSectionRow = rowNumber;
+    let protectedExpenseRow = null;
+    for (let rowNumber = 22; rowNumber <= sheet.rowCount; rowNumber += 1) {
+      if (sheet.getCell(rowNumber, 4).value === category.name &&
+        sheet.getCell(rowNumber, 5).value === 'Dépense test épargne protégée') {
+        protectedExpenseRow = rowNumber;
         break;
       }
     }
-    assert.ok(protectedSectionRow);
-    assert.equal(sheet.getCell(protectedSectionRow + 1, 4).value, category.name);
-    let protectedCategoryTotalRow = null;
-    for (let rowNumber = protectedSectionRow + 1; rowNumber <= sheet.rowCount; rowNumber += 1) {
-      if (sheet.getCell(rowNumber, 4).value === `Total ${category.name}`) {
-        protectedCategoryTotalRow = rowNumber;
-        break;
-      }
-    }
-    assert.ok(protectedCategoryTotalRow);
-    assert.equal(sheet.getCell(protectedCategoryTotalRow, 4).fill.fgColor.argb, 'FFFFF2CC');
-    assert.equal(sheet.getCell(protectedCategoryTotalRow, 5).value.result, 2500);
-    assert.equal(sheet.getCell(protectedCategoryTotalRow - 1, 4).value, 'Dépense test épargne protégée');
+    assert.ok(protectedExpenseRow);
+    assert.equal(sheet.getCell(protectedExpenseRow, 6).value, 2500);
 
     const csvResponse = await authedFetch(`${baseUrl}/export/csv/2027/expenses`);
     const csv = await csvResponse.text();
@@ -1531,13 +1522,13 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     }
     assert.equal(workbook.Sheets.Décembre.B23.v, workbook.Sheets.Novembre.B22.v);
     assert.match(workbook.Sheets.Janvier.A1.v, /Loyers du mois de Décembre 2025/);
-    assert.match(workbook.Sheets.Janvier.D20.v, /Dépenses du mois de Janvier/);
-    const januaryExpenseTotalRow = findXlsxColumnRow(workbook.Sheets.Janvier, 'D', 'Total');
+    assert.match(workbook.Sheets.Janvier.D20.v, /DÉPENSES DU MOIS DE JANVIER/);
+    const januaryExpenseTotalRow = findXlsxColumnRow(workbook.Sheets.Janvier, 'D', 'Total général');
     assert.ok(januaryExpenseTotalRow);
-    assert.equal(workbook.Sheets.Janvier[`E${januaryExpenseTotalRow}`].v, 0);
+    assert.equal(workbook.Sheets.Janvier[`F${januaryExpenseTotalRow}`].v, 0);
     assert.equal(workbook.Sheets['Récapitulatif annuel'].A1.v, 'Récapitulatif annuel 2026');
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 0 && range.s.c === 0 && range.e.c === 6));
-    assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 4));
+    assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 5));
     const uncheckedAnnualResponse = await authedFetch(
       `http://127.0.0.1:${port}/export/2026?includeCarryover=0`,
     );
@@ -1602,9 +1593,9 @@ test('monthly exports provide XLSX, CSV and PDF formats', async () => {
     const workbook = XLSX.read(Buffer.from(await workbookResponse.arrayBuffer()), { type: 'buffer' });
     assert.deepEqual(workbook.SheetNames, ['Novembre']);
     assert.match(workbook.Sheets.Novembre.A1.v, /Loyers du mois d'Octobre/);
-    const novemberExpenseTotalRow = findXlsxColumnRow(workbook.Sheets.Novembre, 'D', 'Total');
+    const novemberExpenseTotalRow = findXlsxColumnRow(workbook.Sheets.Novembre, 'D', 'Total général');
     assert.ok(novemberExpenseTotalRow);
-    assert.equal(workbook.Sheets.Novembre[`E${novemberExpenseTotalRow}`].v, 0);
+    assert.equal(workbook.Sheets.Novembre[`F${novemberExpenseTotalRow}`].v, 0);
     assert.equal(workbook.Sheets.Novembre.B24.f, 'B21');
 
     const multiMonthResponse = await authedFetch(`${baseUrl}/export/months?year=2026&months=1&months=2`);
@@ -1775,23 +1766,21 @@ test('monthly CSV filters remain available and expenses Excel uses the reference
     assert.equal(renderedValues.filter((value) => value === septemberTitles[0]).length, 1);
     assert.equal(renderedValues.filter((value) => value === septemberTitles[1]).length, 1);
     assert.ok(!renderedValues.includes(septemberTitles[2]));
-    assert.ok(!renderedValues.includes(groceryTitle));
-    const expenseRow = findExcelColumnRow(expensesSheet, 4, septemberTitles[0]);
+    const expenseRow = findExcelColumnRow(expensesSheet, 5, septemberTitles[0]);
     assert.ok(expenseRow);
     const boutiqueRow = findExcelColumnRow(expensesSheet, 4, 'Compte boutique');
     assert.ok(boutiqueRow);
-    assert.equal(expensesSheet.getCell(boutiqueRow + 2, 4).value, 'Compte boutique');
-    assert.equal(expensesSheet.getCell(boutiqueRow + 2, 5).value, 1500);
-    assert.equal(expensesSheet.getCell(boutiqueRow + 2, 6).value, null);
-    const totalRow = findExcelColumnRow(expensesSheet, 4, 'Total');
-    const summaryTotalRow = findExcelColumnRow(expensesSheet, 7, 'Total général des dépenses');
+    assert.equal(expensesSheet.getCell(boutiqueRow, 4).value, 'Compte boutique');
+    assert.equal(expensesSheet.getCell(boutiqueRow, 6).value, 1500);
+    const totalRow = findExcelColumnRow(expensesSheet, 4, 'Total général');
+    const summaryTotalRow = findExcelColumnRow(expensesSheet, 4, 'TOTAL GÉNÉRAL');
     assert.ok(totalRow);
     assert.ok(summaryTotalRow);
     const financeResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-09`);
     const finance = await financeResponse.json();
-    assert.equal(expensesSheet.getCell(totalRow, 5).value.result, finance.totalExpenses);
+    assert.equal(expensesSheet.getCell(totalRow, 6).value.result, finance.totalExpenses + finance.protectedSavingsExpenses);
     assert.equal(
-      expensesSheet.getCell(summaryTotalRow, 9).value.result,
+      expensesSheet.getCell(summaryTotalRow, 6).value.result,
       finance.totalExpenses + finance.protectedSavingsExpenses,
     );
   } finally {
@@ -1840,7 +1829,7 @@ test('new expense categories appear in the filters and category summary on the n
     const emptyWorkbook = await loadExcelJsWorkbook(Buffer.from(await emptyWorkbookResponse.arrayBuffer()));
     const emptySheet = emptyWorkbook.getWorksheet('Novembre');
     const emptyCategoryRow = findExcelColumnRow(emptySheet, 4, categoryName);
-    assert.equal(emptyCategoryRow, null);
+    assert.ok(emptyCategoryRow);
 
     await db.prepare(`
       INSERT INTO expenses (title, category_id, amount, expense_date, month_key)
@@ -1850,9 +1839,18 @@ test('new expense categories appear in the filters and category summary on the n
     const createdWorkbookResponse = await authedFetch(`${baseUrl}/export/month/2026/11`);
     const createdWorkbook = await loadExcelJsWorkbook(Buffer.from(await createdWorkbookResponse.arrayBuffer()));
     const createdSheet = createdWorkbook.getWorksheet('Novembre');
-    const createdCategoryTotalRow = findExcelColumnRow(createdSheet, 4, `Total ${categoryName}`);
-    assert.ok(createdCategoryTotalRow);
-    assert.equal(createdSheet.getCell(createdCategoryTotalRow, 5).value.result, 7500);
+    const createdCategoryRow = findExcelColumnRow(createdSheet, 4, categoryName);
+    assert.ok(createdCategoryRow);
+    const createdSummaryTitleRow = findExcelColumnRow(createdSheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE');
+    let createdSummaryRow = null;
+    for (let rowNumber = createdSummaryTitleRow + 2; rowNumber <= createdSheet.rowCount; rowNumber += 1) {
+      if (createdSheet.getCell(rowNumber, 4).value === categoryName) {
+        createdSummaryRow = rowNumber;
+        break;
+      }
+    }
+    assert.ok(createdSummaryRow);
+    assert.equal(createdSheet.getCell(createdSummaryRow, 6).value.result, 7500);
 
     const managementHtml = await (await authedFetch(
       `${baseUrl}/categories?return_to=${encodeURIComponent('/expenses?month=2026-11')}`,
@@ -1880,9 +1878,16 @@ test('new expense categories appear in the filters and category summary on the n
     const renamedSheet = renamedWorkbook.getWorksheet('Novembre');
     assert.ok(findExcelColumnRow(renamedSheet, 4, updatedName));
     assert.equal(findExcelColumnRow(renamedSheet, 4, categoryName), null);
-    const renamedTotalRow = findExcelColumnRow(renamedSheet, 4, `Total ${updatedName}`);
-    assert.ok(renamedTotalRow);
-    assert.equal(renamedSheet.getCell(renamedTotalRow, 5).value.result, 7500);
+    const renamedSummaryTitleRow = findExcelColumnRow(renamedSheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE');
+    let renamedSummaryRow = null;
+    for (let rowNumber = renamedSummaryTitleRow + 2; rowNumber <= renamedSheet.rowCount; rowNumber += 1) {
+      if (renamedSheet.getCell(rowNumber, 4).value === updatedName) {
+        renamedSummaryRow = rowNumber;
+        break;
+      }
+    }
+    assert.ok(renamedSummaryRow);
+    assert.equal(renamedSheet.getCell(renamedSummaryRow, 6).value.result, 7500);
 
     const deleteResponse = await authedFetch(`${baseUrl}/categories/${category.id}/delete`, {
       method: 'POST',
@@ -1900,9 +1905,16 @@ test('new expense categories appear in the filters and category summary on the n
     const deletedSheet = deletedWorkbook.getWorksheet('Novembre');
     assert.equal(findExcelColumnRow(deletedSheet, 4, updatedName), null);
     assert.equal(findExcelColumnRow(deletedSheet, 4, categoryName), null);
-    const fallbackTotalRow = findExcelColumnRow(deletedSheet, 4, 'Total Autres dépenses');
-    assert.ok(fallbackTotalRow);
-    assert.equal(deletedSheet.getCell(fallbackTotalRow, 5).value.result, 7500);
+    const fallbackSummaryTitleRow = findExcelColumnRow(deletedSheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE');
+    let fallbackSummaryRow = null;
+    for (let rowNumber = fallbackSummaryTitleRow + 2; rowNumber <= deletedSheet.rowCount; rowNumber += 1) {
+      if (deletedSheet.getCell(rowNumber, 4).value === 'Autres dépenses') {
+        fallbackSummaryRow = rowNumber;
+        break;
+      }
+    }
+    assert.ok(fallbackSummaryRow);
+    assert.equal(deletedSheet.getCell(fallbackSummaryRow, 6).value.result, 7500);
     const deletedValues = Array.from({ length: deletedSheet.rowCount }, (_, rowIndex) => (
       Array.from({ length: deletedSheet.columnCount }, (_, columnIndex) => (
         deletedSheet.getCell(rowIndex + 1, columnIndex + 1).value
