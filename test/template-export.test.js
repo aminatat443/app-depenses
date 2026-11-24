@@ -266,6 +266,8 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(septemberSheet.getCell('D22').value, 'Wifi');
   assert.equal(septemberSheet.getCell('E22').value, 'Abonnement');
   assert.equal(septemberSheet.getCell('F22').value, 8_000);
+  assert.ok(septemberSheet.model.merges.includes('D22:D23'));
+  assert.ok(septemberSheet.model.merges.includes('D24:D25'));
   assert.equal(septemberSheet.getCell('D23').value, 'Wifi');
   assert.equal(septemberSheet.getCell('E23').value, 'Facture internet');
   assert.equal(septemberSheet.getCell('F23').value, 12_000);
@@ -352,6 +354,15 @@ test('live categories show only expense categories and retain the monthly grand 
   assert.equal(sheet.getCell('E23').value, 'Huile et condiments');
   assert.equal(sheet.getCell('D24').value, 'Catégorie personnalisée');
   assert.equal(sheet.getCell('E24').value, 'Dépense personnalisée');
+  assert.ok(sheet.model.merges.includes('D22:D23'));
+  assert.ok(!sheet.model.merges.includes('D24:D24'));
+  for (const column of ['D', 'E', 'F']) {
+    assert.equal(sheet.getCell(`${column}21`).fill.fgColor.argb, 'FF385623');
+    assert.equal(sheet.getCell(`${column}21`).font.color.argb, 'FFFFFFFF');
+    assert.equal(sheet.getCell(`${column}21`).font.bold, true);
+    assert.equal(sheet.getCell(`${column}21`).alignment.horizontal, 'center');
+    assert.equal(sheet.getCell(`${column}21`).alignment.vertical, 'middle');
+  }
   const totalRow = findCellRow(sheet, 4, 'Total général');
   assert.equal(sheet.getCell(totalRow, 6).value.result, 40_000);
   const summaryTitleRow = findCellRow(sheet, 4, 'RÉCAPITULATIF DES DÉPENSES PAR CATÉGORIE');

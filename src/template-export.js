@@ -817,10 +817,10 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: EXPENSE_HEADER_GRAY },
-      bgColor: { argb: EXPENSE_HEADER_GRAY },
+      fgColor: { argb: EXPENSE_HEADER_GREEN },
+      bgColor: { argb: EXPENSE_HEADER_GREEN },
     };
-    cell.font = { ...cell.font, bold: true, color: { argb: 'FF222222' } };
+    cell.font = { ...cell.font, bold: true, color: { argb: 'FFFFFFFF' } };
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
   });
@@ -833,6 +833,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     sheet.getCell(rowNumber, 5).value = expense.title || '';
     sheet.getCell(rowNumber, 6).value = Number(expense.amount || 0);
     sheet.getCell(rowNumber, 6).numFmt = CURRENCY_FORMAT;
+    sheet.getCell(rowNumber, 7).value = category;
     for (let columnNumber = 4; columnNumber <= 6; columnNumber += 1) {
       const cell = sheet.getCell(rowNumber, columnNumber);
       cell.fill = {
@@ -855,6 +856,51 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     };
     sheet.getRow(rowNumber).height = 21;
   });
+
+  let categoryStartIndex = 0;
+  while (categoryStartIndex < sortedTableExpenses.length) {
+    const category = expenseCategoryName(sortedTableExpenses[categoryStartIndex]);
+    let categoryEndIndex = categoryStartIndex + 1;
+    while (
+      categoryEndIndex < sortedTableExpenses.length &&
+      expenseCategoryName(sortedTableExpenses[categoryEndIndex]) === category
+    ) {
+      categoryEndIndex += 1;
+    }
+    if (categoryEndIndex - categoryStartIndex >= 2) {
+      const firstRow = expenseStartRow + categoryStartIndex;
+      const lastRow = expenseStartRow + categoryEndIndex - 1;
+      sheet.mergeCells(firstRow, 4, lastRow, 4);
+      const categoryCell = sheet.getCell(firstRow, 4);
+      categoryCell.value = category;
+      categoryCell.font = {
+        ...categoryCell.font,
+        bold: true,
+        color: { argb: 'FF334155' },
+      };
+      categoryCell.alignment = {
+        ...categoryCell.alignment,
+        horizontal: 'center',
+        vertical: 'middle',
+        wrapText: true,
+      };
+      categoryCell.border = {
+        top: { style: 'thin', color: { argb: 'FFDDE4EA' } },
+        bottom: { style: 'thin', color: { argb: 'FFDDE4EA' } },
+        left: { style: 'thin', color: { argb: 'FFDDE4EA' } },
+        right: { style: 'thin', color: { argb: 'FFDDE4EA' } },
+      };
+    } else {
+      const categoryCell = sheet.getCell(expenseStartRow + categoryStartIndex, 4);
+      categoryCell.font = {
+        ...categoryCell.font,
+        bold: true,
+        color: { argb: 'FF334155' },
+      };
+    }
+    categoryStartIndex = categoryEndIndex;
+  }
+  sheet.getColumn(7).hidden = true;
 
   sheet.getCell(expenseTotalRow, 4).value = 'Total général';
   if (sortedTableExpenses.length) {
@@ -902,14 +948,14 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     setFormula(
       sheet.getCell(rowNumber, 5),
       sortedTableExpenses.length
-        ? `COUNTIF(D${expenseStartRow}:D${expenseDataEndRow},D${rowNumber})`
+        ? `COUNTIF(G${expenseStartRow}:G${expenseDataEndRow},D${rowNumber})`
         : '0',
       count,
     );
     setFormula(
       sheet.getCell(rowNumber, 6),
       sortedTableExpenses.length
-        ? `SUMIF(D${expenseStartRow}:D${expenseDataEndRow},D${rowNumber},F${expenseStartRow}:F${expenseDataEndRow})`
+        ? `SUMIF(G${expenseStartRow}:G${expenseDataEndRow},D${rowNumber},F${expenseStartRow}:F${expenseDataEndRow})`
         : '0',
       total,
     );
