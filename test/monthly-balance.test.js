@@ -44,6 +44,6 @@ test('Excel balance formulas use the displayed resources total', () => {
     includeCarryover: false,
   }), {
     resourcesAvailable: 'B21',
-    closingBalance: 'B24-E42',
+    closingBalance: 'B21-E42',
   });
 });

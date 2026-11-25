@@ -240,7 +240,7 @@ function styleCategoryTotalRow(sheet, rowNumber, amountColumn = 6) {
     };
     cell.alignment = {
       ...cell.alignment,
-      horizontal: 'center',
+      horizontal: columnNumber === amountColumn ? 'right' : 'center',
       vertical: 'middle',
     };
     cell.border = {
@@ -263,7 +263,7 @@ function styleExpenseGrandTotalRow(sheet, rowNumber, amountColumn = 5, firstColu
     cell.font = { ...cell.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
     cell.alignment = {
       ...cell.alignment,
-      horizontal: 'center',
+      horizontal: columnNumber === amountColumn ? 'right' : 'center',
       vertical: 'middle',
     };
     cell.border = {
@@ -375,7 +375,7 @@ function styleFinancialSummaryRows(sheet, rowNumbers, highlightedRows) {
       };
       cell.alignment = {
         ...cell.alignment,
-        horizontal: highlight ? 'center' : columnNumber === 2 ? 'right' : 'left',
+        horizontal: columnNumber === 2 ? 'right' : highlight ? 'center' : 'left',
         vertical: 'middle',
         wrapText: true,
       };
@@ -484,7 +484,7 @@ function styleMonthlyTables(sheet, {
       };
       cell.alignment = {
         ...cell.alignment,
-        horizontal: column === 1 ? 'center' : column === 6 ? 'right' : 'left',
+        horizontal: column === 1 ? 'center' : [5, 6, 7].includes(column) ? 'right' : 'left',
         vertical: 'middle',
         wrapText: true,
       };
@@ -497,7 +497,13 @@ function styleMonthlyTables(sheet, {
       if (cell.value === null || cell.value === undefined) continue;
       setFill(cell, GRAND_TOTAL_GREEN);
       cell.font = { ...cell.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
-      cell.alignment = { ...cell.alignment, horizontal: 'center', vertical: 'middle' };
+      const isNumeric = typeof cell.value === 'number' ||
+        (typeof cell.value === 'object' && cell.value !== null && 'formula' in cell.value);
+      cell.alignment = {
+        ...cell.alignment,
+        horizontal: isNumeric ? 'right' : 'center',
+        vertical: 'middle',
+      };
       cell.border = {
         ...thinBorder,
         top: { style: 'thin', color: { argb: EXPENSE_HEADER_GREEN } },
@@ -543,7 +549,11 @@ function styleMonthlyTables(sheet, {
     const total = sheet.getCell(expenseTotalRow, column);
     setFill(total, GRAND_TOTAL_GREEN);
     total.font = { ...total.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
-    total.alignment = { ...total.alignment, horizontal: 'center', vertical: 'middle' };
+    total.alignment = {
+      ...total.alignment,
+      horizontal: column === 6 ? 'right' : 'center',
+      vertical: 'middle',
+    };
     total.border = {
       ...thinBorder,
       top: { style: 'medium', color: { argb: EXPENSE_HEADER_GREEN } },
@@ -588,7 +598,7 @@ function applyStatusStyle(cell, status) {
     bgColor: { argb: style.fill },
   };
   cell.font = { ...cell.font, bold: true, color: { argb: style.color } };
-  cell.alignment = { ...cell.alignment, horizontal: 'left', vertical: 'middle' };
+  cell.alignment = { ...cell.alignment, horizontal: 'right', vertical: 'middle' };
 }
 
 function growColumnToFit(sheet, columnNumber, values, maximumWidth) {
@@ -720,7 +730,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   const tenantInsertions = Math.max(0, data.tenants.length - 8);
   const extraIncomeSources = data.otherIncomes || [];
   const incomeInsertions = Math.max(0, extraIncomeSources.length - 3);
-  const categorizedExpenses = Array.isArray(data.categories) || data.monthKey >= '2026-09';
+  const categorizedExpenses = data.monthKey >= '2026-09';
   const displayedExpenses = [...data.expenses];
   const protectedExpenses = data.protectedExpenses || [];
   const allTableExpenses = [...displayedExpenses, ...protectedExpenses];
@@ -753,7 +763,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     );
     return index >= 0 ? index : orderedNames.length;
   };
-  const sortedTableExpenses = [...allTableExpenses].sort((left, right) => {
+  const sortedTableExpenses = categorizedExpenses ? [...allTableExpenses].sort((left, right) => {
     const leftCategory = expenseCategoryName(left);
     const rightCategory = expenseCategoryName(right);
     const leftIndex = categoryPriorityIndex(leftCategory);
@@ -764,7 +774,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
       if (categoryComparison !== 0) return categoryComparison;
     }
     return String(left.title || '').localeCompare(String(right.title || ''), 'fr', { sensitivity: 'base' });
-  });
+  }) : [...allTableExpenses];
   const expenseRowCount = sortedTableExpenses.length;
   const protectedExpenseRowCount = protectedExpenses.length;
 
@@ -928,8 +938,16 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     : Number(data.openingBalanceWithoutCarryover ?? data.openingBalance);
   setMonthlyFinancialCell(sheet, styleSource, openingRow, 23, openingBalanceForDisplay);
   sheet.getRow(openingRow).hidden = false;
-  setMonthlyFinancialCell(sheet, styleSource, resourcesRow, 21, data.resourcesAvailable);
-  sheet.getCell(resourcesRow, 1).value = 'Total des ressources disponibles';
+  if (includeCarryover) {
+    setMonthlyFinancialCell(sheet, styleSource, resourcesRow, 21, data.resourcesAvailable);
+    sheet.getCell(resourcesRow, 1).value = 'Total des ressources disponibles';
+  } else {
+    for (const columnNumber of [1, 2]) {
+      const cell = sheet.getCell(resourcesRow, columnNumber);
+      cell.value = null;
+      cell.style = {};
+    }
+  }
   sheet.getRow(resourcesRow).hidden = !includeCarryover;
   setMonthlyFinancialCell(sheet, styleSource, savingsRow, 30, data.savingsBalance);
   const savingsAboveRow = savingsRow - 1;
@@ -1060,7 +1078,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     ) {
       categoryEndIndex += 1;
     }
-    if (categoryEndIndex - categoryStartIndex >= 2) {
+    if (categorizedExpenses && categoryEndIndex - categoryStartIndex >= 2) {
       const firstRow = expenseStartRow + categoryStartIndex;
       const lastRow = expenseStartRow + categoryEndIndex - 1;
       sheet.mergeCells(firstRow, 4, lastRow, 4);
@@ -1143,11 +1161,13 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     openingBalance: includeCarryover ? data.openingBalance : 0,
     totalExpenses: data.totalExpenses,
   });
-  setFormula(
-    sheet.getCell(resourcesRow, 2),
-    balanceFormulas.resourcesAvailable,
-    exportBalance.resourcesAvailable,
-  );
+  if (includeCarryover) {
+    setFormula(
+      sheet.getCell(resourcesRow, 2),
+      balanceFormulas.resourcesAvailable,
+      exportBalance.resourcesAvailable,
+    );
+  }
   setFormula(
     sheet.getCell(remainingRow, 2),
     balanceFormulas.closingBalance,
@@ -1164,14 +1184,14 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     totalIncomeRow,
     remainingRow,
     openingRow,
-    resourcesRow,
+    ...(includeCarryover ? [resourcesRow] : []),
     savingsRow,
   ];
   styleFinancialSummaryHeading(sheet, financialHeadingRow);
   styleFinancialSummaryRows(
     sheet,
     financialSummaryRows,
-    [totalIncomeRow, remainingRow, resourcesRow, savingsRow],
+    [totalIncomeRow, remainingRow, ...(includeCarryover ? [resourcesRow] : []), savingsRow],
   );
 
   sheet.getCell(1, 1).value = `Loyers du mois ${withDe(data.previousMonthLabel)}`;
@@ -1270,7 +1290,11 @@ function styleAnnualSummary(sheet, monthEndRow, annualTotalRow) {
       bgColor: { argb: GRAND_TOTAL_GREEN },
     };
     totalCell.font = { ...totalCell.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
-    totalCell.alignment = { ...totalCell.alignment, horizontal: 'center', vertical: 'middle' };
+    totalCell.alignment = {
+      ...totalCell.alignment,
+      horizontal: columnNumber === 1 ? 'center' : 'right',
+      vertical: 'middle',
+    };
     totalCell.border = {
       ...totalCell.border,
       top: { style: 'medium', color: { argb: EXPENSE_HEADER_GREEN } },

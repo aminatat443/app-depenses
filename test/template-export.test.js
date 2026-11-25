@@ -73,13 +73,12 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.equal(sheet.getCell('E21').value, 'Désignation');
   assert.equal(sheet.getCell('F21').value, 'Montant');
   assert.equal(sheet.getCell('F22').value, 0);
-  assert.equal(sheet.getCell('B22').value.formula, 'B24-0');
-  assert.equal(sheet.getCell('A24').value, 'Total des ressources disponibles');
-  assert.equal(sheet.getCell('B24').value.formula, 'B21');
+  assert.equal(sheet.getCell('B22').value.formula, 'B21-0');
+  assert.equal(sheet.getCell('A24').value, null);
+  assert.equal(sheet.getCell('B24').value, null);
   assert.equal(sheet.getCell('A14').value, 'RÉCAPITULATIF FINANCIER');
   assert.ok(sheet.model.merges.includes('A14:B14'));
   assert.equal(sheet.getRow(24).hidden, true);
-  assert.equal(Number(sheet.getCell('B24').value.result || 0), 0);
   assert.equal(sheet.getCell('A3').value, null);
   for (let rowNumber = 3; rowNumber <= 10; rowNumber += 1) {
     assert.equal(sheet.getCell(rowNumber, 7).value, null);
@@ -151,8 +150,11 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('G3').fill.fgColor.argb, 'FFE2F0E9');
   assert.equal(sheet.getCell('G3').font.color.argb, 'FF264B47');
   for (const cell of ['G3', 'G4', 'G5']) {
-    assert.equal(sheet.getCell(cell).alignment.horizontal, 'left');
+    assert.equal(sheet.getCell(cell).alignment.horizontal, 'right');
     assert.equal(sheet.getCell(cell).alignment.vertical, 'middle');
+  }
+  for (const cell of ['E3', 'E4', 'E5', 'F3', 'F4', 'F5']) {
+    assert.equal(sheet.getCell(cell).alignment.horizontal, 'right');
   }
   assert.equal(sheet.getCell('G4').value, 'IMPAYÉ');
   assert.equal(sheet.getCell('G4').fill.fgColor.argb, 'FFF4CCCC');
@@ -165,8 +167,12 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('F11').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('E13').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('F13').fill.fgColor.argb, 'FFD9EAD3');
-  for (const cell of ['B11', 'F11', 'E13', 'F13', 'A21', 'B21', 'A22', 'B22', 'A24', 'B24', 'A30', 'B30', 'D22', 'F22']) {
+  for (const cell of ['B11', 'E13', 'A21', 'A22', 'A30', 'D22']) {
     assert.equal(sheet.getCell(cell).alignment.horizontal, 'center', `${cell} should be centered horizontally`);
+    assert.equal(sheet.getCell(cell).alignment.vertical, 'middle', `${cell} should be centered vertically`);
+  }
+  for (const cell of ['E11', 'F11', 'F13', 'B21', 'B22', 'B30', 'F22']) {
+    assert.equal(sheet.getCell(cell).alignment.horizontal, 'right', `${cell} should be right-aligned`);
     assert.equal(sheet.getCell(cell).alignment.vertical, 'middle', `${cell} should be centered vertically`);
   }
   assert.equal(sheet.getCell('G5').font.color.argb, 'FF7F6000');
@@ -202,7 +208,7 @@ test('expanded category expenses do not leave yellow blank cells beside the expe
   assert.equal(sheet.getCell(firstExpenseRow, 6).value, 1_000);
   assert.equal(sheet.getCell(expenseTotalRow, 6).value.result, 25_000);
   assert.equal(sheet.getCell('A22').value, 'Restant');
-  assert.equal(sheet.getCell('B22').value.formula, `B24-SUM(F22:F46)`);
+  assert.equal(sheet.getCell('B22').value.formula, `B21-SUM(F22:F46)`);
   assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
   assert.equal(sheet.getCell('B30').value, 0);
   for (let rowNumber = 21; rowNumber <= expenseTotalRow; rowNumber += 1) {
@@ -329,8 +335,11 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(augustSheet.getCell('E21').value, 'Désignation');
   assert.equal(augustSheet.getCell('F21').value, 'Montant');
   assert.equal(augustSheet.getCell('D22').value, 'Wifi');
-  assert.equal(augustSheet.getCell('E22').value, 'Abonnement');
-  assert.equal(augustSheet.getCell('F22').value, 8_000);
+  assert.equal(augustSheet.getCell('E22').value, 'Facture internet');
+  assert.equal(augustSheet.getCell('F22').value, 12_000);
+  assert.equal(augustSheet.getCell('E23').value, 'Abonnement');
+  assert.equal(augustSheet.getCell('F23').value, 8_000);
+  assert.ok(!augustSheet.model.merges.includes('D22:D23'));
 });
 
 test('December expense totals follow the actual data and column G remains for rent statuses', async () => {
@@ -448,29 +457,41 @@ test('exports keep boutique purchases on separate expense rows', async () => {
   ];
   const categories = [{ id: 1, name: 'Compte boutique' }];
 
-  for (const month of [
-    monthData({
-      monthKey: '2026-09',
-      categories,
-      expenses: boutiqueItems,
-      totalExpenses: 12_000,
-    }),
-    monthData({
-      monthKey: '2026-08',
-      expenses: boutiqueItems,
-      totalExpenses: 12_000,
-    }),
+  for (const { month, expectedFirst, expectedFirstAmount, expectedSecond, expectedSecondAmount } of [
+    {
+      month: monthData({
+        monthKey: '2026-09',
+        categories,
+        expenses: boutiqueItems,
+        totalExpenses: 12_000,
+      }),
+      expectedFirst: 'Huile',
+      expectedFirstAmount: 7_000,
+      expectedSecond: 'Riz',
+      expectedSecondAmount: 5_000,
+    },
+    {
+      month: monthData({
+        monthKey: '2026-08',
+        expenses: boutiqueItems,
+        totalExpenses: 12_000,
+      }),
+      expectedFirst: 'Riz',
+      expectedFirstAmount: 5_000,
+      expectedSecond: 'Huile',
+      expectedSecondAmount: 7_000,
+    },
   ]) {
     const output = await buildReferenceWorkbook([month]);
     const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
     const sheet = workbook.getWorksheet(MONTH_NAMES[Number(month.monthKey.slice(5, 7)) - 1]);
 
     assert.equal(sheet.getCell('D22').value, 'Compte boutique');
-    assert.equal(sheet.getCell('E22').value, 'Huile');
-    assert.equal(sheet.getCell('F22').value, 7_000);
+    assert.equal(sheet.getCell('E22').value, expectedFirst);
+    assert.equal(sheet.getCell('F22').value, expectedFirstAmount);
     assert.equal(sheet.getCell('D23').value, 'Compte boutique');
-    assert.equal(sheet.getCell('E23').value, 'Riz');
-    assert.equal(sheet.getCell('F23').value, 5_000);
+    assert.equal(sheet.getCell('E23').value, expectedSecond);
+    assert.equal(sheet.getCell('F23').value, expectedSecondAmount);
   }
 });
 
@@ -497,13 +518,14 @@ test('unchecked exports show the prior month balance without its carryover', asy
   for (const sheet of [excludedSheet, includedSheet]) {
     assert.equal(sheet.getCell('A23').value, 'Restant du mois dernier');
     assert.equal(sheet.getRow(23).hidden, false);
-    assert.equal(sheet.getCell('B22').value.formula.startsWith('B24-SUM(F'), true);
   }
+  assert.equal(excludedSheet.getCell('B22').value.formula, 'B21-SUM(F22:F22)');
+  assert.equal(includedSheet.getCell('B22').value.formula, 'B24-SUM(F22:F22)');
   assert.equal(excludedSheet.getCell('B23').value, 650);
   assert.equal(includedSheet.getCell('B23').value, 10_650);
-  assert.equal(excludedSheet.getCell('B24').value.formula, 'B21');
+  assert.equal(excludedSheet.getCell('A24').value, null);
+  assert.equal(excludedSheet.getCell('B24').value, null);
   assert.equal(excludedSheet.getRow(24).hidden, true);
-  assert.equal(excludedSheet.getCell('B24').value.result, 680_000);
   assert.equal(excludedSheet.getCell('B22').value.result, 50_000);
   assert.equal(includedSheet.getCell('B24').value.formula, 'B21+B23');
   assert.equal(includedSheet.getRow(24).hidden, false);
@@ -554,10 +576,9 @@ test('annual exports keep monthly totals while hiding excluded resources rows', 
     assert.equal(sheet.getCell('A23').value, 'Restant du mois dernier');
     assert.equal(sheet.getCell('B23').value, 0);
     assert.equal(sheet.getRow(23).hidden, false);
-    assert.equal(sheet.getCell('A24').value, 'Total des ressources disponibles');
+    assert.equal(sheet.getCell('A24').value, null);
     assert.equal(sheet.getRow(24).hidden, true);
-    assert.equal(sheet.getCell('B24').value.formula, 'B21');
-    assert.equal(Number(sheet.getCell('B24').value.result || 0), 0);
+    assert.equal(sheet.getCell('B24').value, null);
     assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
     assert.equal(sheet.getCell('B30').value, 0);
     assert.equal(sheet.getCell('B21').value.formula, 'B15+B17+F13');
@@ -575,7 +596,7 @@ test('annual exports keep monthly totals while hiding excluded resources rows', 
   assert.equal(annualSheet.getCell('A15').fill.fgColor.argb, 'FFD9EAD3');
   for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
     const totalCell = annualSheet.getCell(15, columnNumber);
-    assert.equal(totalCell.alignment.horizontal, 'center');
+    assert.equal(totalCell.alignment.horizontal, columnNumber === 1 ? 'center' : 'right');
     assert.equal(totalCell.alignment.vertical, 'middle');
   }
   assert.equal(annualSheet.getCell('E15').value.formula, 'SUM(E3:E14)');

@@ -664,7 +664,8 @@ test('monthly revenues, exceptional income, rent and protected savings stay sepa
     assert.equal(exportedMonth.Sheets.Novembre.B17.v, 350000);
     assert.equal(exportedMonth.Sheets.Novembre.B21.f, 'B15+B17+F13+SUM(B18:B18)');
     assert.equal(exportedMonth.Sheets.Novembre.B21.v, 660000);
-    assert.equal(exportedMonth.Sheets.Novembre.B24.f, 'B21');
+    assert.equal(exportedMonth.Sheets.Novembre.A24?.v, undefined);
+    assert.equal(exportedMonth.Sheets.Novembre.B24?.v, undefined);
     assert.equal(exportedMonth.Sheets.Novembre.B22.v, finance.incomeTotal - finance.totalExpenses);
     assert.equal(exportedMonth.Sheets.Novembre.A23.v, 'Restant du mois dernier');
     const octoberFinance = await (
@@ -674,12 +675,10 @@ test('monthly revenues, exceptional income, rent and protected savings stay sepa
       exportedMonth.Sheets.Novembre.B23.v,
       octoberFinance.closingBalance - octoberFinance.openingBalance,
     );
-    assert.equal(exportedMonth.Sheets.Novembre.A24.v, 'Total des ressources disponibles');
-    assert.equal(exportedMonth.Sheets.Novembre.B24.v, finance.incomeTotal);
     const novemberExpenseTotalRow = findXlsxColumnRow(exportedMonth.Sheets.Novembre, 'D', 'Total général');
     assert.ok(novemberExpenseTotalRow);
-    assert.ok(exportedMonth.Sheets.Novembre.B22.f === 'B24-0' ||
-      /^B24-SUM\(F/.test(exportedMonth.Sheets.Novembre.B22.f));
+    assert.ok(exportedMonth.Sheets.Novembre.B22.f === 'B21-0' ||
+      /^B21-SUM\(F/.test(exportedMonth.Sheets.Novembre.B22.f));
     const decemberFinanceResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-12`);
     const decemberFinance = await decemberFinanceResponse.json();
     assert.equal(decemberFinance.openingBalance, finance.closingBalance);
@@ -718,10 +717,8 @@ test('monthly revenues, exceptional income, rent and protected savings stay sepa
       uncheckedReportRow.getCell(2).value,
       finance.closingBalance - finance.openingBalance,
     );
-    assert.equal(
-      Number(uncheckedDecemberSheet.getCell('B24').value.result || 0),
-      decemberFinance.incomeTotal,
-    );
+    assert.equal(uncheckedDecemberSheet.getCell('A24').value, null);
+    assert.equal(uncheckedDecemberSheet.getCell('B24').value, null);
     assert.equal(
       Number(uncheckedDecemberSheet.getCell('B22').value.result || 0),
       decemberFinance.incomeTotal - decemberFinance.totalExpenses,
@@ -1547,11 +1544,12 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     for (const monthName of workbook.SheetNames.slice(0, 12)) {
       const sheet = uncheckedAnnual.getWorksheet(monthName);
       const reportRow = findExcelRow(sheet, 'Restant du mois dernier');
-      const resourcesRow = findExcelRow(sheet, 'Total des ressources disponibles');
       assert.ok(reportRow);
-      assert.ok(resourcesRow);
       assert.equal(reportRow.hidden, false);
-      assert.equal(resourcesRow.hidden, true);
+      const resourcesRowNumber = reportRow.number + 1;
+      assert.equal(sheet.getRow(resourcesRowNumber).hidden, true);
+      assert.equal(sheet.getCell(resourcesRowNumber, 1).value, null);
+      assert.equal(sheet.getCell(resourcesRowNumber, 2).value, null);
       const monthKey = `2026-${String(workbook.SheetNames.indexOf(monthName) + 1).padStart(2, '0')}`;
       const finance = exportedFinances.get(monthKey);
       const monthIndex = workbook.SheetNames.indexOf(monthName);
@@ -1563,11 +1561,7 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
         reportRow.getCell(2).value,
         previousFinance ? previousFinance.closingBalance - previousFinance.openingBalance : 0,
       );
-      assert.equal(
-        Number(resourcesRow.getCell(2).value.result || 0),
-        finance.incomeTotal,
-      );
-      const closingRow = sheet.getRow(resourcesRow.number - 2);
+      const closingRow = sheet.getRow(reportRow.number - 1);
       assert.equal(
         Number(closingRow.getCell(2).value.result || 0),
         finance.incomeTotal - finance.totalExpenses,
@@ -1605,7 +1599,8 @@ test('monthly exports provide XLSX, CSV and PDF formats', async () => {
     const novemberExpenseTotalRow = findXlsxColumnRow(workbook.Sheets.Novembre, 'D', 'Total général');
     assert.ok(novemberExpenseTotalRow);
     assert.equal(workbook.Sheets.Novembre[`F${novemberExpenseTotalRow}`].v, 0);
-    assert.equal(workbook.Sheets.Novembre.B24.f, 'B21');
+    assert.equal(workbook.Sheets.Novembre.A24?.v, undefined);
+    assert.equal(workbook.Sheets.Novembre.B24?.v, undefined);
 
     const multiMonthResponse = await authedFetch(`${baseUrl}/export/months?year=2026&months=1&months=2`);
     assert.equal(multiMonthResponse.status, 200);
@@ -1628,9 +1623,11 @@ test('monthly exports provide XLSX, CSV and PDF formats', async () => {
       const reportRow = findExcelRow(sheet, 'Restant du mois dernier');
       assert.ok(reportRow);
       assert.equal(reportRow.hidden, false);
-      assert.equal(findExcelRow(sheet, 'Total des ressources disponibles').hidden, true);
+      const resourcesRowNumber = reportRow.number + 1;
+      assert.equal(sheet.getRow(resourcesRowNumber).hidden, true);
+      assert.equal(sheet.getCell(resourcesRowNumber, 1).value, null);
+      assert.equal(sheet.getCell(resourcesRowNumber, 2).value, null);
       assert.equal(typeof reportRow.getCell(2).value, 'number');
-      assert.equal(sheet.getCell('B24').value.formula, 'B21');
       const checkedSheet = checkedMultiMonth.getWorksheet(monthName);
       assert.equal(findExcelRow(checkedSheet, 'Restant du mois dernier').hidden, false);
       assert.equal(findExcelRow(checkedSheet, 'Total des ressources disponibles').hidden, false);

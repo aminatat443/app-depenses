@@ -13,7 +13,9 @@ function buildMonthlyBalanceFormulas({
 }) {
   return {
     resourcesAvailable: includeCarryover ? `${incomeCell}+${openingCell}` : incomeCell,
-    closingBalance: `${resourcesCell}-${expensesCell}`,
+    closingBalance: includeCarryover
+      ? `${resourcesCell}-${expensesCell}`
+      : `${incomeCell}-${expensesCell}`,
   };
 }
 
