@@ -10,10 +10,11 @@ const {
 } = require('./category-presentation');
 const { getRentPaymentStatus } = require('./rent-status');
 
-const EXPENSE_HEADER_GREEN = 'FF385623';
-const EXPENSE_HEADER_GRAY = 'FF595959';
-const CATEGORY_TOTAL_YELLOW = 'FFFFF2CC';
+const EXPENSE_HEADER_GREEN = 'FF264B47';
+const EXPENSE_HEADER_GRAY = EXPENSE_HEADER_GREEN;
 const GRAND_TOTAL_GREEN = 'FFD9EAD3';
+const BODY_TEXT_GRAY = 'FF334155';
+const GRID_GRAY = 'FFE2E8E2';
 const RENT_AMOUNT_ORANGE = 'FFFA7D00';
 const REFERENCE_TEMPLATE = path.join(__dirname, '..', 'templates', 'depenses-maison-reference.xlsx');
 const MONTH_NAMES = [
@@ -228,10 +229,15 @@ function styleCategoryTotalRow(sheet, rowNumber, amountColumn = 6) {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: CATEGORY_TOTAL_YELLOW },
-      bgColor: { argb: CATEGORY_TOTAL_YELLOW },
+      fgColor: { argb: GRAND_TOTAL_GREEN },
+      bgColor: { argb: GRAND_TOTAL_GREEN },
     };
-    cell.font = { ...cell.font, bold: true, color: { argb: 'FF665500' } };
+    cell.font = {
+      ...cell.font,
+      name: 'Aptos',
+      bold: true,
+      color: { argb: 'FF274E13' },
+    };
     cell.alignment = {
       ...cell.alignment,
       horizontal: columnNumber === amountColumn ? 'right' : 'left',
@@ -239,7 +245,7 @@ function styleCategoryTotalRow(sheet, rowNumber, amountColumn = 6) {
     };
     cell.border = {
       ...cell.border,
-      top: { style: 'thin', color: { argb: 'FFE0D29A' } },
+      top: { style: 'thin', color: { argb: EXPENSE_HEADER_GREEN } },
     };
   }
   clearExpenseCellsAfterAmount(sheet, rowNumber, amountColumn);
@@ -254,7 +260,7 @@ function styleExpenseGrandTotalRow(sheet, rowNumber, amountColumn = 5, firstColu
       fgColor: { argb: GRAND_TOTAL_GREEN },
       bgColor: { argb: GRAND_TOTAL_GREEN },
     };
-    cell.font = { ...cell.font, bold: true, color: { argb: 'FF274E13' } };
+    cell.font = { ...cell.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
     cell.alignment = {
       ...cell.alignment,
       horizontal: columnNumber === amountColumn ? 'right' : 'left',
@@ -281,7 +287,7 @@ function styleCategoryHeadingRow(sheet, rowNumber, category) {
       fgColor: { argb: EXPENSE_HEADER_GREEN },
       bgColor: { argb: EXPENSE_HEADER_GREEN },
     };
-    cell.font = { ...cell.font, bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    cell.font = { ...cell.font, name: 'Aptos', bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
   }
@@ -307,7 +313,7 @@ function styleExpenseSectionHeadingRow(
       fgColor: { argb: EXPENSE_HEADER_GREEN },
       bgColor: { argb: EXPENSE_HEADER_GREEN },
     };
-    cell.font = { ...cell.font, bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    cell.font = { ...cell.font, name: 'Aptos', bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
   }
@@ -333,7 +339,7 @@ function styleFinancialSummaryHeading(sheet, rowNumber) {
       fgColor: { argb: EXPENSE_HEADER_GREEN },
       bgColor: { argb: EXPENSE_HEADER_GREEN },
     };
-    cell.font = { ...cell.font, bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    cell.font = { ...cell.font, name: 'Aptos', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     const border = { bottom: { style: 'thin', color: { argb: EXPENSE_HEADER_GREEN } } };
     if (columnNumber === 1) border.left = { style: 'thin', color: { argb: EXPENSE_HEADER_GREEN } };
@@ -356,7 +362,7 @@ function styleFinancialSummaryRows(sheet, rowNumbers, highlightedRows) {
           fgColor: { argb: GRAND_TOTAL_GREEN },
           bgColor: { argb: GRAND_TOTAL_GREEN },
         };
-        cell.font = { ...cell.font, bold: true, color: { argb: 'FF274E13' } };
+        cell.font = { ...cell.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
       } else {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
       }
@@ -364,7 +370,8 @@ function styleFinancialSummaryRows(sheet, rowNumbers, highlightedRows) {
         ...cell.font,
         bold: highlight,
         size: highlight ? 11 : 10,
-        color: { argb: 'FF334155' },
+        name: 'Aptos',
+        color: { argb: highlight ? 'FF274E13' : BODY_TEXT_GRAY },
       };
       cell.alignment = {
         ...cell.alignment,
@@ -373,7 +380,7 @@ function styleFinancialSummaryRows(sheet, rowNumbers, highlightedRows) {
         wrapText: true,
       };
       const border = {
-        bottom: { style: 'hair', color: { argb: 'FFD7E1D2' } },
+        bottom: { style: 'thin', color: { argb: GRID_GRAY } },
         ...(highlight ? { top: { style: 'thin', color: { argb: EXPENSE_HEADER_GREEN } } } : {}),
       };
       if (columnNumber === 1) border.left = { style: 'thin', color: { argb: 'FFD7E1D2' } };
@@ -397,7 +404,7 @@ function styleExpenseHeaderRow(sheet, rowNumber, firstColumn = 5) {
       fgColor: { argb: EXPENSE_HEADER_GRAY },
       bgColor: { argb: EXPENSE_HEADER_GRAY },
     };
-    cell.font = { ...cell.font, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.font = { ...cell.font, name: 'Aptos', bold: true, color: { argb: 'FFFFFFFF' } };
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
   });
@@ -408,14 +415,140 @@ function styleExpenseHeaderRow(sheet, rowNumber, firstColumn = 5) {
 function styleExpenseDataRow(sheet, rowNumber, amountColumn = 6, firstColumn = 5) {
   for (let columnNumber = firstColumn; columnNumber <= amountColumn; columnNumber += 1) {
     const cell = sheet.getCell(rowNumber, columnNumber);
-    cell.fill = { type: 'pattern', pattern: 'none' };
-    cell.border = { bottom: { style: 'hair', color: { argb: 'FFDDE4EA' } } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: rowNumber % 2 ? 'FFFFFFFF' : 'FFF4F8F4' },
+      bgColor: { argb: rowNumber % 2 ? 'FFFFFFFF' : 'FFF4F8F4' },
+    };
+    cell.font = { ...cell.font, name: 'Aptos', size: 10, color: { argb: BODY_TEXT_GRAY } };
+    cell.border = { bottom: { style: 'thin', color: { argb: GRID_GRAY } } };
     cell.alignment = { vertical: 'top', wrapText: true };
   }
   const amountCell = sheet.getCell(rowNumber, amountColumn);
   amountCell.numFmt = CURRENCY_FORMAT;
   amountCell.alignment = { ...amountCell.alignment, horizontal: 'right', vertical: 'middle' };
   clearExpenseCellsAfterAmount(sheet, rowNumber, amountColumn);
+}
+
+function styleMonthlyTables(sheet, {
+  tenantCount,
+  tenantTotalRow,
+  paymentTotalRow,
+  expenseTitleRow,
+  expenseHeaderRow,
+  expenseStartRow,
+  expenseDataEndRow,
+  expenseTotalRow,
+}) {
+  const thinBorder = {
+    top: { style: 'thin', color: { argb: GRID_GRAY } },
+    bottom: { style: 'thin', color: { argb: GRID_GRAY } },
+    left: { style: 'thin', color: { argb: GRID_GRAY } },
+    right: { style: 'thin', color: { argb: GRID_GRAY } },
+  };
+  const setFill = (cell, color) => {
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: color },
+      bgColor: { argb: color },
+    };
+  };
+
+  for (let column = 1; column <= 7; column += 1) {
+    const title = sheet.getCell(1, column);
+    setFill(title, EXPENSE_HEADER_GREEN);
+    title.font = { ...title.font, name: 'Aptos', bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    title.alignment = { ...title.alignment, horizontal: 'center', vertical: 'middle', wrapText: true };
+    title.border = thinBorder;
+    const header = sheet.getCell(2, column);
+    setFill(header, EXPENSE_HEADER_GREEN);
+    header.font = { ...header.font, name: 'Aptos', bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+    header.alignment = { ...header.alignment, horizontal: 'center', vertical: 'middle', wrapText: true };
+    header.border = thinBorder;
+  }
+  sheet.getRow(1).height = Math.max(Number(sheet.getRow(1).height) || 0, 27);
+  sheet.getRow(2).height = Math.max(Number(sheet.getRow(2).height) || 0, 27);
+
+  for (let rowNumber = 3; rowNumber <= tenantCount + 2; rowNumber += 1) {
+    const fill = (rowNumber - 3) % 2 ? 'FFFFFFFF' : 'FFF4F8F4';
+    for (let column = 1; column <= 7; column += 1) {
+      const cell = sheet.getCell(rowNumber, column);
+      if (column !== 7) setFill(cell, fill);
+      cell.font = {
+        ...cell.font,
+        name: 'Aptos',
+        size: 10,
+        ...(column === 7 ? {} : { color: { argb: BODY_TEXT_GRAY } }),
+      };
+      cell.alignment = {
+        ...cell.alignment,
+        horizontal: column === 1 ? 'center' : column === 6 ? 'right' : 'left',
+        vertical: 'middle',
+        wrapText: true,
+      };
+      cell.border = thinBorder;
+    }
+  }
+  for (const rowNumber of [tenantTotalRow, paymentTotalRow]) {
+    for (let column = 1; column <= 7; column += 1) {
+      const cell = sheet.getCell(rowNumber, column);
+      if (cell.value === null || cell.value === undefined) continue;
+      setFill(cell, GRAND_TOTAL_GREEN);
+      cell.font = { ...cell.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
+      cell.alignment = { ...cell.alignment, vertical: 'middle' };
+      cell.border = {
+        ...thinBorder,
+        top: { style: 'thin', color: { argb: EXPENSE_HEADER_GREEN } },
+      };
+    }
+  }
+
+  for (let column = 4; column <= 6; column += 1) {
+    const title = sheet.getCell(expenseTitleRow, column);
+    setFill(title, EXPENSE_HEADER_GREEN);
+    title.font = { ...title.font, name: 'Aptos', bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    title.alignment = { ...title.alignment, horizontal: 'center', vertical: 'middle', wrapText: true };
+    title.border = thinBorder;
+    const header = sheet.getCell(expenseHeaderRow, column);
+    setFill(header, EXPENSE_HEADER_GREEN);
+    header.font = { ...header.font, name: 'Aptos', bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+    header.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    header.border = thinBorder;
+  }
+  sheet.getRow(expenseTitleRow).height = Math.max(Number(sheet.getRow(expenseTitleRow).height) || 0, 26);
+  sheet.getRow(expenseHeaderRow).height = Math.max(Number(sheet.getRow(expenseHeaderRow).height) || 0, 26);
+
+  for (let rowNumber = expenseStartRow; rowNumber <= expenseDataEndRow; rowNumber += 1) {
+    for (let column = 4; column <= 6; column += 1) {
+      const cell = sheet.getCell(rowNumber, column);
+      setFill(cell, rowNumber % 2 ? 'FFFFFFFF' : 'FFF4F8F4');
+      cell.font = {
+        ...cell.font,
+        name: 'Aptos',
+        size: 10,
+        ...(column === 4 ? { bold: true, color: { argb: 'FF264B47' } } : {}),
+      };
+      cell.alignment = {
+        ...cell.alignment,
+        horizontal: column === 6 ? 'right' : column === 4 ? 'center' : 'left',
+        vertical: 'middle',
+        wrapText: true,
+      };
+      cell.border = thinBorder;
+    }
+  }
+  for (let column = 4; column <= 6; column += 1) {
+    const total = sheet.getCell(expenseTotalRow, column);
+    setFill(total, GRAND_TOTAL_GREEN);
+    total.font = { ...total.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
+    total.alignment = { ...total.alignment, horizontal: column === 6 ? 'right' : 'left', vertical: 'middle' };
+    total.border = {
+      ...thinBorder,
+      top: { style: 'medium', color: { argb: EXPENSE_HEADER_GREEN } },
+    };
+  }
 }
 
 function clearBlankExpenseSideCells(sheet, firstRow, lastRow) {
@@ -834,11 +967,12 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF000000' },
-      bgColor: { argb: 'FF000000' },
+      fgColor: { argb: EXPENSE_HEADER_GREEN },
+      bgColor: { argb: EXPENSE_HEADER_GREEN },
     };
     cell.font = {
       ...cell.font,
+      name: 'Aptos',
       bold: true,
       size: 12,
       color: { argb: 'FFFFFFFF' },
@@ -869,12 +1003,16 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     sheet.getCell(rowNumber, 6).numFmt = CURRENCY_FORMAT;
     sheet.getCell(rowNumber, 5).font = {
       ...sheet.getCell(rowNumber, 5).font,
-      size: 11,
-      color: { argb: 'FF000000' },
+      name: 'Aptos',
+      size: 10,
+      bold: false,
+      color: { argb: BODY_TEXT_GRAY },
     };
     sheet.getCell(rowNumber, 6).font = {
       ...sheet.getCell(rowNumber, 6).font,
-      bold: true,
+      name: 'Aptos',
+      size: 10,
+      bold: false,
       color: { argb: RENT_AMOUNT_ORANGE },
     };
     sheet.getCell(rowNumber, 7).value = category;
@@ -886,7 +1024,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
         fgColor: { argb: index % 2 ? 'FFFFFFFF' : 'FFF7F9F5' },
         bgColor: { argb: index % 2 ? 'FFFFFFFF' : 'FFF7F9F5' },
       };
-      cell.border = { bottom: { style: 'hair', color: { argb: 'FFDDE4EA' } } };
+      cell.border = { bottom: { style: 'thin', color: { argb: GRID_GRAY } } };
       cell.alignment = {
         vertical: 'middle',
         horizontal: columnNumber === 6 ? 'right' : 'left',
@@ -895,9 +1033,10 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     }
     sheet.getCell(rowNumber, 4).font = {
       ...sheet.getCell(rowNumber, 4).font,
+      name: 'Aptos',
       bold: true,
-      size: 11,
-      color: { argb: 'FF334155' },
+      size: 10,
+      color: { argb: 'FF264B47' },
     };
     sheet.getCell(rowNumber, 4).alignment = {
       ...sheet.getCell(rowNumber, 4).alignment,
@@ -926,9 +1065,10 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
       categoryCell.value = category;
       categoryCell.font = {
         ...categoryCell.font,
+        name: 'Aptos',
         bold: true,
-        size: 11,
-        color: { argb: 'FF334155' },
+        size: 10,
+        color: { argb: 'FF264B47' },
       };
       categoryCell.alignment = {
         ...categoryCell.alignment,
@@ -937,18 +1077,19 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
         wrapText: true,
       };
       categoryCell.border = {
-        top: { style: 'thin', color: { argb: 'FFDDE4EA' } },
-        bottom: { style: 'thin', color: { argb: 'FFDDE4EA' } },
-        left: { style: 'thin', color: { argb: 'FFDDE4EA' } },
-        right: { style: 'thin', color: { argb: 'FFDDE4EA' } },
+        top: { style: 'thin', color: { argb: GRID_GRAY } },
+        bottom: { style: 'thin', color: { argb: GRID_GRAY } },
+        left: { style: 'thin', color: { argb: GRID_GRAY } },
+        right: { style: 'thin', color: { argb: GRID_GRAY } },
       };
     } else {
       const categoryCell = sheet.getCell(expenseStartRow + categoryStartIndex, 4);
       categoryCell.font = {
         ...categoryCell.font,
+        name: 'Aptos',
         bold: true,
-        size: 11,
-        color: { argb: 'FF334155' },
+        size: 10,
+        color: { argb: 'FF264B47' },
       };
     }
     categoryStartIndex = categoryEndIndex;
@@ -1033,11 +1174,12 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF000000' },
-      bgColor: { argb: 'FF000000' },
+      fgColor: { argb: EXPENSE_HEADER_GREEN },
+      bgColor: { argb: EXPENSE_HEADER_GREEN },
     };
     cell.font = {
       ...cell.font,
+      name: 'Aptos',
       bold: true,
       size: 12,
       color: { argb: 'FFFFFFFF' },
@@ -1059,6 +1201,16 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   sheet.pageSetup.fitToPage = true;
   sheet.pageSetup.fitToWidth = 1;
   sheet.pageSetup.fitToHeight = 0;
+  styleMonthlyTables(sheet, {
+    tenantCount: data.tenants.length,
+    tenantTotalRow,
+    paymentTotalRow,
+    expenseTitleRow: expenseHeadingRow,
+    expenseHeaderRow,
+    expenseStartRow,
+    expenseDataEndRow,
+    expenseTotalRow,
+  });
 
   return {
     exportBalance,
@@ -1077,7 +1229,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   };
 }
 
-function styleAnnualSummary(sheet) {
+function styleAnnualSummary(sheet, monthEndRow, annualTotalRow) {
   for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
     const titleCell = sheet.getCell(1, columnNumber);
     titleCell.fill = {
@@ -1086,7 +1238,7 @@ function styleAnnualSummary(sheet) {
       fgColor: { argb: EXPENSE_HEADER_GREEN },
       bgColor: { argb: EXPENSE_HEADER_GREEN },
     };
-    titleCell.font = { ...titleCell.font, bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+    titleCell.font = { ...titleCell.font, name: 'Aptos', bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     titleCell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
 
@@ -1097,18 +1249,18 @@ function styleAnnualSummary(sheet) {
       fgColor: { argb: EXPENSE_HEADER_GRAY },
       bgColor: { argb: EXPENSE_HEADER_GRAY },
     };
-    headerCell.font = { ...headerCell.font, bold: true, color: { argb: 'FFFFFFFF' } };
+    headerCell.font = { ...headerCell.font, name: 'Aptos', bold: true, color: { argb: 'FFFFFFFF' } };
     headerCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     headerCell.border = { bottom: { style: 'thin', color: { argb: 'FFB8C6D9' } } };
 
-    const totalCell = sheet.getCell(15, columnNumber);
+    const totalCell = sheet.getCell(annualTotalRow, columnNumber);
     totalCell.fill = {
       type: 'pattern',
       pattern: 'solid',
       fgColor: { argb: GRAND_TOTAL_GREEN },
       bgColor: { argb: GRAND_TOTAL_GREEN },
     };
-    totalCell.font = { ...totalCell.font, bold: true, color: { argb: 'FF274E13' } };
+    totalCell.font = { ...totalCell.font, name: 'Aptos', bold: true, color: { argb: 'FF274E13' } };
     totalCell.alignment = {
       ...totalCell.alignment,
       vertical: 'middle',
@@ -1120,9 +1272,29 @@ function styleAnnualSummary(sheet) {
       bottom: { style: 'thin', color: { argb: EXPENSE_HEADER_GREEN } },
     };
   }
+  for (let rowNumber = 3; rowNumber <= monthEndRow; rowNumber += 1) {
+    for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
+      const cell = sheet.getCell(rowNumber, columnNumber);
+      cell.font = { ...cell.font, name: 'Aptos', size: 10, color: { argb: BODY_TEXT_GRAY } };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: rowNumber % 2 ? 'FFFFFFFF' : 'FFF4F8F4' },
+        bgColor: { argb: rowNumber % 2 ? 'FFFFFFFF' : 'FFF4F8F4' },
+      };
+      cell.alignment = {
+        ...cell.alignment,
+        horizontal: columnNumber === 1 ? 'left' : 'right',
+        vertical: 'middle',
+        wrapText: true,
+      };
+      cell.border = { bottom: { style: 'thin', color: { argb: GRID_GRAY } } };
+    }
+    sheet.getRow(rowNumber).height = Math.max(Number(sheet.getRow(rowNumber).height) || 0, 20);
+  }
   sheet.getRow(1).height = 25;
   sheet.getRow(2).height = 27;
-  sheet.getRow(15).height = Math.max(Number(sheet.getRow(15).height) || 0, 22);
+  sheet.getRow(annualTotalRow).height = Math.max(Number(sheet.getRow(annualTotalRow).height) || 0, 22);
 }
 
 function buildAnnualSummary(workbook, templateSheet, year, months) {
@@ -1180,7 +1352,7 @@ function buildAnnualSummary(workbook, templateSheet, year, months) {
   setFormula(sheet.getCell(annualTotalRow, 7), `G${monthEndRow}`, annualValues[4]);
   [2, 4, 5, 6, 7].forEach((column) => { sheet.getCell(annualTotalRow, column).numFmt = CURRENCY_FORMAT; });
   sheet.mergeCells(annualTotalRow, 2, annualTotalRow, 3);
-  styleAnnualSummary(sheet);
+  styleAnnualSummary(sheet, monthEndRow, annualTotalRow);
   sheet.pageSetup.printArea = `A1:G${annualTotalRow}`;
   sheet.pageSetup.orientation = 'landscape';
   sheet.pageSetup.fitToPage = true;

@@ -87,8 +87,10 @@ test('reference exports preserve the template layout and hide excluded resources
   assertTenantHeaders(sheet);
   for (let rowNumber = 2; rowNumber <= 13; rowNumber += 1) {
     for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
-      assert.ok(!sheet.getCell(rowNumber, columnNumber).border ||
-        Object.keys(sheet.getCell(rowNumber, columnNumber).border).length === 0);
+      const cell = sheet.getCell(rowNumber, columnNumber);
+      if (cell.value !== null && cell.value !== undefined) {
+        assert.equal(cell.border.bottom.style, 'thin');
+      }
     }
   }
   assert.equal(sheet.getCell('A2').alignment.wrapText, true);
@@ -153,7 +155,7 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('G4').font.color.argb, 'FF9C0006');
   assert.equal(sheet.getCell('G5').value, 'PARTIELLEMENT PAYÉ');
   assert.equal(sheet.getCell('G5').fill.fgColor.argb, 'FFFFE699');
-  assert.equal(sheet.getCell('A3').fill.fgColor.argb, 'FFF7F9F5');
+  assert.equal(sheet.getCell('A3').fill.fgColor.argb, 'FFF4F8F4');
   assert.equal(sheet.getCell('A4').fill.fgColor.argb, 'FFFFFFFF');
   assert.equal(sheet.getCell('B11').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('F11').fill.fgColor.argb, 'FFD9EAD3');
@@ -270,23 +272,27 @@ test('exports from September 2026 group expenses by category with separate total
   const september = await workbookFromBuffer(await septemberWorkbook.xlsx.writeBuffer());
   const septemberSheet = september.getWorksheet('Septembre');
 
-  assert.equal(septemberSheet.getCell('D20').fill.fgColor.argb, 'FF000000');
+  assert.equal(septemberSheet.getCell('D20').fill.fgColor.argb, 'FF264B47');
   assert.equal(septemberSheet.getCell('D20').font.color.argb, 'FFFFFFFF');
   assert.ok(septemberSheet.model.merges.includes('D20:F20'));
   assert.equal(septemberSheet.getCell('D21').value, 'Catégorie');
   assert.equal(septemberSheet.getCell('E21').value, 'Désignation');
   assert.equal(septemberSheet.getCell('F21').value, 'Montant');
+  assert.equal(septemberSheet.getCell('D21').fill.fgColor.argb, 'FF264B47');
+  assert.equal(septemberSheet.getCell('E22').font.name, 'Aptos');
+  assert.equal(septemberSheet.getCell('D22').font.color.argb, 'FF264B47');
+  assert.equal(septemberSheet.getCell('D22').font.bold, true);
   assert.equal(septemberSheet.autoFilter, 'D21:F26');
   assert.equal(septemberSheet.getCell('D22').value, 'Santé');
   assert.equal(septemberSheet.getCell('D22').alignment.horizontal, 'center');
   assert.equal(septemberSheet.getCell('D22').alignment.vertical, 'middle');
   assert.equal(septemberSheet.getCell('E22').value, 'Consultation');
   assert.equal(septemberSheet.getCell('F22').value, 5_000);
-  assert.equal(septemberSheet.getCell('E22').font.color.argb, 'FF000000');
+  assert.equal(septemberSheet.getCell('E22').font.color.argb, 'FF334155');
   assert.equal(septemberSheet.getCell('F22').font.color.argb, 'FFFA7D00');
-  assert.equal(septemberSheet.getCell('E26').font.size, 11);
+  assert.equal(septemberSheet.getCell('E26').font.size, 10);
   assert.equal(septemberSheet.getCell('D26').alignment.horizontal, 'center');
-  assert.equal(septemberSheet.getCell('D26').font.size, 11);
+  assert.equal(septemberSheet.getCell('D26').font.size, 10);
   assert.ok(septemberSheet.model.merges.includes('D22:D23'));
   assert.equal(septemberSheet.getCell('D23').value, 'Santé');
   assert.equal(septemberSheet.getCell('E23').value, 'Médicament');
@@ -378,7 +384,7 @@ test('live categories show only expense categories and retain the monthly grand 
   assert.ok(sheet.model.merges.includes('D22:D23'));
   assert.ok(!sheet.model.merges.includes('D24:D24'));
   for (const column of ['D', 'E', 'F']) {
-    assert.equal(sheet.getCell(`${column}21`).fill.fgColor.argb, 'FF385623');
+    assert.equal(sheet.getCell(`${column}21`).fill.fgColor.argb, 'FF264B47');
     assert.equal(sheet.getCell(`${column}21`).font.color.argb, 'FFFFFFFF');
     assert.equal(sheet.getCell(`${column}21`).font.bold, true);
     assert.equal(sheet.getCell(`${column}21`).alignment.horizontal, 'center');
@@ -517,8 +523,8 @@ test('annual exports keep monthly totals while hiding excluded resources rows', 
     assert.equal(sheet.getCell('A30').fill.fgColor.argb, 'FFD9EAD3');
   }
   const annualSheet = generated.getWorksheet('Récapitulatif annuel');
-  assert.equal(annualSheet.getCell('A1').fill.fgColor.argb, 'FF385623');
-  assert.equal(annualSheet.getCell('A2').fill.fgColor.argb, 'FF595959');
+  assert.equal(annualSheet.getCell('A1').fill.fgColor.argb, 'FF264B47');
+  assert.equal(annualSheet.getCell('A2').fill.fgColor.argb, 'FF264B47');
   assert.equal(annualSheet.getCell('A15').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(annualSheet.getCell('E15').value.formula, 'SUM(E3:E14)');
   assert.ok(annualSheet.model.merges.includes('B15:C15'));

@@ -256,5 +256,9 @@ test('builds a 13-sheet annual workbook with a consolidated boutique line and it
     cellStyles: true,
   });
   assert.equal(styled.Sheets.JANVIER.A1.s.fgColor.rgb, '264B47');
-  assert.equal(styled.Sheets[summaryName].A1.s.fgColor.rgb, '147967');
+  assert.equal(styled.Sheets[summaryName].A1.s.fgColor.rgb, '264B47');
+  assert.equal(workbook.Sheets.JANVIER.B2.s.font.name, 'Aptos');
+  assert.equal(workbook.Sheets.JANVIER.D2.s.alignment.horizontal, 'right');
+  assert.equal(workbook.Sheets.JANVIER.B2.s.alignment.wrapText, true);
+  assert.equal(workbook.Sheets[summaryName].A3.s.font.name, 'Aptos');
 });

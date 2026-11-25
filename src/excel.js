@@ -945,6 +945,44 @@ function styleRow(sheet, rowIndex, columnCount, style) {
   }
 }
 
+function styleBodyRows(sheet, firstRow, lastRow, columnCount, amountColumns = []) {
+  const widths = (sheet['!cols'] || []).map((column) => Number(column.wch) || 14);
+  const amountColumnSet = new Set(amountColumns);
+  for (let rowIndex = firstRow; rowIndex <= lastRow; rowIndex += 1) {
+    let lineCount = 1;
+    for (let column = 0; column < columnCount; column += 1) {
+      const address = XLSX.utils.encode_cell({ r: rowIndex, c: column });
+      const cell = sheet[address];
+      if (!cell) continue;
+      const text = String(cell.v ?? '').trim();
+      const width = widths[column] || 14;
+      const lines = text.split(/\r?\n/).reduce(
+        (total, line) => total + Math.max(1, Math.ceil(line.length / Math.max(1, width - 2))),
+        0,
+      );
+      lineCount = Math.max(lineCount, lines);
+      cell.s = {
+        font: { name: 'Aptos', sz: 10, color: { rgb: '334155' } },
+        fill: {
+          patternType: 'solid',
+          fgColor: { rgb: rowIndex % 2 ? 'FFFFFF' : 'F4F8F4' },
+        },
+        alignment: {
+          horizontal: amountColumnSet.has(column) ? 'right' : 'left',
+          vertical: 'center',
+          wrapText: true,
+        },
+        border: { bottom: { style: 'thin', color: { rgb: 'E2E8E2' } } },
+      };
+    }
+    sheet['!rows'] ||= [];
+    sheet['!rows'][rowIndex] = {
+      ...sheet['!rows'][rowIndex],
+      hpt: Math.max(Number(sheet['!rows'][rowIndex]?.hpt) || 0, lineCount * 14 + 4),
+    };
+  }
+}
+
 function appendDataSheet(workbook, { name, headers, rows, dateColumns = [], amountColumns = [] }) {
   const dateColumnSet = new Set(dateColumns);
   const convertedRows = rows.map((row) => row.map((value, index) => (
@@ -959,7 +997,17 @@ function appendDataSheet(workbook, { name, headers, rows, dateColumns = [], amou
   sheet['!autofilter'] = {
     ref: `A1:${XLSX.utils.encode_col(columnCount - 1)}${Math.max(1, data.length)}`,
   };
-  sheet['!cols'] = headers.map((header) => ({ wch: Math.min(36, Math.max(14, String(header).length + 4)) }));
+  sheet['!cols'] = headers.map((header, columnIndex) => {
+    const values = [header, ...convertedRows.map((row) => row[columnIndex])];
+    const width = values.reduce((max, value) => Math.max(
+      max,
+      ...String(value ?? '').split(/\r?\n/).map((line) => line.length),
+    ), 12) + 2;
+    return { wch: Math.min(36, Math.max(14, width)) };
+  });
+  styleBodyRows(sheet, 1, data.length - 1, columnCount, amountColumns);
+  sheet['!rows'] ||= [];
+  sheet['!rows'][0] = { ...sheet['!rows'][0], hpt: Math.max(sheet['!rows'][0]?.hpt || 0, 30) };
   sheet['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
   const bodyRows = Array.from({ length: rows.length }, (_, index) => index + 1);
   setNumberFormat(sheet, bodyRows, dateColumns, 'dd/mm/yyyy');
@@ -970,20 +1018,21 @@ function appendDataSheet(workbook, { name, headers, rows, dateColumns = [], amou
 const HEADER_STYLE = {
   font: { name: 'Aptos', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
   fill: { patternType: 'solid', fgColor: { rgb: '264B47' } },
-  alignment: { vertical: 'center', wrapText: true },
+  alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
   border: { bottom: { style: 'thin', color: { rgb: 'E2E8E2' } } },
 };
 
 const SECTION_STYLE = {
   font: { name: 'Aptos', sz: 12, bold: true, color: { rgb: 'FFFFFF' } },
-  fill: { patternType: 'solid', fgColor: { rgb: '147967' } },
-  alignment: { vertical: 'center' },
+  fill: { patternType: 'solid', fgColor: { rgb: '264B47' } },
+  alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+  border: { bottom: { style: 'thin', color: { rgb: 'E2E8E2' } } },
 };
 
 const TOTAL_STYLE = {
   font: { name: 'Aptos', sz: 11, bold: true, color: { rgb: '264B47' } },
-  fill: { patternType: 'solid', fgColor: { rgb: 'E2F0E9' } },
-  border: { top: { style: 'thin', color: { rgb: '147967' } } },
+  fill: { patternType: 'solid', fgColor: { rgb: 'D9EAD3' } },
+  border: { top: { style: 'thin', color: { rgb: '264B47' } } },
 };
 
 function excelDateSerial(date) {
@@ -1073,6 +1122,8 @@ function buildAnnualWorkbook(year, expenses, groceryItems, databaseTotals = [], 
     sheet['!autofilter'] = { ref: `A1:E${Math.max(1, mainTotalRow)}` };
     sheet['!cols'] = [{ wch: 15 }, { wch: 34 }, { wch: 25 }, { wch: 18 }, { wch: 21 }, { wch: 18 }];
     sheet['!rows'] = [];
+    styleBodyRows(sheet, 1, mainTotalRow - 2, 5, [3]);
+    styleBodyRows(sheet, detailHeaderRow, detailTotalRow - 2, 6, [4, 5]);
     sheet['!rows'][0] = { hpt: 30 };
     sheet['!rows'][detailTitleRow - 1] = { hpt: 24 };
     sheet['!rows'][detailHeaderRow - 1] = { hpt: 30 };
@@ -1116,8 +1167,11 @@ function buildAnnualWorkbook(year, expenses, groceryItems, databaseTotals = [], 
   styleRow(summarySheet, annualTotalRow - 1, 4, TOTAL_STYLE);
   summarySheet['!autofilter'] = { ref: 'A2:D14' };
   summarySheet['!cols'] = [{ wch: 24 }, { wch: 24 }, { wch: 27 }, { wch: 25 }];
+  summarySheet['!rows'] = [];
+  styleBodyRows(summarySheet, 2, annualTotalRow - 2, 4, [1, 2, 3]);
   summarySheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
-  summarySheet['!rows'] = [{ hpt: 30 }, { hpt: 30 }];
+  summarySheet['!rows'][0] = { hpt: 30 };
+  summarySheet['!rows'][1] = { hpt: 30 };
   summarySheet['!freeze'] = { xSplit: 0, ySplit: 2, topLeftCell: 'A3', activePane: 'bottomLeft', state: 'frozen' };
   setNumberFormat(summarySheet, Array.from({ length: 13 }, (_, index) => index + 2), [1, 2, 3], '#,##0.## "FCFA"');
   XLSX.utils.book_append_sheet(workbook, summarySheet, 'RÉCAPITULATIF ANNUEL');
