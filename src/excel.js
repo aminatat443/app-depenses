@@ -1093,51 +1093,19 @@ function buildAnnualWorkbook(year, expenses, groceryItems, databaseTotals = [], 
       f: mainTotalRow > 1 ? `SUM(D2:D${mainTotalRow})` : '0',
       v: totalBoutique + totalOther,
     }, '']);
-    const detailTitleRow = mainRows.length + 2;
-    mainRows.push([], ['DÉTAIL DU COMPTE BOUTIQUE']);
-    mainRows.push(['Date', 'Marchandise', 'Quantité', 'Unité', 'Prix unitaire (FCFA)', 'Montant (FCFA)']);
-    const detailHeaderRow = mainRows.length;
-    monthGroceries.forEach((row) => {
-      mainRows.push([
-        row.purchase_date ? excelDateSerial(row.purchase_date) : null,
-        row.item_name,
-        row.quantityKnown === 0 || row.quantityKnown === false ? '' : row.quantity,
-        row.unit || '',
-        row.unitPriceKnown === 0 || row.unitPriceKnown === false ? '' : row.unit_price,
-        Number(row.total_amount),
-      ]);
-    });
-    const detailTotalRow = mainRows.length + 1;
-    mainRows.push(['', 'TOTAL COMPTE BOUTIQUE', '', '', '', {
-      f: monthGroceries.length ? `SUM(F${detailHeaderRow + 1}:F${detailTotalRow - 1})` : '0',
-      v: totalBoutique,
-    }]);
-
     const sheet = XLSX.utils.aoa_to_sheet(mainRows);
     styleRow(sheet, 0, 5, HEADER_STYLE);
     styleRow(sheet, mainTotalRow, 5, TOTAL_STYLE);
-    styleRow(sheet, detailTitleRow - 1, 6, SECTION_STYLE);
-    styleRow(sheet, detailHeaderRow - 1, 6, HEADER_STYLE);
-    styleRow(sheet, detailTotalRow - 1, 6, TOTAL_STYLE);
     sheet['!autofilter'] = { ref: `A1:E${Math.max(1, mainTotalRow)}` };
-    sheet['!cols'] = [{ wch: 15 }, { wch: 34 }, { wch: 25 }, { wch: 18 }, { wch: 21 }, { wch: 18 }];
+    sheet['!cols'] = [{ wch: 15 }, { wch: 34 }, { wch: 25 }, { wch: 18 }, { wch: 21 }];
     sheet['!rows'] = [];
     styleBodyRows(sheet, 1, mainTotalRow - 2, 5, [3]);
-    styleBodyRows(sheet, detailHeaderRow, detailTotalRow - 2, 6, [4, 5]);
     sheet['!rows'][0] = { hpt: 30 };
-    sheet['!rows'][detailTitleRow - 1] = { hpt: 24 };
-    sheet['!rows'][detailHeaderRow - 1] = { hpt: 30 };
     sheet['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
     setNumberFormat(sheet, Array.from({ length: mainTotalRow - 1 }, (_, index) => index + 1), [3], '#,##0.## "FCFA"');
-    setNumberFormat(sheet, Array.from({ length: monthExpenses.length + monthGroceries.length }, (_, index) => index + 1), [0], 'dd/mm/yyyy');
-    const detailRows = Array.from({ length: monthGroceries.length }, (_, index) => detailHeaderRow + index);
-    setNumberFormat(sheet, detailRows, [4, 5], '#,##0.## "FCFA"');
-    setNumberFormat(sheet, detailRows, [0], 'dd/mm/yyyy');
+    setNumberFormat(sheet, Array.from({ length: mainDataRows.length }, (_, index) => index + 1), [0], 'dd/mm/yyyy');
     setCell(sheet, mainTotalRow - 1, 3, totalBoutique + totalOther, '#,##0.## "FCFA"');
-    setCell(sheet, detailTotalRow - 1, 5, totalBoutique, '#,##0.## "FCFA"');
-    sheet['!merges'] = [
-      { s: { r: detailTitleRow - 1, c: 0 }, e: { r: detailTitleRow - 1, c: 5 } },
-    ];
+    sheet['!merges'] = [];
     XLSX.utils.book_append_sheet(workbook, sheet, label);
   }
 

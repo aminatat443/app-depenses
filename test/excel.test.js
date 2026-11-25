@@ -207,7 +207,7 @@ test('parses household worksheets with tenant, rent, income, savings, totals and
   assert.equal(parsed.ignoredRows.filter((row) => row.values).length, 0);
 });
 
-test('builds a 13-sheet annual workbook with a consolidated boutique line and item detail', () => {
+test('builds a 13-sheet annual workbook with consolidated boutique lines only', () => {
   const { workbook, annual } = buildAnnualWorkbook(2026, [
     { title: 'Facture Wi-Fi', expense_date: '2026-01-08', amount: 20_000, category: 'Internet / Wi-Fi' },
     { title: 'Après import manuel', expense_date: '2026-11-02', amount: 3_000, category: 'Autres' },
@@ -236,7 +236,8 @@ test('builds a 13-sheet annual workbook with a consolidated boutique line and it
   assert.equal(consolidated[0][3], 12_000);
   assert.ok(january.findIndex((row) => row[1] === 'COMPTE BOUTIQUE')
     < january.findIndex((row) => row[1] === 'Facture Wi-Fi'));
-  assert.equal(january.filter((row) => row[1] === 'Riz' || row[1] === 'Huile').length, 2);
+  assert.equal(january.filter((row) => row[1] === 'Riz' || row[1] === 'Huile').length, 0);
+  assert.ok(!january.some((row) => row[0] === 'DÉTAIL DU COMPTE BOUTIQUE'));
   assert.equal(workbook.Sheets.JANVIER.D4.v, 32_000);
   assert.deepEqual(
     (({ y, m, d }) => ({ y, m, d }))(XLSX.SSF.parse_date_code(workbook.Sheets.JANVIER.A2.v)),

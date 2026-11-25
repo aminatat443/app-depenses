@@ -678,7 +678,7 @@ test('monthly revenues, exceptional income, rent and protected savings stay sepa
     const novemberExpenseTotalRow = findXlsxColumnRow(exportedMonth.Sheets.Novembre, 'D', 'Total général');
     assert.ok(novemberExpenseTotalRow);
     assert.ok(exportedMonth.Sheets.Novembre.B22.f === 'B21-0' ||
-      /^B21-SUM\(F/.test(exportedMonth.Sheets.Novembre.B22.f));
+      /^B21-SUM\(E/.test(exportedMonth.Sheets.Novembre.B22.f));
     const decemberFinanceResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-12`);
     const decemberFinance = await decemberFinanceResponse.json();
     assert.equal(decemberFinance.openingBalance, finance.closingBalance);
@@ -1525,10 +1525,10 @@ test('GET /export/2026 returns the twelve reference sheets and annual summary', 
     assert.match(workbook.Sheets.Janvier.D20.v, /DÉPENSES DU MOIS DE JANVIER/);
     const januaryExpenseTotalRow = findXlsxColumnRow(workbook.Sheets.Janvier, 'D', 'Total général');
     assert.ok(januaryExpenseTotalRow);
-    assert.equal(workbook.Sheets.Janvier[`F${januaryExpenseTotalRow}`].v, 0);
+    assert.equal(workbook.Sheets.Janvier[`E${januaryExpenseTotalRow}`].v, 0);
     assert.equal(workbook.Sheets['Récapitulatif annuel'].A1.v, 'Récapitulatif annuel 2026');
     assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 0 && range.s.c === 0 && range.e.c === 6));
-    assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 5));
+    assert.ok(workbook.Sheets.Janvier['!merges'].some((range) => range.s.r === 19 && range.s.c === 3 && range.e.c === 4));
     const previewResponse = await authedFetch(
       `http://127.0.0.1:${port}/export/preview/month/2026/1`,
     );
@@ -1772,11 +1772,13 @@ test('monthly CSV filters remain available and expenses Excel uses the reference
     assert.equal(renderedValues.filter((value) => value === septemberTitles[0]).length, 1);
     assert.equal(renderedValues.filter((value) => value === septemberTitles[1]).length, 1);
     assert.ok(!renderedValues.includes(septemberTitles[2]));
+    assert.ok(!renderedValues.includes(groceryTitle));
     const expenseRow = findExcelColumnRow(expensesSheet, 5, septemberTitles[0]);
     assert.ok(expenseRow);
     const boutiqueRow = findExcelColumnRow(expensesSheet, 4, 'Compte boutique');
     assert.ok(boutiqueRow);
     assert.equal(expensesSheet.getCell(boutiqueRow, 4).value, 'Compte boutique');
+    assert.equal(expensesSheet.getCell(boutiqueRow, 5).value, 'Compte boutique');
     assert.equal(expensesSheet.getCell(boutiqueRow, 6).value, 1500);
     const totalRow = findExcelColumnRow(expensesSheet, 4, 'Total général');
     assert.ok(totalRow);

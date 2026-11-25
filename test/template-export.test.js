@@ -69,10 +69,9 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.deepEqual(generated.worksheets.map((worksheet) => worksheet.name), ['Janvier']);
   assert.equal(sheet.getCell('A1').value, 'Loyers du mois de Décembre 2025');
   assert.equal(sheet.getCell('D20').value, 'DÉPENSES DU MOIS DE JANVIER');
-  assert.equal(sheet.getCell('D21').value, 'Catégorie');
-  assert.equal(sheet.getCell('E21').value, 'Désignation');
-  assert.equal(sheet.getCell('F21').value, 'Montant');
-  assert.equal(sheet.getCell('F22').value, 0);
+  assert.equal(sheet.getCell('D21').value, 'Désignation');
+  assert.equal(sheet.getCell('E21').value, 'Montant');
+  assert.equal(sheet.getCell('E22').value, 0);
   assert.equal(sheet.getCell('B22').value.formula, 'B21-0');
   assert.equal(sheet.getCell('A24').value, null);
   assert.equal(sheet.getCell('B24').value, null);
@@ -99,12 +98,11 @@ test('reference exports preserve the template layout and hide excluded resources
   assert.equal(generatedAlignment.horizontal, templateAlignment.horizontal);
   assert.equal(generatedAlignment.vertical, 'middle');
   assert.equal(generatedAlignment.wrapText, true);
-  assert.ok(sheet.getColumn(4).width >= 24);
-  assert.ok(sheet.getColumn(5).width >= 42);
-  assert.ok(sheet.getColumn(6).width >= 30);
+  assert.ok(sheet.getColumn(4).width >= 30);
+  assert.ok(sheet.getColumn(5).width >= 20);
   assert.deepEqual(sheet.pageMargins, templateSheet.pageMargins);
   assert.ok(sheet.model.merges.includes('A1:G1'));
-  assert.ok(sheet.model.merges.includes('D20:F20'));
+  assert.ok(sheet.model.merges.includes('D20:E20'));
   assert.ok(!sheet.model.merges.includes('D20:N20'));
 });
 
@@ -150,7 +148,7 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('G3').fill.fgColor.argb, 'FFE2F0E9');
   assert.equal(sheet.getCell('G3').font.color.argb, 'FF264B47');
   for (const cell of ['G3', 'G4', 'G5']) {
-    assert.equal(sheet.getCell(cell).alignment.horizontal, 'right');
+    assert.equal(sheet.getCell(cell).alignment.horizontal, 'center');
     assert.equal(sheet.getCell(cell).alignment.vertical, 'middle');
   }
   for (const cell of ['E3', 'E4', 'E5', 'F3', 'F4', 'F5']) {
@@ -171,7 +169,7 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
     assert.equal(sheet.getCell(cell).alignment.horizontal, 'center', `${cell} should be centered horizontally`);
     assert.equal(sheet.getCell(cell).alignment.vertical, 'middle', `${cell} should be centered vertically`);
   }
-  for (const cell of ['E11', 'F11', 'F13', 'B21', 'B22', 'B30', 'F22']) {
+  for (const cell of ['E11', 'F11', 'F13', 'B21', 'B22', 'B30', 'E22']) {
     assert.equal(sheet.getCell(cell).alignment.horizontal, 'right', `${cell} should be right-aligned`);
     assert.equal(sheet.getCell(cell).alignment.vertical, 'middle', `${cell} should be centered vertically`);
   }
@@ -249,6 +247,10 @@ test('monthly revenues use the original cells and exclude protected savings from
   assert.equal(sheet.getCell('A17').value, 'Pape');
   assert.equal(sheet.getCell('E13').value, 'Total des paiements reçus');
   assert.equal(sheet.getCell('F13').value.result, 200_000);
+  assert.equal(sheet.getCell('D21').value, 'Désignation');
+  assert.equal(sheet.getCell('E21').value, 'Montant');
+  assert.equal(sheet.getCell('D22').value, 'Dépense test');
+  assert.equal(sheet.getCell('E22').value, 650_000);
   assert.equal(sheet.getCell('A21').value, 'Total');
   assert.equal(sheet.getCell('B21').value.formula, 'B15+B17+F13');
   assert.equal(sheet.getCell('B21').value.result, 730_000);
@@ -260,7 +262,7 @@ test('monthly revenues use the original cells and exclude protected savings from
   assert.equal(sheet.getRow(24).hidden, false);
   assert.equal(sheet.getCell('B24').value.formula, 'B21+B23');
   assert.equal(sheet.getCell('B24').value.result, 740_000);
-  assert.equal(sheet.getCell('B22').value.formula, 'B24-SUM(F22:F22)');
+  assert.equal(sheet.getCell('B22').value.formula, 'B24-SUM(E22:E22)');
   assert.ok(sheet.getColumn(2).width >= 18);
   assert.equal(sheet.getCell('A14').value, 'RÉCAPITULATIF FINANCIER');
   assert.equal(sheet.getCell('A30').fill.fgColor.argb, 'FFD9EAD3');
@@ -331,14 +333,12 @@ test('exports from September 2026 group expenses by category with separate total
   })]);
   const august = await workbookFromBuffer(await augustWorkbook.xlsx.writeBuffer());
   const augustSheet = august.getWorksheet('Août');
-  assert.equal(augustSheet.getCell('D21').value, 'Catégorie');
-  assert.equal(augustSheet.getCell('E21').value, 'Désignation');
-  assert.equal(augustSheet.getCell('F21').value, 'Montant');
-  assert.equal(augustSheet.getCell('D22').value, 'Wifi');
-  assert.equal(augustSheet.getCell('E22').value, 'Facture internet');
-  assert.equal(augustSheet.getCell('F22').value, 12_000);
-  assert.equal(augustSheet.getCell('E23').value, 'Abonnement');
-  assert.equal(augustSheet.getCell('F23').value, 8_000);
+  assert.equal(augustSheet.getCell('D21').value, 'Désignation');
+  assert.equal(augustSheet.getCell('E21').value, 'Montant');
+  assert.equal(augustSheet.getCell('D22').value, 'Facture internet');
+  assert.equal(augustSheet.getCell('E22').value, 12_000);
+  assert.equal(augustSheet.getCell('D23').value, 'Abonnement');
+  assert.equal(augustSheet.getCell('E23').value, 8_000);
   assert.ok(!augustSheet.model.merges.includes('D22:D23'));
 });
 
@@ -450,48 +450,46 @@ test('live categories show only expense categories and retain the monthly grand 
   assert.equal(sheet.getCell(totalRow, 6).value.result, 40_000);
 });
 
-test('exports keep boutique purchases on separate expense rows', async () => {
+test('exports consolidate boutique purchases without showing replenishment details', async () => {
   const boutiqueItems = [
     { title: 'Riz', amount: 5_000, category: 'Compte boutique' },
     { title: 'Huile', amount: 7_000, category: 'Compte boutique' },
   ];
   const categories = [{ id: 1, name: 'Compte boutique' }];
 
-  for (const { month, expectedFirst, expectedFirstAmount, expectedSecond, expectedSecondAmount } of [
-    {
-      month: monthData({
-        monthKey: '2026-09',
-        categories,
-        expenses: boutiqueItems,
-        totalExpenses: 12_000,
-      }),
-      expectedFirst: 'Huile',
-      expectedFirstAmount: 7_000,
-      expectedSecond: 'Riz',
-      expectedSecondAmount: 5_000,
-    },
-    {
-      month: monthData({
-        monthKey: '2026-08',
-        expenses: boutiqueItems,
-        totalExpenses: 12_000,
-      }),
-      expectedFirst: 'Riz',
-      expectedFirstAmount: 5_000,
-      expectedSecond: 'Huile',
-      expectedSecondAmount: 7_000,
-    },
+  for (const month of [
+    monthData({
+      monthKey: '2026-09',
+      categories,
+      expenses: boutiqueItems,
+      totalExpenses: 12_000,
+    }),
+    monthData({
+      monthKey: '2026-08',
+      expenses: boutiqueItems,
+      totalExpenses: 12_000,
+    }),
   ]) {
     const output = await buildReferenceWorkbook([month]);
     const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
     const sheet = workbook.getWorksheet(MONTH_NAMES[Number(month.monthKey.slice(5, 7)) - 1]);
 
-    assert.equal(sheet.getCell('D22').value, 'Compte boutique');
-    assert.equal(sheet.getCell('E22').value, expectedFirst);
-    assert.equal(sheet.getCell('F22').value, expectedFirstAmount);
-    assert.equal(sheet.getCell('D23').value, 'Compte boutique');
-    assert.equal(sheet.getCell('E23').value, expectedSecond);
-    assert.equal(sheet.getCell('F23').value, expectedSecondAmount);
+    if (month.monthKey >= '2026-09') {
+      assert.equal(sheet.getCell('D22').value, 'Compte boutique');
+      assert.equal(sheet.getCell('E22').value, 'Compte boutique');
+      assert.equal(sheet.getCell('F22').value, 12_000);
+      assert.equal(sheet.getCell('F23').value.result, 12_000);
+    } else {
+      assert.equal(sheet.getCell('D22').value, 'Compte boutique');
+      assert.equal(sheet.getCell('E22').value, 12_000);
+      assert.equal(sheet.getCell('E23').value.result, 12_000);
+    }
+    assert.equal(sheet.getCell('D23').value, 'Total général');
+    const displayedValues = Array.from({ length: sheet.rowCount }, (_, index) => (
+      [sheet.getCell(index + 1, 4).value, sheet.getCell(index + 1, 5).value]
+    )).flat();
+    assert.ok(!displayedValues.includes('Riz'));
+    assert.ok(!displayedValues.includes('Huile'));
   }
 });
 
@@ -519,8 +517,8 @@ test('unchecked exports show the prior month balance without its carryover', asy
     assert.equal(sheet.getCell('A23').value, 'Restant du mois dernier');
     assert.equal(sheet.getRow(23).hidden, false);
   }
-  assert.equal(excludedSheet.getCell('B22').value.formula, 'B21-SUM(F22:F22)');
-  assert.equal(includedSheet.getCell('B22').value.formula, 'B24-SUM(F22:F22)');
+  assert.equal(excludedSheet.getCell('B22').value.formula, 'B21-SUM(E22:E22)');
+  assert.equal(includedSheet.getCell('B22').value.formula, 'B24-SUM(E22:E22)');
   assert.equal(excludedSheet.getCell('B23').value, 650);
   assert.equal(includedSheet.getCell('B23').value, 10_650);
   assert.equal(excludedSheet.getCell('A24').value, null);
@@ -583,7 +581,9 @@ test('annual exports keep monthly totals while hiding excluded resources rows', 
     assert.equal(sheet.getCell('B30').value, 0);
     assert.equal(sheet.getCell('B21').value.formula, 'B15+B17+F13');
     assert.ok(sheet.model.merges.includes('A14:B14'));
-    assert.ok(sheet.model.merges.includes('D20:F20'));
+    assert.ok(sheet.model.merges.includes(
+      MONTH_NAMES.indexOf(monthLabel) < 8 ? 'D20:E20' : 'D20:F20',
+    ));
     assert.equal(sheet.getCell('A14').value, 'RÉCAPITULATIF FINANCIER');
     assert.equal(sheet.getCell('A15').alignment.vertical, 'middle');
     assert.equal(sheet.getCell('B15').alignment.vertical, 'middle');
@@ -653,28 +653,27 @@ test('reference exports expand tenants, income sources and expense rows without 
   const expenseHeaderRow = expenseTitleRow + 1;
   const expenseDataRow = expenseHeaderRow + 1;
   assert.ok(expenseTitleRow);
-  assert.equal(sheet.getCell(expenseHeaderRow, 4).value, 'Catégorie');
-  assert.equal(sheet.getCell(expenseHeaderRow, 5).value, 'Désignation');
-  assert.equal(sheet.getCell(expenseHeaderRow, 6).value, 'Montant');
+  assert.equal(sheet.getCell(expenseHeaderRow, 4).value, 'Désignation');
+  assert.equal(sheet.getCell(expenseHeaderRow, 5).value, 'Montant');
   let exceptionalRow = null;
   for (let rowNumber = expenseHeaderRow + 1; rowNumber < sheet.rowCount; rowNumber += 1) {
-    if (/^Dépense exceptionnelle/.test(String(sheet.getCell(rowNumber, 5).value || ''))) {
+    if (/^Dépense exceptionnelle/.test(String(sheet.getCell(rowNumber, 4).value || ''))) {
       exceptionalRow = rowNumber;
       break;
     }
   }
   assert.ok(exceptionalRow);
-  assert.ok(findCellRow(sheet, 5, 'Dépense 25'));
+  assert.ok(findCellRow(sheet, 4, 'Dépense 25'));
   assert.equal(findCellRow(sheet, 4, 'Total général') >= expenseDataRow + 25, true);
   assert.equal(sheet.getCell('D3').alignment.wrapText, true);
-  assert.equal(sheet.getCell(exceptionalRow, 5).alignment.wrapText, true);
+  assert.equal(sheet.getCell(exceptionalRow, 4).alignment.wrapText, true);
   assert.ok(sheet.getRow(3).height > 15);
   assert.ok(sheet.getRow(exceptionalRow).height > 15);
   assert.ok(sheet.getColumn(4).width <= 50);
   assert.equal(sheet.getCell('A20').value, 'Source 2');
   assert.equal(sheet.getCell('A22').value, 'Source 4');
   assert.equal(sheet.getCell('B23').value.formula, 'B16+B18+F14+SUM(B19:B22)');
-  assert.ok(sheet.model.merges.includes(`D${expenseTitleRow}:F${expenseTitleRow}`));
+  assert.ok(sheet.model.merges.includes(`D${expenseTitleRow}:E${expenseTitleRow}`));
   assert.ok(!sheet.model.merges.includes(`D${expenseTitleRow}:N${expenseTitleRow}`));
   assert.ok(sheet.model.merges.includes('A15:B15'));
   assert.ok(sheet.model.merges.includes('B12:D12'));
