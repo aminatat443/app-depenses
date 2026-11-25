@@ -150,6 +150,10 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('G3').value, 'PAYÉ');
   assert.equal(sheet.getCell('G3').fill.fgColor.argb, 'FFE2F0E9');
   assert.equal(sheet.getCell('G3').font.color.argb, 'FF264B47');
+  for (const cell of ['G3', 'G4', 'G5']) {
+    assert.equal(sheet.getCell(cell).alignment.horizontal, 'left');
+    assert.equal(sheet.getCell(cell).alignment.vertical, 'middle');
+  }
   assert.equal(sheet.getCell('G4').value, 'IMPAYÉ');
   assert.equal(sheet.getCell('G4').fill.fgColor.argb, 'FFF4CCCC');
   assert.equal(sheet.getCell('G4').font.color.argb, 'FF9C0006');
@@ -161,6 +165,10 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('F11').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('E13').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('F13').fill.fgColor.argb, 'FFD9EAD3');
+  for (const cell of ['B11', 'F11', 'E13', 'F13', 'A21', 'B21', 'A22', 'B22', 'A24', 'B24', 'A30', 'B30', 'D22', 'F22']) {
+    assert.equal(sheet.getCell(cell).alignment.horizontal, 'center', `${cell} should be centered horizontally`);
+    assert.equal(sheet.getCell(cell).alignment.vertical, 'middle', `${cell} should be centered vertically`);
+  }
   assert.equal(sheet.getCell('G5').font.color.argb, 'FF7F6000');
   assert.ok(!sheet.model.merges.includes('A30:A32'));
   assert.ok(!sheet.model.merges.includes('B30:B32'));
@@ -323,6 +331,45 @@ test('exports from September 2026 group expenses by category with separate total
   assert.equal(augustSheet.getCell('D22').value, 'Wifi');
   assert.equal(augustSheet.getCell('E22').value, 'Abonnement');
   assert.equal(augustSheet.getCell('F22').value, 8_000);
+});
+
+test('December expense totals follow the actual data and column G remains for rent statuses', async () => {
+  const output = await buildReferenceWorkbook([monthData({
+    monthKey: '2026-12',
+    tenants: [{
+      floor: 'Rez-de-chaussée',
+      name: 'Locataire',
+      housingType: 'Studio',
+      peopleCount: 1,
+      expectedAmount: 10_000,
+      paidAmount: 10_000,
+    }],
+    expenses: [
+      { title: 'Achat de riz', amount: 5_000, category: 'Alimentaire' },
+      { title: 'Achat de fruits', amount: 3_000, category: 'Alimentaire' },
+    ],
+    totalExpenses: 8_000,
+  })]);
+  const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
+  const sheet = workbook.getWorksheet('Décembre');
+
+  assert.equal(sheet.getColumn(7).hidden, false);
+  assert.equal(sheet.getCell('G3').value, 'PAYÉ');
+  assert.ok(sheet.model.merges.includes('D22:D23'));
+  assert.equal(sheet.getCell('D22').value, 'Alimentaire');
+  assert.equal(sheet.getCell('E22').value, 'Achat de fruits');
+  assert.equal(sheet.getCell('F22').value, 3_000);
+  assert.equal(sheet.getCell('G22').value, null);
+  assert.equal(sheet.getCell('D24').value, 'Total général');
+  assert.equal(sheet.getCell('F24').value.formula, 'SUM(F22:F23)');
+  assert.equal(sheet.getCell('F24').value.result, 8_000);
+  assert.equal(sheet.pageSetup.printArea, 'A1:G24');
+
+  const emptyDecember = await buildReferenceWorkbook([monthData({ monthKey: '2026-12' })]);
+  const emptySheet = await workbookFromBuffer(await emptyDecember.xlsx.writeBuffer());
+  assert.equal(emptySheet.getWorksheet('Décembre').getCell('D22').value, 'Total général');
+  assert.equal(emptySheet.getWorksheet('Décembre').getCell('F22').value, 0);
+  assert.equal(emptySheet.getWorksheet('Décembre').getCell('G22').value, null);
 });
 
 test('live categories show only expense categories and retain the monthly grand total', async () => {
@@ -526,6 +573,11 @@ test('annual exports keep monthly totals while hiding excluded resources rows', 
   assert.equal(annualSheet.getCell('A1').fill.fgColor.argb, 'FF264B47');
   assert.equal(annualSheet.getCell('A2').fill.fgColor.argb, 'FF264B47');
   assert.equal(annualSheet.getCell('A15').fill.fgColor.argb, 'FFD9EAD3');
+  for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
+    const totalCell = annualSheet.getCell(15, columnNumber);
+    assert.equal(totalCell.alignment.horizontal, 'center');
+    assert.equal(totalCell.alignment.vertical, 'middle');
+  }
   assert.equal(annualSheet.getCell('E15').value.formula, 'SUM(E3:E14)');
   assert.ok(annualSheet.model.merges.includes('B15:C15'));
   assert.equal(annualSheet.getCell('C15').value.formula, 'SUM(B3:B14)');

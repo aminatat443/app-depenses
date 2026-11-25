@@ -87,7 +87,7 @@
 </section>
 <% } %>
 
-<section class="panel-card page-table-card monthly-expense-history">
+<section class="panel-card page-table-card monthly-expense-history<%= categoryPresentation ? ' has-category-summary' : '' %>">
   <div class="panel-header">
     <div><h2>Liste des dépenses</h2><p>Dépenses ordinaires classées par date.</p></div>
     <div class="expense-table-header-actions">

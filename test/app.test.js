@@ -1692,7 +1692,7 @@ test('expenses page shows the selected month shop-account total', async () => {
     assert.match(html, new RegExp(`<option value="${fallbackCategory.id}"\\s*>Autres dépenses</option>`));
     assert.match(html, /Reste du mois \(hors report\)/);
     assert.match(html, /Solde final du mois \(report inclus\)/);
-    const tableSection = html.match(/<section class="panel-card page-table-card monthly-expense-history">([\s\S]*?)<form id="expense-bulk-form"/);
+    const tableSection = html.match(/<section class="panel-card page-table-card monthly-expense-history(?: has-category-summary)?">([\s\S]*?)<form id="expense-bulk-form"/);
     assert.ok(tableSection);
     assert.match(tableSection[1], /data-live-search data-expense-list-search/);
     assert.match(tableSection[1], /name="month" value="2027-12"/);
@@ -1827,6 +1827,7 @@ test('new expense categories appear in the filters and category summary on the n
     assert.match(expensesHtml, /name="return_to" value="\/expenses\?month=2026-11"/);
     assert.match(expensesHtml, new RegExp(`<option value="${category.id}"\\s*>${categoryName}</option>`));
     assert.match(expensesHtml, new RegExp(`<h3>${categoryName}</h3>`));
+    assert.match(expensesHtml, /monthly-expense-history has-category-summary/);
     assert.match(expensesHtml, /0\sFCFA/u);
     const emptyWorkbookResponse = await authedFetch(`${baseUrl}/export/month/2026/11`);
     const emptyWorkbook = await loadExcelJsWorkbook(Buffer.from(await emptyWorkbookResponse.arrayBuffer()));

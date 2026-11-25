@@ -4428,6 +4428,10 @@ html[data-theme="dark"] .expense-live-search input {
 
 @media (max-width: 1024px) {
   .table-wrap { overflow: visible; }
+  .monthly-expense-history.has-category-summary .transactions-table th:nth-child(4),
+  .monthly-expense-history.has-category-summary .transactions-table td:nth-child(4) {
+    display: none !important;
+  }
   .transactions-table[data-responsive-cards] {
     display: block;
     width: 100%;
