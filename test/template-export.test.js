@@ -165,8 +165,10 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('F11').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('E13').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('F13').fill.fgColor.argb, 'FFD9EAD3');
-  for (const cell of ['B11', 'E13', 'A21', 'A22', 'A30', 'D22']) {
-    assert.equal(sheet.getCell(cell).alignment.horizontal, 'center', `${cell} should be centered horizontally`);
+  assert.equal(sheet.getCell('B11').alignment.horizontal, 'left');
+  for (const cell of ['E13', 'A21', 'A22', 'A30', 'D22']) {
+    const expected = /total/i.test(String(sheet.getCell(cell).value || '')) ? 'left' : 'center';
+    assert.equal(sheet.getCell(cell).alignment.horizontal, expected, `${cell} should have the expected alignment`);
     assert.equal(sheet.getCell(cell).alignment.vertical, 'middle', `${cell} should be centered vertically`);
   }
   for (const cell of ['E11', 'F11', 'F13', 'B21', 'B22', 'B30', 'E22']) {
@@ -476,7 +478,7 @@ test('exports consolidate boutique purchases without showing replenishment detai
 
     if (month.monthKey >= '2026-09') {
       assert.equal(sheet.getCell('D22').value, 'Compte boutique');
-      assert.equal(sheet.getCell('E22').value, 'Compte boutique');
+      assert.equal(sheet.getCell('E22').value, '');
       assert.equal(sheet.getCell('F22').value, 12_000);
       assert.equal(sheet.getCell('F23').value.result, 12_000);
     } else {
@@ -485,6 +487,7 @@ test('exports consolidate boutique purchases without showing replenishment detai
       assert.equal(sheet.getCell('E23').value.result, 12_000);
     }
     assert.equal(sheet.getCell('D23').value, 'Total général');
+    assert.equal(sheet.getCell('D23').alignment.horizontal, 'left');
     const displayedValues = Array.from({ length: sheet.rowCount }, (_, index) => (
       [sheet.getCell(index + 1, 4).value, sheet.getCell(index + 1, 5).value]
     )).flat();
@@ -596,12 +599,21 @@ test('annual exports keep monthly totals while hiding excluded resources rows', 
   assert.equal(annualSheet.getCell('A15').fill.fgColor.argb, 'FFD9EAD3');
   for (let columnNumber = 1; columnNumber <= 7; columnNumber += 1) {
     const totalCell = annualSheet.getCell(15, columnNumber);
-    assert.equal(totalCell.alignment.horizontal, columnNumber === 1 ? 'center' : 'right');
+    assert.equal(totalCell.alignment.horizontal, columnNumber === 1 ? 'left' : 'right');
     assert.equal(totalCell.alignment.vertical, 'middle');
   }
   assert.equal(annualSheet.getCell('E15').value.formula, 'SUM(E3:E14)');
   assert.ok(annualSheet.model.merges.includes('B15:C15'));
   assert.equal(annualSheet.getCell('C15').value.formula, 'SUM(B3:B14)');
+  generated.worksheets.forEach((sheet) => {
+    sheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        if (typeof cell.value === 'string' && /total/i.test(cell.value)) {
+          assert.equal(cell.alignment.horizontal, 'left', `${sheet.name}!${cell.address} should be left-aligned`);
+        }
+      });
+    });
+  });
   assert.deepEqual(annualSheet.getCell('A17').style, {});
   assert.deepEqual(annualSheet.getCell('D20').style, {});
   assert.equal(annualSheet.pageSetup.printArea, 'A1:G15');

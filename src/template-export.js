@@ -782,7 +782,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   if (boutiqueExpenses.length) {
     displayedExpenses.push({
       category: 'Compte boutique',
-      title: 'Compte boutique',
+      title: categorizedExpenses ? '' : 'Compte boutique',
       amount: boutiqueExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0),
     });
   }
@@ -1503,6 +1503,15 @@ async function buildReferenceWorkbook(
     const source = templateWorkbook.getWorksheet('Janvier');
     buildAnnualSummary(workbook, source, Number(months[0].monthKey.slice(0, 4)), summaries);
   }
+  workbook.worksheets.forEach((sheet) => {
+    sheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        if (typeof cell.value === 'string' && /total/i.test(cell.value)) {
+          cell.alignment = { ...cell.alignment, horizontal: 'left' };
+        }
+      });
+    });
+  });
   return workbook;
 }
 
