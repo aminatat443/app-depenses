@@ -167,7 +167,12 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.equal(sheet.getCell('F13').fill.fgColor.argb, 'FFD9EAD3');
   assert.equal(sheet.getCell('B11').alignment.horizontal, 'left');
   for (const cell of ['E13', 'A21', 'A22', 'A30', 'D22']) {
-    const expected = /total/i.test(String(sheet.getCell(cell).value || '')) ? 'left' : 'center';
+    const label = String(sheet.getCell(cell).value || '');
+    const expected = /total/i.test(label)
+      || /^restant/i.test(label)
+      || /^epargne pension père$/i.test(label.trim())
+      ? 'left'
+      : 'center';
     assert.equal(sheet.getCell(cell).alignment.horizontal, expected, `${cell} should have the expected alignment`);
     assert.equal(sheet.getCell(cell).alignment.vertical, 'middle', `${cell} should be centered vertically`);
   }
@@ -179,6 +184,8 @@ test('rent payment statuses are clear and the protected-savings cells stay on on
   assert.ok(!sheet.model.merges.includes('A30:A32'));
   assert.ok(!sheet.model.merges.includes('B30:B32'));
   assert.equal(sheet.getCell('A30').value.trim(), 'Epargne pension père');
+  assert.equal(sheet.getCell('A23').alignment.horizontal, 'left');
+  assert.equal(sheet.getCell('A30').alignment.horizontal, 'left');
   assert.equal(sheet.getCell('A29').value, null);
   assert.equal(sheet.getCell('B29').value, null);
   assert.equal(sheet.getCell('B30').value, 25_000);
@@ -460,12 +467,12 @@ test('exports consolidate boutique purchases without showing replenishment detai
   const categories = [{ id: 1, name: 'Compte boutique' }];
 
   for (const month of [
-    monthData({
-      monthKey: '2026-09',
+    ...['09', '10', '11', '12'].map((monthNumber) => monthData({
+      monthKey: `2026-${monthNumber}`,
       categories,
       expenses: boutiqueItems,
       totalExpenses: 12_000,
-    }),
+    })),
     monthData({
       monthKey: '2026-08',
       expenses: boutiqueItems,
@@ -478,7 +485,7 @@ test('exports consolidate boutique purchases without showing replenishment detai
 
     if (month.monthKey >= '2026-09') {
       assert.equal(sheet.getCell('D22').value, 'Compte boutique');
-      assert.equal(sheet.getCell('E22').value, '');
+      assert.equal(sheet.getCell('E22').value, 'Compte boutique');
       assert.equal(sheet.getCell('F22').value, 12_000);
       assert.equal(sheet.getCell('F23').value.result, 12_000);
     } else {

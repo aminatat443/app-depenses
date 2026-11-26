@@ -782,7 +782,7 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   if (boutiqueExpenses.length) {
     displayedExpenses.push({
       category: 'Compte boutique',
-      title: categorizedExpenses ? '' : 'Compte boutique',
+      title: 'Compte boutique',
       amount: boutiqueExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0),
     });
   }
@@ -1506,7 +1506,11 @@ async function buildReferenceWorkbook(
   workbook.worksheets.forEach((sheet) => {
     sheet.eachRow((row) => {
       row.eachCell((cell) => {
-        if (typeof cell.value === 'string' && /total/i.test(cell.value)) {
+        if (typeof cell.value !== 'string') return;
+        const label = normalize(cell.value);
+        if (/total/i.test(cell.value)
+          || label.startsWith('restant')
+          || label === 'epargne pension pere') {
           cell.alignment = { ...cell.alignment, horizontal: 'left' };
         }
       });
