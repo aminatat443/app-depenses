@@ -779,18 +779,21 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   const sourceExpenses = [...data.expenses];
   const isBoutiqueExpense = (expense) => {
     const category = String(expense.category || expense.categoryName || '').trim();
-    return expense.sourceType === 'grocery'
+    return ['boutique', 'grocery'].includes(expense.sourceType)
       || (expense.categoryId != null && boutiqueCategoryIds.has(Number(expense.categoryId)))
       || normalize(category) === 'compte boutique'
       || normalize(resolvePriorityCategory(category)) === 'compte boutique';
   };
   const boutiqueExpenses = sourceExpenses.filter(isBoutiqueExpense);
   const displayedExpenses = sourceExpenses.filter((expense) => !isBoutiqueExpense(expense));
-  if (boutiqueExpenses.length) {
+  const boutiqueTotal = data.boutiqueTotal == null
+    ? boutiqueExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0)
+    : Number(data.boutiqueTotal);
+  if (boutiqueExpenses.length || boutiqueTotal > 0) {
     displayedExpenses.push({
       category: 'Compte boutique',
       title: 'Compte boutique',
-      amount: boutiqueExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0),
+      amount: boutiqueTotal,
     });
   }
   const displayedExpenseSet = new Set(displayedExpenses);

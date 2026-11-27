@@ -2314,7 +2314,7 @@ async function getReferenceMonthData(year, month) {
     db.prepare(`
       SELECT e.id, e.category_id, e.expense_date, e.title, e.amount, e.funding_source,
         e.beneficiary, e.paid_by, e.payment_method, e.reference, e.description,
-        c.name AS category
+        c.name AS category, c.type AS category_type
       FROM expenses e
       LEFT JOIN categories c ON c.id = e.category_id
       WHERE COALESCE(NULLIF(e.month_key, ''), to_char(e.expense_date, 'YYYY-MM')) = ?
@@ -2347,6 +2347,7 @@ async function getReferenceMonthData(year, month) {
   const protectedExpenseRows = expenses
     .filter((row) => row.funding_source === 'protected_savings')
     .map((row) => ({
+      sourceType: row.category_type === 'boutique' ? 'boutique' : 'expense',
       categoryId: row.category_id,
       date: row.expense_date,
       title: row.title,
@@ -2431,6 +2432,7 @@ async function getReferenceMonthData(year, month) {
     expenses: expenseRows,
     protectedExpenses: protectedExpenseRows,
     categories,
+    boutiqueTotal: Number(finance.boutiqueExpenses || 0),
     totalExpenses: Number(finance.totalExpenses),
   };
 }

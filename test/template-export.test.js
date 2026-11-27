@@ -504,6 +504,24 @@ test('exports consolidate boutique purchases without showing replenishment detai
   }
 });
 
+test('September and October show the boutique total even when item rows have no boutique category', async () => {
+  for (const monthKey of ['2026-09', '2026-10']) {
+    const output = await buildReferenceWorkbook([monthData({
+      monthKey,
+      categories: [],
+      expenses: [{ title: 'Dépense ordinaire', amount: 10_000, category: 'Autres dépenses' }],
+      boutiqueTotal: 110_000,
+      totalExpenses: 120_000,
+    })]);
+    const workbook = await workbookFromBuffer(await output.xlsx.writeBuffer());
+    const sheet = workbook.getWorksheet(MONTH_NAMES[Number(monthKey.slice(5, 7)) - 1]);
+
+    assert.equal(sheet.getCell('D22').value, 'Compte boutique');
+    assert.equal(sheet.getCell('E22').value, 'Compte boutique');
+    assert.equal(sheet.getCell('F22').value, 110_000);
+  }
+});
+
 test('unchecked exports show the prior month balance without its carryover', async () => {
   const month = monthData({
     monthKey: '2026-04',
