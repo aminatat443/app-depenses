@@ -771,10 +771,16 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
     if (Array.isArray(data.categories)) return rawCategory;
     return resolvePriorityCategory(rawCategory) || rawCategory;
   };
+  const boutiqueCategoryIds = new Set(
+    (data.categories || [])
+      .filter((category) => category.type === 'boutique')
+      .map((category) => Number(category.id)),
+  );
   const sourceExpenses = [...data.expenses];
   const isBoutiqueExpense = (expense) => {
     const category = String(expense.category || expense.categoryName || '').trim();
-    return normalize(category) === 'compte boutique'
+    return (expense.categoryId != null && boutiqueCategoryIds.has(Number(expense.categoryId)))
+      || normalize(category) === 'compte boutique'
       || normalize(resolvePriorityCategory(category)) === 'compte boutique';
   };
   const boutiqueExpenses = sourceExpenses.filter(isBoutiqueExpense);

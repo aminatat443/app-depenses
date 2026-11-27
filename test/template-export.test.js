@@ -461,10 +461,10 @@ test('live categories show only expense categories and retain the monthly grand 
 
 test('exports consolidate boutique purchases without showing replenishment details', async () => {
   const boutiqueItems = [
-    { title: 'Riz', amount: 5_000, category: 'Compte boutique' },
-    { title: 'Huile', amount: 7_000, category: 'Compte boutique' },
+    { title: 'Riz', amount: 5_000, category: 'Ravitaillement', categoryId: 1 },
+    { title: 'Huile', amount: 7_000, category: 'Ravitaillement', categoryId: 1 },
   ];
-  const categories = [{ id: 1, name: 'Compte boutique' }];
+  const categories = [{ id: 1, name: 'Ravitaillement', type: 'boutique' }];
 
   for (const month of [
     ...['09', '10', '11', '12'].map((monthNumber) => monthData({
@@ -475,6 +475,7 @@ test('exports consolidate boutique purchases without showing replenishment detai
     })),
     monthData({
       monthKey: '2026-08',
+      categories,
       expenses: boutiqueItems,
       totalExpenses: 12_000,
     }),
