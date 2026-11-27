@@ -1731,6 +1731,12 @@ test('monthly CSV filters remain available and expenses Excel uses the reference
       (item_name, purchase_date, month_key, quantity, unit, unit_price, total_amount, notes)
     VALUES (?, '2026-09-06', '2026-09', 2, 'kg', 750, 1500, 'Produit de test')
   `).run(groceryTitle);
+  const octoberGroceryTitle = 'Marché export de octobre';
+  const octoberGrocery = await db.prepare(`
+    INSERT INTO grocery_items
+      (item_name, purchase_date, month_key, quantity, unit, unit_price, total_amount, notes)
+    VALUES (?, '2026-10-06', '2026-10', 2, 'kg', 900, 1800, 'Produit de test')
+  `).run(octoberGroceryTitle);
   const server = await startServer();
   const { port } = server.address();
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -1780,6 +1786,13 @@ test('monthly CSV filters remain available and expenses Excel uses the reference
     assert.equal(expensesSheet.getCell(boutiqueRow, 4).value, 'Compte boutique');
     assert.equal(expensesSheet.getCell(boutiqueRow, 5).value, 'Compte boutique');
     assert.equal(expensesSheet.getCell(boutiqueRow, 6).value, 1500);
+    const octoberResponse = await authedFetch(`${baseUrl}/export/month/2026/10`);
+    const octoberWorkbook = await loadExcelJsWorkbook(Buffer.from(await octoberResponse.arrayBuffer()));
+    const octoberSheet = octoberWorkbook.getWorksheet('Octobre');
+    const octoberBoutiqueRow = findExcelColumnRow(octoberSheet, 4, 'Compte boutique');
+    assert.ok(octoberBoutiqueRow);
+    assert.equal(octoberSheet.getCell(octoberBoutiqueRow, 5).value, 'Compte boutique');
+    assert.equal(octoberSheet.getCell(octoberBoutiqueRow, 6).value, 1800);
     const totalRow = findExcelColumnRow(expensesSheet, 4, 'Total général');
     assert.ok(totalRow);
     const financeResponse = await authedFetch(`${baseUrl}/finance/monthly-data?month=2026-09`);
@@ -1787,7 +1800,7 @@ test('monthly CSV filters remain available and expenses Excel uses the reference
     assert.equal(expensesSheet.getCell(totalRow, 6).value.result, finance.totalExpenses + finance.protectedSavingsExpenses);
   } finally {
     await db.prepare('DELETE FROM expenses WHERE title IN (?, ?, ?, ?, ?, ?)').run(...titles, ...septemberTitles);
-    await db.prepare('DELETE FROM grocery_items WHERE id = ?').run(grocery.lastInsertRowid);
+    await db.prepare('DELETE FROM grocery_items WHERE id IN (?, ?)').run(grocery.lastInsertRowid, octoberGrocery.lastInsertRowid);
     await new Promise((resolve) => server.close(resolve));
   }
 });
