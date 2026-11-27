@@ -779,7 +779,8 @@ function fillMonthlySheet(sheet, data, styleSource, { includeCarryover }) {
   const sourceExpenses = [...data.expenses];
   const isBoutiqueExpense = (expense) => {
     const category = String(expense.category || expense.categoryName || '').trim();
-    return (expense.categoryId != null && boutiqueCategoryIds.has(Number(expense.categoryId)))
+    return expense.sourceType === 'grocery'
+      || (expense.categoryId != null && boutiqueCategoryIds.has(Number(expense.categoryId)))
       || normalize(category) === 'compte boutique'
       || normalize(resolvePriorityCategory(category)) === 'compte boutique';
   };

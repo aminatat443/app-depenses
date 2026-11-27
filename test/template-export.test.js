@@ -461,7 +461,7 @@ test('live categories show only expense categories and retain the monthly grand 
 
 test('exports consolidate boutique purchases without showing replenishment details', async () => {
   const boutiqueItems = [
-    { title: 'Riz', amount: 5_000, category: 'Ravitaillement', categoryId: 1 },
+    { title: 'Riz', amount: 5_000, category: 'Ravitaillement', sourceType: 'grocery' },
     { title: 'Huile', amount: 7_000, category: 'Ravitaillement', categoryId: 1 },
   ];
   const categories = [{ id: 1, name: 'Ravitaillement', type: 'boutique' }];

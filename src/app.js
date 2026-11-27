@@ -2375,6 +2375,7 @@ async function getReferenceMonthData(year, month) {
         comment: row.description,
       })),
     ...groceries.map((row) => ({
+      sourceType: 'grocery',
       categoryId: boutiqueCategory?.id ?? null,
       date: row.purchase_date,
       title: row.title,
